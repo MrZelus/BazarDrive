@@ -63,6 +63,18 @@ def init_db() -> None:
             """
         )
 
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS guest_feed_posts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                author TEXT NOT NULL,
+                text TEXT NOT NULL,
+                likes INTEGER DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+
         conn.commit()
 
 
@@ -172,3 +184,45 @@ def list_pending_content(limit: int = 20) -> list[dict[str, Any]]:
             (limit,),
         )
         return [dict(row) for row in cur.fetchall()]
+
+
+def list_guest_feed_posts(limit: int = 200) -> list[dict[str, Any]]:
+    with closing(sqlite3.connect(DB_PATH)) as conn:
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT id, author, text, likes, created_at
+            FROM guest_feed_posts
+            ORDER BY datetime(created_at) DESC, id DESC
+            LIMIT ?
+            """,
+            (limit,),
+        )
+        return [dict(row) for row in cur.fetchall()]
+
+
+def create_guest_feed_post(author: str, text: str) -> dict[str, Any]:
+    with closing(sqlite3.connect(DB_PATH)) as conn:
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO guest_feed_posts (author, text)
+            VALUES (?, ?)
+            """,
+            (author, text),
+        )
+        conn.commit()
+        new_id = cur.lastrowid
+
+        cur.execute(
+            """
+            SELECT id, author, text, likes, created_at
+            FROM guest_feed_posts
+            WHERE id = ?
+            """,
+            (new_id,),
+        )
+        row = cur.fetchone()
+        return dict(row) if row else {}
