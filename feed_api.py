@@ -133,20 +133,26 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
 
         payload: dict[str, object] = {}
         for part in message.iter_parts():
-            name = part.get_param("name", header="content-disposition")
-            if not name:
+            name = part.get_param("name", header="content-disposition") or ""
+            filename = part.get_filename()
+            mime_type = part.get_content_type().lower()
+            is_image_part = name in {"image", "photo"} or (filename and part.get_content_maintype() == "image")
+
+            if is_image_part:
+                image_bytes = part.get_payload(decode=True) or b""
+                payload["image_url"] = cls._image_bytes_to_stored_url(image_bytes=image_bytes, mime_type=mime_type)
                 continue
 
-            if name in {"image", "photo"}:
-                image_bytes = part.get_payload(decode=True) or b""
-                mime_type = part.get_content_type().lower()
-                payload["image_url"] = cls._image_bytes_to_stored_url(image_bytes=image_bytes, mime_type=mime_type)
+            if not name:
                 continue
 
             value = part.get_payload(decode=True)
             if value is None:
                 continue
-            payload[name] = value.decode(part.get_content_charset() or "utf-8").strip()
+            try:
+                payload[name] = value.decode(part.get_content_charset() or "utf-8").strip()
+            except UnicodeDecodeError as error:
+                raise ValueError(f"Поле {name} содержит некорректные байты (ожидается текст UTF-8)") from error
 
         return payload
 
@@ -202,17 +208,20 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             raw_len = 0
 
         raw = self.rfile.read(raw_len) if raw_len > 0 else b""
-        content_type = str(self.headers.get("Content-Type", "")).lower()
+        content_type_header = str(self.headers.get("Content-Type", ""))
+        content_type = content_type_header.lower()
 
         if content_type.startswith("multipart/form-data"):
             try:
-                payload = self._parse_multipart_form_data(content_type=content_type, raw=raw)
+                payload = self._parse_multipart_form_data(content_type=content_type_header, raw=raw)
             except ValueError as error:
                 return None, str(error)
             return payload, None
 
         try:
             payload = json.loads(raw.decode("utf-8") if raw else "{}")
+        except UnicodeDecodeError:
+            return None, "Тело запроса должно быть в UTF-8"
         except json.JSONDecodeError:
             return None, "Некорректный JSON"
 
