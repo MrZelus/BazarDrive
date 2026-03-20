@@ -105,6 +105,8 @@
 
     .btn-secondary { background: #64748b; }
     .btn-secondary:hover { background: #475569; }
+    .btn-ghost { background: #e5e7eb; color: #1f2937; }
+    .btn-ghost:hover { background: #d1d5db; }
 
     .btn-danger { background: #ef4444; }
     .btn-danger:hover { background: #dc2626; }
@@ -115,6 +117,20 @@
     .hint {
       font-size: 13px;
       color: #6b7280;
+    }
+
+    .field-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: #6b7280;
+    }
+
+    .counter {
+      font-variant-numeric: tabular-nums;
+      color: #4b5563;
     }
 
     .hint.success {
@@ -195,6 +211,15 @@
     }
 
     .empty {
+      text-align: center;
+      color: #6b7280;
+      padding: 18px;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.07);
+    }
+
+    .loading-box {
       text-align: center;
       color: #6b7280;
       padding: 18px;
@@ -370,10 +395,18 @@
         <div class="form-group">
           <label for="author">Ваше имя</label>
           <input id="author" type="text" maxlength="40" placeholder="Например: Алексей" required />
+          <div class="field-meta">
+            <span>Минимум 2 символа</span>
+            <span id="authorCounter" class="counter">0/40</span>
+          </div>
         </div>
         <div class="form-group">
           <label for="message">Сообщение</label>
           <textarea id="message" maxlength="500" placeholder="Напишите что-нибудь..." required></textarea>
+          <div class="field-meta">
+            <span>Минимум 5 символов</span>
+            <span id="messageCounter" class="counter">0/500</span>
+          </div>
         </div>
         <div class="row">
           <button id="submitBtn" type="submit">Опубликовать</button>
@@ -405,7 +438,8 @@
           <span>Только с лайками</span>
         </label>
 
-        <div class="row">
+        <div class="row" style="justify-content:flex-end;">
+          <button id="resetFiltersBtn" class="btn-ghost" type="button">Сбросить фильтры</button>
           <label for="pageSizeSelect" style="font-size:13px;">На странице:</label>
           <select id="pageSizeSelect">
             <option value="5">5</option>
@@ -441,6 +475,10 @@
           <div class="form-group">
             <label for="profileBio">О себе</label>
             <textarea id="profileBio" maxlength="400" placeholder="Коротко о себе..."></textarea>
+            <div class="field-meta">
+              <span>До 400 символов</span>
+              <span id="bioCounter" class="counter">0/400</span>
+            </div>
           </div>
           <div class="row">
             <button type="submit">Сохранить профиль</button>
@@ -525,6 +563,7 @@
     const sortSelect = document.getElementById('sortSelect');
     const likesOnly = document.getElementById('likesOnly');
     const pageSizeSelect = document.getElementById('pageSizeSelect');
+    const resetFiltersBtn = document.getElementById('resetFiltersBtn');
     const resultNote = document.getElementById('resultNote');
 
     const feed = document.getElementById('feed');
@@ -540,6 +579,9 @@
     const profileStatus = document.getElementById('profileStatus');
     const profileResetBtn = document.getElementById('profileResetBtn');
     const documentsList = document.getElementById('documentsList');
+    const authorCounter = document.getElementById('authorCounter');
+    const messageCounter = document.getElementById('messageCounter');
+    const bioCounter = document.getElementById('bioCounter');
 
     const DOCUMENTS = [
       {
@@ -606,6 +648,12 @@
       sortSelect.value = settings.sort;
       likesOnly.checked = settings.likesOnly;
       pageSizeSelect.value = String(settings.pageSize);
+    }
+
+    function updateCounters() {
+      if (authorCounter) authorCounter.textContent = `${authorInput.value.trim().length}/40`;
+      if (messageCounter) messageCounter.textContent = `${messageInput.value.trim().length}/500`;
+      if (bioCounter) bioCounter.textContent = `${profileBio.value.trim().length}/400`;
     }
 
     function saveSettingsFromInputs(resetPage = false) {
@@ -736,8 +784,19 @@
       renderPagination(totalPages);
     }
 
+    function renderLoading() {
+      feed.innerHTML = '';
+      pagination.innerHTML = '';
+      resultNote.textContent = 'Загрузка ленты...';
+      const loading = document.createElement('div');
+      loading.className = 'loading-box';
+      loading.textContent = 'Загрузка...';
+      feed.appendChild(loading);
+    }
+
     async function loadPosts() {
       setError('');
+      renderLoading();
       try {
         const response = await fetch(FEED_API_URL, { method: 'GET' });
         if (!response.ok) throw new Error('feed_load_failed');
@@ -816,6 +875,7 @@
         profileAvatar.value = '';
         profileBio.value = '';
       }
+      updateCounters();
     }
 
     function getProfileData() {
@@ -889,12 +949,21 @@
         setError('Заполните имя и сообщение.');
         return;
       }
+      if (author.length < 2) {
+        setError('Имя должно содержать минимум 2 символа.');
+        return;
+      }
+      if (text.length < 5) {
+        setError('Сообщение должно содержать минимум 5 символов.');
+        return;
+      }
 
       try {
         submitBtn.disabled = true;
         await submitPost(author, text);
         postForm.reset();
         authorInput.focus();
+        updateCounters();
         currentPage = 1;
         await loadPosts();
         startCooldown();
@@ -921,6 +990,17 @@
       saveSettingsFromInputs(true);
       render();
     });
+    resetFiltersBtn.addEventListener('click', () => {
+      searchInput.value = '';
+      sortSelect.value = 'new';
+      likesOnly.checked = false;
+      pageSizeSelect.value = '10';
+      saveSettingsFromInputs(true);
+      render();
+    });
+    authorInput.addEventListener('input', updateCounters);
+    messageInput.addEventListener('input', updateCounters);
+    profileBio.addEventListener('input', updateCounters);
 
     navButtons.forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -959,6 +1039,7 @@
 
     loadProfile();
     bindSettingsInputs();
+    updateCounters();
     renderDocumentsSection();
     loadPosts();
   </script>
