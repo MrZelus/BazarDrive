@@ -186,6 +186,49 @@ def list_pending_content(limit: int = 20) -> list[dict[str, Any]]:
         return [dict(row) for row in cur.fetchall()]
 
 
+
+
+def list_approved_posts(
+    limit: int = 50,
+    offset: int = 0,
+    include_ads: bool = True,
+) -> list[dict[str, Any]]:
+    with closing(sqlite3.connect(DB_PATH)) as conn:
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+
+        if include_ads:
+            cur.execute(
+                """
+                SELECT kind, id, user_tg_id, title, text, status, created_at
+                FROM (
+                    SELECT 'post' AS kind, id, user_tg_id, '' AS title, text, status, created_at
+                    FROM posts
+                    WHERE status = 'approved'
+                    UNION ALL
+                    SELECT 'ad' AS kind, id, user_tg_id, title, text, status, created_at
+                    FROM ads
+                    WHERE status = 'approved'
+                )
+                ORDER BY datetime(created_at) DESC, id DESC
+                LIMIT ? OFFSET ?
+                """,
+                (limit, offset),
+            )
+        else:
+            cur.execute(
+                """
+                SELECT 'post' AS kind, id, user_tg_id, '' AS title, text, status, created_at
+                FROM posts
+                WHERE status = 'approved'
+                ORDER BY datetime(created_at) DESC, id DESC
+                LIMIT ? OFFSET ?
+                """,
+                (limit, offset),
+            )
+
+        return [dict(row) for row in cur.fetchall()]
+
 def list_guest_feed_posts(limit: int = 200) -> list[dict[str, Any]]:
     with closing(sqlite3.connect(DB_PATH)) as conn:
         conn.row_factory = sqlite3.Row
