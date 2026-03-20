@@ -13,6 +13,7 @@ from db import (
     init_db,
     list_approved_posts,
     list_guest_feed_posts,
+    update_guest_feed_post,
 )
 
 
@@ -58,7 +59,7 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
         if isinstance(payload, dict):
             serialized: dict[str, object] = {}
             for key, value in payload.items():
-                if key == "created_at":
+                if key in {"created_at", "updated_at"}:
                     serialized[key] = self._isoformat_timestamp(value)
                 else:
                     serialized[key] = self._serialize_feed_payload(value)
@@ -128,7 +129,7 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         if extra_headers:
             for name, value in extra_headers.items():
@@ -139,7 +140,7 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
     def do_OPTIONS(self) -> None:  # noqa: N802
         self.send_response(204)
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
 
@@ -226,6 +227,54 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
 
         item = create_guest_feed_post(author, text)
         self._send_json(201, item)
+
+    def do_PATCH(self) -> None:  # noqa: N802
+        path = urlparse(self.path).path
+        prefix = "/api/feed/posts/"
+        if not path.startswith(prefix):
+            self._send_json(404, {"error": "Not found"})
+            return
+
+        post_id_raw = path[len(prefix) :]
+        if not post_id_raw.isdigit():
+            self._send_json(400, {"error": "Некорректный id поста"})
+            return
+
+        post_id = int(post_id_raw)
+        if post_id <= 0:
+            self._send_json(400, {"error": "Некорректный id поста"})
+            return
+
+        try:
+            raw_len = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            raw_len = 0
+
+        raw = self.rfile.read(raw_len) if raw_len > 0 else b""
+        try:
+            payload = json.loads(raw.decode("utf-8") if raw else "{}")
+        except json.JSONDecodeError:
+            self._send_json(400, {"error": "Некорректный JSON"})
+            return
+
+        author = str(payload.get("author", "")).strip()
+        text = str(payload.get("text", "")).strip()
+
+        if not author or not text:
+            self._send_json(400, {"error": "Поля author и text обязательны"})
+            return
+
+        try:
+            updated = update_guest_feed_post(post_id=post_id, author=author, text=text)
+        except ValueError as error:
+            self._send_json(400, {"error": str(error)})
+            return
+
+        if not updated:
+            self._send_json(404, {"error": "Пост не найден"})
+            return
+
+        self._send_json(200, updated)
 
 
 def main() -> None:
