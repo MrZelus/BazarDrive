@@ -159,6 +159,7 @@
       border-radius: 12px;
       padding: 14px 16px;
       box-shadow: 0 2px 8px rgba(0,0,0,.07);
+      position: relative;
     }
 
     .post-header {
@@ -193,10 +194,27 @@
       flex-wrap: wrap;
     }
 
-    .actions {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
+    .post-menu-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 30px;
+      height: 30px;
+      border-radius: 999px;
+      border: 1px solid #d1d5db;
+      background: #ffffff;
+      color: #374151;
+      font-size: 20px;
+      line-height: 1;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .post-menu-btn:hover {
+      background: #f3f4f6;
+      border-color: #9ca3af;
     }
 
     .edited {
@@ -745,6 +763,7 @@
       article.className = 'post';
       article.dataset.id = String(post.id);
       article.innerHTML = `
+        <button type="button" class="post-menu-btn" data-action="edit" aria-label="Редактировать пост">⋯</button>
         <div class="post-header">
           <div><span class="author"></span></div>
           <time>${formatDate(post.createdAt)}</time>
@@ -754,9 +773,6 @@
           <div class="row">
             <span class="like-counter">❤️ ${post.likes || 0}</span>
             ${post.updatedAt ? `<span class="edited">Изменено: ${formatDate(post.updatedAt)}</span>` : ''}
-          </div>
-          <div class="actions">
-            <button type="button" class="btn-secondary" data-action="edit">Редактировать</button>
           </div>
         </div>
       `;
