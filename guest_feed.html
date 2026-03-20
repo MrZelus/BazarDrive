@@ -453,8 +453,9 @@
   </div>
 
   <script>
-    const STORAGE_KEY = 'guest_feed_posts_v3';
     const SETTINGS_KEY = 'guest_feed_settings_v1';
+    const PROFILE_KEY = 'guest_feed_profile_v1';
+    const FEED_API_URL = window.FEED_API_URL || `${window.location.protocol}//${window.location.hostname}:8001/api/feed/posts`;
     const COOLDOWN_SECONDS = 10;
 
     const postForm = document.getElementById('postForm');
@@ -473,12 +474,6 @@
     const feed = document.getElementById('feed');
     const pagination = document.getElementById('pagination');
 
-    const editBackdrop = document.getElementById('editBackdrop');
-    const editForm = document.getElementById('editForm');
-    const editAuthor = document.getElementById('editAuthor');
-    const editMessage = document.getElementById('editMessage');
-    const cancelEditBtn = document.getElementById('cancelEditBtn');
-    const editErrorBox = document.getElementById('editErrorBox');
     const navButtons = document.querySelectorAll('.nav-btn');
     const pageSections = document.querySelectorAll('.page-section');
     const profileForm = document.getElementById('profileForm');
@@ -489,11 +484,10 @@
     const profileStatus = document.getElementById('profileStatus');
     const profileResetBtn = document.getElementById('profileResetBtn');
 
-    let editingPostId = null;
+    let posts = [];
+    let currentPage = 1;
     let cooldownUntil = 0;
     let cooldownTimer = null;
-    let currentPage = 1;
-    const PROFILE_KEY = 'guest_feed_profile_v1';
 
     function formatDate(ts) {
       const d = new Date(ts);
@@ -506,11 +500,232 @@
     }
 
     function normalizeText(text) {
-      return text.toLowerCase().trim();
+      return String(text || '').toLowerCase().trim();
     }
 
-    function newId() {
-      return (crypto.randomUUID && crypto.randomUUID()) || `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    function setError(msg = '') {
+      errorBox.textContent = msg;
+    }
+
+    function getSettings() {
+      try {
+        const raw = localStorage.getItem(SETTINGS_KEY);
+        const parsed = raw ? JSON.parse(raw) : {};
+        return {
+          sort: parsed.sort || 'new',
+          search: parsed.search || '',
+          likesOnly: !!parsed.likesOnly,
+          pageSize: Number(parsed.pageSize) || 10,
+        };
+      } catch {
+        return { sort: 'new', search: '', likesOnly: false, pageSize: 10 };
+      }
+    }
+
+    function saveSettings(settings) {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    }
+
+    function bindSettingsInputs() {
+      const settings = getSettings();
+      searchInput.value = settings.search;
+      sortSelect.value = settings.sort;
+      likesOnly.checked = settings.likesOnly;
+      pageSizeSelect.value = String(settings.pageSize);
+    }
+
+    function saveSettingsFromInputs(resetPage = false) {
+      saveSettings({
+        search: searchInput.value.trim(),
+        sort: sortSelect.value,
+        likesOnly: likesOnly.checked,
+        pageSize: Number(pageSizeSelect.value) || 10,
+      });
+      if (resetPage) currentPage = 1;
+    }
+
+    function getFilteredSortedPosts() {
+      const settings = getSettings();
+      const query = normalizeText(settings.search);
+      let items = [...posts];
+
+      if (settings.likesOnly) {
+        items = items.filter((p) => (p.likes || 0) > 0);
+      }
+
+      if (query) {
+        items = items.filter((p) => normalizeText(p.author).includes(query) || normalizeText(p.text).includes(query));
+      }
+
+      items.sort((a, b) => (settings.sort === 'new' ? b.createdAt - a.createdAt : a.createdAt - b.createdAt));
+      return items;
+    }
+
+    function paginate(items) {
+      const { pageSize } = getSettings();
+      const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+      if (currentPage > totalPages) currentPage = totalPages;
+      const start = (currentPage - 1) * pageSize;
+      return {
+        items: items.slice(start, start + pageSize),
+        totalPages,
+        totalItems: items.length,
+      };
+    }
+
+    function createPostElement(post) {
+      const article = document.createElement('article');
+      article.className = 'post';
+      article.dataset.id = String(post.id);
+      article.innerHTML = `
+        <div class="post-header">
+          <div><span class="author"></span></div>
+          <time>${formatDate(post.createdAt)}</time>
+        </div>
+        <div class="post-text"></div>
+        <div class="post-footer">
+          <span class="like-counter">❤️ ${post.likes || 0}</span>
+        </div>
+      `;
+      article.querySelector('.author').textContent = post.author;
+      article.querySelector('.post-text').textContent = post.text;
+      return article;
+    }
+
+    function renderPagination(totalPages) {
+      pagination.innerHTML = '';
+      if (totalPages <= 1) return;
+
+      const prevBtn = document.createElement('button');
+      prevBtn.textContent = '← Назад';
+      prevBtn.disabled = currentPage === 1;
+      prevBtn.addEventListener('click', () => {
+        if (currentPage > 1) {
+          currentPage -= 1;
+          render();
+        }
+      });
+
+      const info = document.createElement('span');
+      info.className = 'page-info';
+      info.textContent = `Страница ${currentPage} из ${totalPages}`;
+
+      const nextBtn = document.createElement('button');
+      nextBtn.textContent = 'Вперёд →';
+      nextBtn.disabled = currentPage === totalPages;
+      nextBtn.addEventListener('click', () => {
+        if (currentPage < totalPages) {
+          currentPage += 1;
+          render();
+        }
+      });
+
+      pagination.append(prevBtn, info, nextBtn);
+    }
+
+    function renderLoadError() {
+      feed.innerHTML = '';
+      pagination.innerHTML = '';
+      resultNote.textContent = '';
+
+      const box = document.createElement('div');
+      box.className = 'empty';
+      box.innerHTML = '<p>Не удалось загрузить ленту.</p>';
+
+      const retryBtn = document.createElement('button');
+      retryBtn.className = 'btn-secondary';
+      retryBtn.type = 'button';
+      retryBtn.textContent = 'Повторить загрузку';
+      retryBtn.addEventListener('click', () => {
+        loadPosts();
+      });
+
+      box.appendChild(retryBtn);
+      feed.appendChild(box);
+    }
+
+    function render() {
+      const all = getFilteredSortedPosts();
+      const { items, totalPages, totalItems } = paginate(all);
+      feed.innerHTML = '';
+
+      if (!totalItems) {
+        const empty = document.createElement('div');
+        empty.className = 'empty';
+        empty.textContent = 'Нет постов по заданным условиям.';
+        feed.appendChild(empty);
+      } else {
+        items.forEach((p) => feed.appendChild(createPostElement(p)));
+      }
+
+      resultNote.textContent = `Найдено постов: ${totalItems}`;
+      renderPagination(totalPages);
+    }
+
+    async function loadPosts() {
+      setError('');
+      try {
+        const response = await fetch(FEED_API_URL, { method: 'GET' });
+        if (!response.ok) throw new Error('feed_load_failed');
+
+        const payload = await response.json();
+        const items = Array.isArray(payload.items) ? payload.items : [];
+
+        posts = items.map((item) => ({
+          id: item.id,
+          author: item.author || 'Гость',
+          text: item.text || '',
+          likes: Number(item.likes) || 0,
+          createdAt: Date.parse(item.created_at) || Date.now(),
+        }));
+
+        render();
+      } catch {
+        renderLoadError();
+      }
+    }
+
+    async function submitPost(author, text) {
+      const response = await fetch(FEED_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ author, text }),
+      });
+
+      if (!response.ok) {
+        let msg = 'Не удалось опубликовать пост.';
+        try {
+          const payload = await response.json();
+          if (payload?.error) msg = payload.error;
+        } catch {
+          // no-op
+        }
+        throw new Error(msg);
+      }
+    }
+
+    function updateCooldownUI() {
+      const msLeft = cooldownUntil - Date.now();
+      if (msLeft <= 0) {
+        submitBtn.disabled = false;
+        cooldownHint.textContent = '';
+        if (cooldownTimer) {
+          clearInterval(cooldownTimer);
+          cooldownTimer = null;
+        }
+        return;
+      }
+
+      const sec = Math.ceil(msLeft / 1000);
+      submitBtn.disabled = true;
+      cooldownHint.textContent = `Следующий пост через ${sec} сек.`;
+    }
+
+    function startCooldown() {
+      cooldownUntil = Date.now() + COOLDOWN_SECONDS * 1000;
+      updateCooldownUI();
+      if (cooldownTimer) clearInterval(cooldownTimer);
+      cooldownTimer = setInterval(updateCooldownUI, 250);
     }
 
     function loadProfile() {
@@ -549,7 +764,6 @@
       const data = getProfileData();
       const validationMessage = validateProfile(data);
       profileStatus.className = 'hint';
-
       if (validationMessage) {
         profileStatus.textContent = validationMessage;
         profileStatus.classList.add('warning');
@@ -569,300 +783,7 @@
       profileStatus.textContent = 'Профиль сброшен.';
     }
 
-    function getPosts() {
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        const parsed = raw ? JSON.parse(raw) : [];
-        return Array.isArray(parsed) ? parsed : [];
-      } catch {
-        return [];
-      }
-    }
-
-    function savePosts(posts) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(posts));
-    }
-
-    function getSettings() {
-      try {
-        const raw = localStorage.getItem(SETTINGS_KEY);
-        const parsed = raw ? JSON.parse(raw) : {};
-        return {
-          sort: parsed.sort || 'new',
-          search: parsed.search || '',
-          likesOnly: !!parsed.likesOnly,
-          pageSize: Number(parsed.pageSize) || 10,
-        };
-      } catch {
-        return { sort: 'new', search: '', likesOnly: false, pageSize: 10 };
-      }
-    }
-
-    function saveSettings(settings) {
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-    }
-
-    function setError(msg = '') {
-      errorBox.textContent = msg;
-    }
-
-    function setEditError(msg = '') {
-      editErrorBox.textContent = msg;
-    }
-
-    function addPost(author, text) {
-      const posts = getPosts();
-      posts.push({
-        id: newId(),
-        author,
-        text,
-        likes: 0,
-        createdAt: Date.now(),
-        editedAt: null,
-      });
-      savePosts(posts);
-    }
-
-    function deletePost(postId) {
-      const posts = getPosts().filter((p) => p.id !== postId);
-      savePosts(posts);
-      refreshAfterMutation();
-    }
-
-    function likePost(postId) {
-      const posts = getPosts();
-      const post = posts.find((p) => p.id === postId);
-      if (!post) return;
-      post.likes = (post.likes || 0) + 1;
-      savePosts(posts);
-      render();
-    }
-
-    function openEdit(postId) {
-      const post = getPosts().find((p) => p.id === postId);
-      if (!post) return;
-
-      editingPostId = post.id;
-      editAuthor.value = post.author;
-      editMessage.value = post.text;
-      setEditError('');
-      editBackdrop.style.display = 'flex';
-      editBackdrop.setAttribute('aria-hidden', 'false');
-      editAuthor.focus();
-    }
-
-    function closeEdit() {
-      editingPostId = null;
-      editBackdrop.style.display = 'none';
-      editBackdrop.setAttribute('aria-hidden', 'true');
-      editForm.reset();
-      setEditError('');
-    }
-
-    function saveEdit() {
-      const author = editAuthor.value.trim();
-      const text = editMessage.value.trim();
-
-      if (!author || !text) {
-        setEditError('Имя и сообщение не должны быть пустыми.');
-        return;
-      }
-
-      const posts = getPosts();
-      const post = posts.find((p) => p.id === editingPostId);
-      if (!post) {
-        setEditError('Пост не найден.');
-        return;
-      }
-
-      post.author = author;
-      post.text = text;
-      post.editedAt = Date.now();
-      savePosts(posts);
-      closeEdit();
-      render();
-    }
-
-    function getFilteredSortedPosts() {
-      const settings = getSettings();
-      const query = normalizeText(settings.search);
-
-      let posts = [...getPosts()];
-
-      if (settings.likesOnly) {
-        posts = posts.filter((p) => (p.likes || 0) > 0);
-      }
-
-      if (query) {
-        posts = posts.filter((p) =>
-          normalizeText(p.author).includes(query) ||
-          normalizeText(p.text).includes(query)
-        );
-      }
-
-      posts.sort((a, b) => (settings.sort === 'new' ? b.createdAt - a.createdAt : a.createdAt - b.createdAt));
-
-      return posts;
-    }
-
-    function paginate(posts) {
-      const { pageSize } = getSettings();
-      const totalPages = Math.max(1, Math.ceil(posts.length / pageSize));
-      if (currentPage > totalPages) currentPage = totalPages;
-
-      const start = (currentPage - 1) * pageSize;
-      return {
-        items: posts.slice(start, start + pageSize),
-        totalPages,
-        totalItems: posts.length,
-      };
-    }
-
-    function createPostElement(post) {
-      const article = document.createElement('article');
-      article.className = 'post';
-      article.dataset.id = post.id;
-
-      const editedHtml = post.editedAt
-        ? `<span class="edited">· изменено ${formatDate(post.editedAt)}</span>`
-        : '';
-
-      article.innerHTML = `
-        <div class="post-header">
-          <div>
-            <span class="author"></span>
-            ${editedHtml}
-          </div>
-          <time>${formatDate(post.createdAt)}</time>
-        </div>
-
-        <div class="post-text"></div>
-
-        <div class="post-footer">
-          <span class="like-counter">❤️ ${post.likes || 0}</span>
-          <div class="actions">
-            <button class="btn-like" type="button">Лайк</button>
-            <button class="btn-secondary" type="button">Редактировать</button>
-            <button class="btn-danger" type="button">Удалить</button>
-          </div>
-        </div>
-      `;
-
-      article.querySelector('.author').textContent = post.author;
-      article.querySelector('.post-text').textContent = post.text;
-
-      const [likeBtn, editBtn, delBtn] = article.querySelectorAll('button');
-      likeBtn.addEventListener('click', () => likePost(post.id));
-      editBtn.addEventListener('click', () => openEdit(post.id));
-      delBtn.addEventListener('click', () => deletePost(post.id));
-
-      return article;
-    }
-
-    function renderPagination(totalPages) {
-      pagination.innerHTML = '';
-      if (totalPages <= 1) return;
-
-      const prevBtn = document.createElement('button');
-      prevBtn.textContent = '← Назад';
-      prevBtn.disabled = currentPage === 1;
-      prevBtn.addEventListener('click', () => {
-        if (currentPage > 1) {
-          currentPage -= 1;
-          render();
-        }
-      });
-
-      const info = document.createElement('span');
-      info.className = 'page-info';
-      info.textContent = `Страница ${currentPage} из ${totalPages}`;
-
-      const nextBtn = document.createElement('button');
-      nextBtn.textContent = 'Вперёд →';
-      nextBtn.disabled = currentPage === totalPages;
-      nextBtn.addEventListener('click', () => {
-        if (currentPage < totalPages) {
-          currentPage += 1;
-          render();
-        }
-      });
-
-      pagination.append(prevBtn, info, nextBtn);
-    }
-
-    function render() {
-      const all = getFilteredSortedPosts();
-      const { items, totalPages, totalItems } = paginate(all);
-
-      feed.innerHTML = '';
-
-      if (totalItems === 0) {
-        const empty = document.createElement('div');
-        empty.className = 'empty';
-        empty.textContent = 'Нет постов по заданным условиям.';
-        feed.appendChild(empty);
-      } else {
-        items.forEach((p) => feed.appendChild(createPostElement(p)));
-      }
-
-      resultNote.textContent = `Найдено постов: ${totalItems}`;
-      renderPagination(totalPages);
-    }
-
-    function refreshAfterMutation() {
-      const all = getFilteredSortedPosts();
-      const { pageSize } = getSettings();
-      const totalPages = Math.max(1, Math.ceil(all.length / pageSize));
-      if (currentPage > totalPages) currentPage = totalPages;
-      render();
-    }
-
-    function updateCooldownUI() {
-      const msLeft = cooldownUntil - Date.now();
-
-      if (msLeft <= 0) {
-        submitBtn.disabled = false;
-        cooldownHint.textContent = '';
-        if (cooldownTimer) {
-          clearInterval(cooldownTimer);
-          cooldownTimer = null;
-        }
-        return;
-      }
-
-      const sec = Math.ceil(msLeft / 1000);
-      submitBtn.disabled = true;
-      cooldownHint.textContent = `Следующий пост через ${sec} сек.`;
-    }
-
-    function startCooldown() {
-      cooldownUntil = Date.now() + COOLDOWN_SECONDS * 1000;
-      updateCooldownUI();
-
-      if (cooldownTimer) clearInterval(cooldownTimer);
-      cooldownTimer = setInterval(updateCooldownUI, 250);
-    }
-
-    function bindSettingsInputs() {
-      const settings = getSettings();
-      searchInput.value = settings.search;
-      sortSelect.value = settings.sort;
-      likesOnly.checked = settings.likesOnly;
-      pageSizeSelect.value = String(settings.pageSize);
-    }
-
-    function saveSettingsFromInputs(resetPage = false) {
-      const settings = {
-        search: searchInput.value.trim(),
-        sort: sortSelect.value,
-        likesOnly: likesOnly.checked,
-        pageSize: Number(pageSizeSelect.value) || 10,
-      };
-      saveSettings(settings);
-      if (resetPage) currentPage = 1;
-    }
-
-    postForm.addEventListener('submit', (e) => {
+    postForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       setError('');
 
@@ -873,55 +794,41 @@
 
       const author = authorInput.value.trim();
       const text = messageInput.value.trim();
-
       if (!author || !text) {
         setError('Заполните имя и сообщение.');
         return;
       }
 
-      addPost(author, text);
-      postForm.reset();
-      authorInput.focus();
-      currentPage = 1;
-      render();
-      startCooldown();
+      try {
+        submitBtn.disabled = true;
+        await submitPost(author, text);
+        postForm.reset();
+        authorInput.focus();
+        currentPage = 1;
+        await loadPosts();
+        startCooldown();
+      } catch (error) {
+        setError(error.message || 'Не удалось опубликовать пост.');
+      } finally {
+        if (Date.now() >= cooldownUntil) submitBtn.disabled = false;
+      }
     });
 
     searchInput.addEventListener('input', () => {
       saveSettingsFromInputs(true);
       render();
     });
-
     sortSelect.addEventListener('change', () => {
       saveSettingsFromInputs(true);
       render();
     });
-
     likesOnly.addEventListener('change', () => {
       saveSettingsFromInputs(true);
       render();
     });
-
     pageSizeSelect.addEventListener('change', () => {
       saveSettingsFromInputs(true);
       render();
-    });
-
-    editForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      saveEdit();
-    });
-
-    cancelEditBtn.addEventListener('click', closeEdit);
-
-    editBackdrop.addEventListener('click', (e) => {
-      if (e.target === editBackdrop) closeEdit();
-    });
-
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && editBackdrop.style.display === 'flex') {
-        closeEdit();
-      }
     });
 
     navButtons.forEach((btn) => {
@@ -961,7 +868,8 @@
 
     loadProfile();
     bindSettingsInputs();
-    render();
+    loadPosts();
   </script>
+
 </body>
 </html>
