@@ -238,12 +238,77 @@
       margin: 0 0 10px;
       font-size: 20px;
     }
+
+    .legal-box {
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 12px;
+      background: #f9fafb;
+      margin-bottom: 10px;
+    }
+
+    .legal-box h3 {
+      margin: 0 0 8px;
+      font-size: 16px;
+    }
+
+    .legal-box p {
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.5;
+      color: #374151;
+    }
+
+    .page-section {
+      display: none;
+    }
+
+    .page-section.active {
+      display: block;
+    }
+
+    .bottom-nav {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: #ffffff;
+      border-top: 1px solid #e5e7eb;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+      z-index: 1000;
+    }
+
+    .nav-btn {
+      border: none;
+      border-radius: 10px;
+      background: #f3f4f6;
+      color: #374151;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 10px 8px;
+      cursor: pointer;
+    }
+
+    .nav-btn.active {
+      background: #2563eb;
+      color: #ffffff;
+    }
+
+    body {
+      padding-bottom: 86px;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Лента гостей</h1>
 
+    <section id="feedSection" class="page-section active">
+
+      <section class="card">
     <section class="card">
       <form id="postForm" class="grid">
         <div class="form-group">
@@ -260,6 +325,9 @@
         </div>
         <div id="errorBox" class="error"></div>
       </form>
+      </section>
+
+      <section class="card grid">
     </section>
 
     <section class="card grid">
@@ -295,6 +363,71 @@
       </div>
 
       <div id="resultNote" class="toolbar-note"></div>
+      </section>
+
+      <section id="feed" class="feed"></section>
+      <div id="pagination" class="pagination"></div>
+    </section>
+
+    <section id="profileSection" class="page-section">
+      <div class="card">
+        <h2>Профиль</h2>
+        <form id="profileForm" class="grid">
+          <div class="form-group">
+            <label for="profileName">Имя</label>
+            <input id="profileName" type="text" maxlength="60" placeholder="Введите имя" />
+          </div>
+          <div class="form-group">
+            <label for="profileEmail">Email</label>
+            <input id="profileEmail" type="email" maxlength="120" placeholder="example@mail.com" />
+          </div>
+          <div class="form-group">
+            <label for="profileAvatar">Ссылка на аватар</label>
+            <input id="profileAvatar" type="url" maxlength="300" placeholder="https://..." />
+          </div>
+          <div class="form-group">
+            <label for="profileBio">О себе</label>
+            <textarea id="profileBio" maxlength="400" placeholder="Коротко о себе..."></textarea>
+          </div>
+          <div class="row">
+            <button type="submit">Сохранить профиль</button>
+            <button id="profileResetBtn" class="btn-secondary" type="button">Сбросить</button>
+          </div>
+          <div id="profileStatus" class="hint"></div>
+        </form>
+      </div>
+    </section>
+
+    <section id="legalSection" class="page-section">
+      <div class="card">
+        <h2>Правовой раздел</h2>
+        <div class="legal-box">
+          <h3>Политика конфиденциальности (шаблон)</h3>
+          <p>
+            Мы обрабатываем только данные, необходимые для работы сервиса:
+            опубликованные сообщения, настройки интерфейса и профильные поля,
+            сохранённые в браузере пользователя. Продолжая использование сервиса,
+            вы подтверждаете согласие с обработкой этих данных.
+          </p>
+        </div>
+        <div class="legal-box">
+          <h3>Пользовательское соглашение (шаблон)</h3>
+          <p>
+            Пользователь обязуется публиковать только корректный контент,
+            не нарушающий законодательство и права третьих лиц. Администрация
+            оставляет за собой право удалять сообщения, нарушающие правила.
+          </p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <nav class="bottom-nav" aria-label="Основные разделы">
+    <button class="nav-btn active" data-tab="feedSection" type="button">Лента</button>
+    <button class="nav-btn" data-tab="profileSection" type="button">Профиль</button>
+    <button class="nav-btn" data-tab="legalSection" type="button">Право</button>
+  </nav>
+
     </section>
 
     <section id="feed" class="feed"></section>
@@ -349,11 +482,21 @@
     const editMessage = document.getElementById('editMessage');
     const cancelEditBtn = document.getElementById('cancelEditBtn');
     const editErrorBox = document.getElementById('editErrorBox');
+    const navButtons = document.querySelectorAll('.nav-btn');
+    const pageSections = document.querySelectorAll('.page-section');
+    const profileForm = document.getElementById('profileForm');
+    const profileName = document.getElementById('profileName');
+    const profileEmail = document.getElementById('profileEmail');
+    const profileAvatar = document.getElementById('profileAvatar');
+    const profileBio = document.getElementById('profileBio');
+    const profileStatus = document.getElementById('profileStatus');
+    const profileResetBtn = document.getElementById('profileResetBtn');
 
     let editingPostId = null;
     let cooldownUntil = 0;
     let cooldownTimer = null;
     let currentPage = 1;
+    const PROFILE_KEY = 'guest_feed_profile_v1';
 
     function formatDate(ts) {
       const d = new Date(ts);
@@ -371,6 +514,40 @@
 
     function newId() {
       return (crypto.randomUUID && crypto.randomUUID()) || `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    }
+
+    function loadProfile() {
+      try {
+        const raw = localStorage.getItem(PROFILE_KEY);
+        const data = raw ? JSON.parse(raw) : {};
+        profileName.value = data.name || '';
+        profileEmail.value = data.email || '';
+        profileAvatar.value = data.avatar || '';
+        profileBio.value = data.bio || '';
+      } catch {
+        profileName.value = '';
+        profileEmail.value = '';
+        profileAvatar.value = '';
+        profileBio.value = '';
+      }
+    }
+
+    function saveProfile() {
+      const data = {
+        name: profileName.value.trim(),
+        email: profileEmail.value.trim(),
+        avatar: profileAvatar.value.trim(),
+        bio: profileBio.value.trim(),
+        updatedAt: Date.now(),
+      };
+      localStorage.setItem(PROFILE_KEY, JSON.stringify(data));
+      profileStatus.textContent = 'Профиль сохранён локально.';
+    }
+
+    function resetProfile() {
+      localStorage.removeItem(PROFILE_KEY);
+      loadProfile();
+      profileStatus.textContent = 'Профиль сброшен.';
     }
 
     function getPosts() {
@@ -728,6 +905,30 @@
       }
     });
 
+    navButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const targetId = btn.dataset.tab;
+
+        pageSections.forEach((section) => {
+          section.classList.toggle('active', section.id === targetId);
+        });
+
+        navButtons.forEach((item) => {
+          item.classList.toggle('active', item === btn);
+        });
+      });
+    });
+
+    profileForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      saveProfile();
+    });
+
+    profileResetBtn.addEventListener('click', () => {
+      resetProfile();
+    });
+
+    loadProfile();
     bindSettingsInputs();
     render();
   </script>
