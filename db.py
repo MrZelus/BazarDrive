@@ -70,10 +70,16 @@ def init_db() -> None:
                 author TEXT NOT NULL,
                 text TEXT NOT NULL,
                 likes INTEGER DEFAULT 0,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME
             )
             """
         )
+
+        cur.execute("PRAGMA table_info(guest_feed_posts)")
+        guest_feed_columns = {row[1] for row in cur.fetchall()}
+        if "updated_at" not in guest_feed_columns:
+            cur.execute("ALTER TABLE guest_feed_posts ADD COLUMN updated_at DATETIME")
 
         conn.commit()
 
@@ -235,7 +241,7 @@ def list_guest_feed_posts(limit: int = 20, offset: int = 0) -> list[dict[str, An
         cur = conn.cursor()
         cur.execute(
             """
-            SELECT id, author, text, likes, created_at
+            SELECT id, author, text, likes, created_at, updated_at
             FROM guest_feed_posts
             ORDER BY datetime(created_at) DESC, id DESC
             LIMIT ? OFFSET ?
@@ -269,7 +275,7 @@ def create_guest_feed_post(author: str, text: str) -> dict[str, Any]:
 
         cur.execute(
             """
-            SELECT id, author, text, likes, created_at
+            SELECT id, author, text, likes, created_at, updated_at
             FROM guest_feed_posts
             WHERE id = ?
             """,
@@ -277,3 +283,42 @@ def create_guest_feed_post(author: str, text: str) -> dict[str, Any]:
         )
         row = cur.fetchone()
         return dict(row) if row else {}
+
+
+def update_guest_feed_post(post_id: int, author: str, text: str) -> Optional[dict[str, Any]]:
+    author_clean = author.strip()
+    text_clean = text.strip()
+
+    if len(author_clean) < 2:
+        raise ValueError("Имя должно содержать минимум 2 символа")
+    if len(text_clean) < 5:
+        raise ValueError("Сообщение должно содержать минимум 5 символов")
+    if len(author_clean) > 40 or len(text_clean) > 500:
+        raise ValueError("Превышена максимальная длина полей")
+
+    with closing(sqlite3.connect(DB_PATH)) as conn:
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute(
+            """
+            UPDATE guest_feed_posts
+            SET author = ?, text = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (author_clean, text_clean, post_id),
+        )
+        if cur.rowcount == 0:
+            conn.rollback()
+            return None
+
+        conn.commit()
+        cur.execute(
+            """
+            SELECT id, author, text, likes, created_at, updated_at
+            FROM guest_feed_posts
+            WHERE id = ?
+            """,
+            (post_id,),
+        )
+        row = cur.fetchone()
+        return dict(row) if row else None
