@@ -877,6 +877,23 @@
 
       if (!response.ok) {
         let msg = 'Не удалось опубликовать пост.';
+        if (response.status === 429) {
+          let retryAfter = 0;
+          try {
+            const payload = await response.json();
+            retryAfter = Math.max(0, Number(payload?.retry_after) || 0);
+          } catch {
+            // no-op
+          }
+
+          if (retryAfter > 0) {
+            msg = `Слишком много публикаций. Попробуйте снова через ${retryAfter} сек.`;
+          } else {
+            msg = 'Слишком много публикаций. Пожалуйста, попробуйте позже.';
+          }
+          throw new Error(msg);
+        }
+
         try {
           const payload = await response.json();
           if (payload?.error) msg = payload.error;
