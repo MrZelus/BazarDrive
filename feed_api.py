@@ -3,7 +3,7 @@ import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
-from db import create_guest_feed_post, init_db, list_guest_feed_posts
+from db import create_guest_feed_post, init_db, list_approved_posts, list_guest_feed_posts
 
 
 class FeedAPIHandler(BaseHTTPRequestHandler):
@@ -27,12 +27,17 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802
         path = urlparse(self.path).path
-        if path != "/api/feed/posts":
-            self._send_json(404, {"error": "Not found"})
+        if path == "/api/feed/posts":
+            posts = list_guest_feed_posts()
+            self._send_json(200, {"items": posts})
             return
 
-        posts = list_guest_feed_posts()
-        self._send_json(200, {"items": posts})
+        if path == "/api/feed/approved":
+            posts = list_approved_posts(limit=50, offset=0, include_ads=True)
+            self._send_json(200, {"items": posts})
+            return
+
+        self._send_json(404, {"error": "Not found"})
 
     def do_POST(self) -> None:  # noqa: N802
         path = urlparse(self.path).path

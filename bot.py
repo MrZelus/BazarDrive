@@ -20,6 +20,7 @@ from db import (
     get_ad,
     get_post,
     init_db,
+    list_approved_posts,
     list_pending_content,
     update_ad_status,
     update_post_status,
@@ -251,6 +252,26 @@ async def pending(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
 
 
+
+
+async def feed(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    rows = list_approved_posts(limit=10, offset=0, include_ads=True)
+    if not rows:
+        await update.message.reply_text("Пока нет одобренных публикаций в ленте.")
+        return
+
+    for row in rows:
+        if row["kind"] == "ad":
+            text = (
+                f"📢 Объявление #{row['id']}\n"
+                f"Заголовок: {row['title']}\n"
+                f"{row['text']}"
+            )
+        else:
+            text = f"📝 Пост #{row['id']}\n{row['text']}"
+
+        await update.message.reply_text(text)
+
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await update.message.reply_text("Действие отменено.")
     return ConversationHandler.END
@@ -265,6 +286,7 @@ def main() -> None:
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("pending", pending))
+    app.add_handler(CommandHandler("feed", feed))
 
     taxi_conv = ConversationHandler(
         entry_points=[MessageHandler(filters.Regex("^🚕 Такси$"), taxi_start)],
