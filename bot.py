@@ -1,5 +1,6 @@
 import logging
 import os
+from pathlib import Path
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, Update
 from telegram.ext import (
@@ -25,6 +26,33 @@ from db import (
     update_ad_status,
     update_post_status,
 )
+
+
+def load_env_file(env_path: str = ".env") -> None:
+    path = Path(env_path)
+    if not path.exists():
+        return
+
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+
+        if line.startswith("export "):
+            line = line[len("export "):].strip()
+
+        if "=" not in line:
+            continue
+
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip("'\"")
+
+        if key:
+            os.environ.setdefault(key, value)
+
+
+load_env_file()
 
 # ========= НАСТРОЙКИ =========
 BOT_TOKEN = os.getenv("BOT_TOKEN", "PASTE_YOUR_TOKEN_HERE")
@@ -279,7 +307,10 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 def main() -> None:
     if BOT_TOKEN == "PASTE_YOUR_TOKEN_HERE":
-        raise ValueError("Укажите BOT_TOKEN через переменную окружения BOT_TOKEN")
+        raise ValueError(
+            "Укажите BOT_TOKEN через переменную окружения BOT_TOKEN "
+            "или добавьте BOT_TOKEN=... в файл .env рядом с bot.py"
+        )
 
     init_db()
     app = Application.builder().token(BOT_TOKEN).build()
