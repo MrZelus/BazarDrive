@@ -607,6 +607,7 @@
     let cooldownTimer = null;
 
     function formatDate(ts) {
+      if (!Number.isFinite(ts)) return 'Дата не указана';
       const d = new Date(ts);
       const dd = String(d.getDate()).padStart(2, '0');
       const mm = String(d.getMonth() + 1).padStart(2, '0');
@@ -618,6 +619,37 @@
 
     function normalizeText(text) {
       return String(text || '').toLowerCase().trim();
+    }
+
+    function parseCreatedAt(value, postId = 'unknown') {
+      if (typeof value !== 'string') {
+        console.warn('[feed] created_at is not a string:', { postId, value });
+        return null;
+      }
+
+      const raw = value.trim();
+      if (!raw) {
+        console.warn('[feed] created_at is empty:', { postId, value });
+        return null;
+      }
+
+      const isoCandidate = raw.includes('T') ? raw : raw.replace(' ', 'T');
+      const isoWithOffset = /(?:Z|[+-]\d{2}:\d{2})$/.test(isoCandidate)
+        ? isoCandidate
+        : `${isoCandidate}Z`;
+      const isoTimestamp = Date.parse(isoWithOffset);
+      if (!Number.isNaN(isoTimestamp)) {
+        return isoTimestamp;
+      }
+
+      const fallbackTimestamp = Date.parse(raw);
+      if (!Number.isNaN(fallbackTimestamp)) {
+        console.warn('[feed] created_at parsed with fallback parser:', { postId, value });
+        return fallbackTimestamp;
+      }
+
+      console.warn('[feed] failed to parse created_at:', { postId, value });
+      return null;
     }
 
     function setError(msg = '') {
@@ -680,7 +712,23 @@
         items = items.filter((p) => normalizeText(p.author).includes(query) || normalizeText(p.text).includes(query));
       }
 
-      items.sort((a, b) => (settings.sort === 'new' ? b.createdAt - a.createdAt : a.createdAt - b.createdAt));
+      items.sort((a, b) => {
+        const aTs = Number.isFinite(a.createdAt) ? a.createdAt : null;
+        const bTs = Number.isFinite(b.createdAt) ? b.createdAt : null;
+
+        if (aTs !== null && bTs !== null) {
+          return settings.sort === 'new' ? bTs - aTs : aTs - bTs;
+        }
+
+        if (aTs === null && bTs === null) {
+          return settings.sort === 'new' ? b.id - a.id : a.id - b.id;
+        }
+
+        if (settings.sort === 'new') {
+          return aTs === null ? 1 : -1;
+        }
+        return aTs === null ? -1 : 1;
+      });
       return items;
     }
 
@@ -806,7 +854,7 @@
           author: item.author || 'Гость',
           text: item.text || '',
           likes: Number(item.likes) || 0,
-          createdAt: Date.parse(item.created_at) || Date.now(),
+          createdAt: parseCreatedAt(item.created_at, item.id),
         }));
 
         totalPosts = Number(payload.total) || 0;

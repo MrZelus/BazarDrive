@@ -1,5 +1,6 @@
 import json
 import os
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
@@ -13,8 +14,48 @@ from db import (
 
 
 class FeedAPIHandler(BaseHTTPRequestHandler):
+    @staticmethod
+    def _isoformat_timestamp(value: object) -> object:
+        if not isinstance(value, str):
+            return value
+
+        raw = value.strip()
+        if not raw:
+            return raw
+
+        normalized = raw.replace(" ", "T")
+        if normalized.endswith("Z"):
+            normalized = f"{normalized[:-1]}+00:00"
+
+        parsed: datetime | None = None
+        try:
+            parsed = datetime.fromisoformat(normalized)
+        except ValueError:
+            try:
+                parsed = datetime.strptime(raw, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+            except ValueError:
+                return value
+
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+
+        return parsed.isoformat().replace("+00:00", "Z")
+
+    def _serialize_feed_payload(self, payload: object) -> object:
+        if isinstance(payload, dict):
+            serialized: dict[str, object] = {}
+            for key, value in payload.items():
+                if key == "created_at":
+                    serialized[key] = self._isoformat_timestamp(value)
+                else:
+                    serialized[key] = self._serialize_feed_payload(value)
+            return serialized
+        if isinstance(payload, list):
+            return [self._serialize_feed_payload(item) for item in payload]
+        return payload
+
     def _send_json(self, status: int, payload: dict) -> None:
-        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        body = json.dumps(self._serialize_feed_payload(payload), ensure_ascii=False).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
