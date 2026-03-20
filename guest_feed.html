@@ -147,6 +147,43 @@
       min-height: 18px;
       margin-top: 6px;
     }
+    
+    .file-input {
+      padding: 8px;
+    }
+
+    .image-preview-wrap {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .image-preview-wrap.visible {
+      display: flex;
+    }
+
+    .image-preview-thumb {
+      width: 72px;
+      height: 72px;
+      border-radius: 10px;
+      object-fit: cover;
+      border: 1px solid #d1d5db;
+      background: #f3f4f6;
+      flex-shrink: 0;
+    }
+
+    .post-image {
+      width: 100%;
+      max-width: 460px;
+      max-height: 320px;
+      object-fit: cover;
+      border-radius: 12px;
+      border: 1px solid #e5e7eb;
+      display: block;
+      margin: 10px 0 12px;
+      background: #f3f4f6;
+    }
 
     .feed {
       display: flex;
@@ -427,6 +464,15 @@
             <span id="messageCounter" class="counter">0/500</span>
           </div>
         </div>
+        <div class="form-group">
+          <label for="postPhoto">Фото (опционально)</label>
+          <input id="postPhoto" class="file-input" type="file" accept="image/*" />
+          <div id="imagePreviewWrap" class="image-preview-wrap">
+            <img id="imagePreview" class="image-preview-thumb" alt="Предпросмотр фото" />
+            <button id="removePhotoBtn" class="btn-ghost" type="button">Удалить фото</button>
+          </div>
+          <span class="hint">JPG, PNG, WEBP до 3 МБ.</span>
+        </div>
         <div class="row">
           <button id="submitBtn" type="submit">Опубликовать</button>
           <span id="cooldownHint" class="hint"></span>
@@ -577,6 +623,10 @@
     const submitBtn = document.getElementById('submitBtn');
     const cooldownHint = document.getElementById('cooldownHint');
     const errorBox = document.getElementById('errorBox');
+    const postPhotoInput = document.getElementById('postPhoto');
+    const imagePreviewWrap = document.getElementById('imagePreviewWrap');
+    const imagePreview = document.getElementById('imagePreview');
+    const removePhotoBtn = document.getElementById('removePhotoBtn');
 
     const searchInput = document.getElementById('searchInput');
     const sortSelect = document.getElementById('sortSelect');
@@ -631,6 +681,10 @@
     let cooldownUntil = 0;
     let cooldownTimer = null;
     let editingPostId = null;
+    let previewObjectUrl = '';
+
+    const MAX_UPLOAD_BYTES = 3 * 1024 * 1024;
+    const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
     function formatDate(ts) {
       if (!Number.isFinite(ts)) return 'Дата не указана';
@@ -681,6 +735,41 @@
 
     function setError(msg = '') {
       errorBox.textContent = msg;
+    }
+
+    function revokePreviewObjectUrl() {
+      if (previewObjectUrl) {
+        URL.revokeObjectURL(previewObjectUrl);
+        previewObjectUrl = '';
+      }
+    }
+
+    function updateImagePreview(file) {
+      revokePreviewObjectUrl();
+      if (!file) {
+        imagePreview.removeAttribute('src');
+        imagePreviewWrap.classList.remove('visible');
+        return;
+      }
+      previewObjectUrl = URL.createObjectURL(file);
+      imagePreview.src = previewObjectUrl;
+      imagePreviewWrap.classList.add('visible');
+    }
+
+    function clearSelectedImage() {
+      postPhotoInput.value = '';
+      updateImagePreview(null);
+    }
+
+    function validateImageFile(file) {
+      if (!file) return '';
+      if (!SUPPORTED_IMAGE_TYPES.has(file.type)) {
+        return 'Поддерживаются только изображения JPG, PNG и WEBP.';
+      }
+      if (file.size > MAX_UPLOAD_BYTES) {
+        return 'Изображение слишком большое. Максимальный размер — 3 МБ.';
+      }
+      return '';
     }
 
     function getSettings() {
@@ -779,6 +868,15 @@
       `;
       article.querySelector('.author').textContent = post.author;
       article.querySelector('.post-text').textContent = post.text;
+      if (post.imageUrl) {
+        const image = document.createElement('img');
+        image.className = 'post-image';
+        image.loading = 'lazy';
+        image.decoding = 'async';
+        image.alt = `Изображение к посту от ${post.author || 'гостя'}`;
+        image.src = post.imageUrl;
+        article.insertBefore(image, article.querySelector('.post-footer'));
+      }
       const editBtn = article.querySelector('[data-action="edit"]');
       editBtn.addEventListener('click', () => {
         openEditModal(post);
@@ -911,6 +1009,7 @@
           author: item.author || 'Гость',
           text: item.text || '',
           likes: Number(item.likes) || 0,
+          imageUrl: item.image_url || '',
           createdAt: parseCreatedAt(item.created_at, item.id),
           updatedAt: parseCreatedAt(item.updated_at, item.id),
         }));
@@ -926,11 +1025,17 @@
       }
     }
 
-    async function submitPost(author, text) {
+    async function submitPost(author, text, photoFile) {
+      const formData = new FormData();
+      formData.append('author', author);
+      formData.append('text', text);
+      if (photoFile) {
+        formData.append('photo', photoFile);
+      }
+
       const response = await fetch(FEED_API_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ author, text }),
+        body: formData,
       });
 
       if (!response.ok) {
@@ -1091,6 +1196,7 @@
 
       const author = authorInput.value.trim();
       const text = messageInput.value.trim();
+      const photoFile = postPhotoInput.files?.[0] || null;
       if (!author || !text) {
         setError('Заполните имя и сообщение.');
         return;
@@ -1103,11 +1209,17 @@
         setError('Сообщение должно содержать минимум 5 символов.');
         return;
       }
+      const fileValidationError = validateImageFile(photoFile);
+      if (fileValidationError) {
+        setError(fileValidationError);
+        return;
+      }
 
       try {
         submitBtn.disabled = true;
-        await submitPost(author, text);
+        await submitPost(author, text, photoFile);
         postForm.reset();
+        clearSelectedImage();
         authorInput.focus();
         updateCounters();
         currentPage = 1;
@@ -1147,6 +1259,21 @@
     authorInput.addEventListener('input', updateCounters);
     messageInput.addEventListener('input', updateCounters);
     profileBio.addEventListener('input', updateCounters);
+    postPhotoInput.addEventListener('change', () => {
+      setError('');
+      const file = postPhotoInput.files?.[0] || null;
+      const fileValidationError = validateImageFile(file);
+      if (fileValidationError) {
+        setError(fileValidationError);
+        clearSelectedImage();
+        return;
+      }
+      updateImagePreview(file);
+    });
+    removePhotoBtn.addEventListener('click', () => {
+      setError('');
+      clearSelectedImage();
+    });
 
     navButtons.forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -1236,6 +1363,7 @@
     loadProfile();
     bindSettingsInputs();
     updateCounters();
+    clearSelectedImage();
     renderDocumentsSection();
     loadPosts();
   </script>
