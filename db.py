@@ -1,8 +1,30 @@
 import sqlite3
 from contextlib import closing
 from typing import Any, Optional
+from urllib.parse import urlparse
 
 DB_PATH = "bot.db"
+MAX_GUEST_FEED_IMAGE_URL_LENGTH = 2048
+
+
+def _validate_guest_feed_image_url(image_url: Optional[str]) -> Optional[str]:
+    if image_url is None:
+        return None
+
+    image_url_clean = image_url.strip()
+    if not image_url_clean:
+        return None
+
+    if len(image_url_clean) > MAX_GUEST_FEED_IMAGE_URL_LENGTH:
+        raise ValueError(
+            f"Ссылка на изображение слишком длинная (максимум {MAX_GUEST_FEED_IMAGE_URL_LENGTH} символов)"
+        )
+
+    parsed = urlparse(image_url_clean)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise ValueError("Некорректный формат image_url: поддерживаются только http/https URL")
+
+    return image_url_clean
 
 
 def init_db() -> None:
@@ -80,6 +102,8 @@ def init_db() -> None:
         guest_feed_columns = {row[1] for row in cur.fetchall()}
         if "updated_at" not in guest_feed_columns:
             cur.execute("ALTER TABLE guest_feed_posts ADD COLUMN updated_at DATETIME")
+        if "image_url" not in guest_feed_columns:
+            cur.execute("ALTER TABLE guest_feed_posts ADD COLUMN image_url TEXT")
 
         conn.commit()
 
@@ -241,7 +265,7 @@ def list_guest_feed_posts(limit: int = 20, offset: int = 0) -> list[dict[str, An
         cur = conn.cursor()
         cur.execute(
             """
-            SELECT id, author, text, likes, created_at, updated_at
+            SELECT id, author, text, likes, image_url, created_at, updated_at
             FROM guest_feed_posts
             ORDER BY datetime(created_at) DESC, id DESC
             LIMIT ? OFFSET ?
@@ -259,23 +283,25 @@ def count_guest_feed_posts() -> int:
         return int(row[0]) if row else 0
 
 
-def create_guest_feed_post(author: str, text: str) -> dict[str, Any]:
+def create_guest_feed_post(author: str, text: str, image_url: Optional[str] = None) -> dict[str, Any]:
+    image_url_clean = _validate_guest_feed_image_url(image_url)
+
     with closing(sqlite3.connect(DB_PATH)) as conn:
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
         cur.execute(
             """
-            INSERT INTO guest_feed_posts (author, text)
-            VALUES (?, ?)
+            INSERT INTO guest_feed_posts (author, text, image_url)
+            VALUES (?, ?, ?)
             """,
-            (author, text),
+            (author, text, image_url_clean),
         )
         conn.commit()
         new_id = cur.lastrowid
 
         cur.execute(
             """
-            SELECT id, author, text, likes, created_at, updated_at
+            SELECT id, author, text, likes, image_url, created_at, updated_at
             FROM guest_feed_posts
             WHERE id = ?
             """,
@@ -285,9 +311,12 @@ def create_guest_feed_post(author: str, text: str) -> dict[str, Any]:
         return dict(row) if row else {}
 
 
-def update_guest_feed_post(post_id: int, author: str, text: str) -> Optional[dict[str, Any]]:
+def update_guest_feed_post(
+    post_id: int, author: str, text: str, image_url: Optional[str] = None
+) -> Optional[dict[str, Any]]:
     author_clean = author.strip()
     text_clean = text.strip()
+    image_url_clean = _validate_guest_feed_image_url(image_url)
 
     if len(author_clean) < 2:
         raise ValueError("Имя должно содержать минимум 2 символа")
@@ -302,10 +331,10 @@ def update_guest_feed_post(post_id: int, author: str, text: str) -> Optional[dic
         cur.execute(
             """
             UPDATE guest_feed_posts
-            SET author = ?, text = ?, updated_at = CURRENT_TIMESTAMP
+            SET author = ?, text = ?, image_url = ?, updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
             """,
-            (author_clean, text_clean, post_id),
+            (author_clean, text_clean, image_url_clean, post_id),
         )
         if cur.rowcount == 0:
             conn.rollback()
@@ -314,7 +343,7 @@ def update_guest_feed_post(post_id: int, author: str, text: str) -> Optional[dic
         conn.commit()
         cur.execute(
             """
-            SELECT id, author, text, likes, created_at, updated_at
+            SELECT id, author, text, likes, image_url, created_at, updated_at
             FROM guest_feed_posts
             WHERE id = ?
             """,
