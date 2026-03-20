@@ -238,57 +238,13 @@
       margin: 0 0 10px;
       font-size: 20px;
     }
-
-    .page-section {
-      display: none;
-    }
-
-    .page-section.active {
-      display: block;
-    }
-
-    .bottom-nav {
-      position: fixed;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: #ffffff;
-      border-top: 1px solid #e5e7eb;
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-      padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
-      z-index: 1000;
-    }
-
-    .nav-btn {
-      border: none;
-      border-radius: 10px;
-      background: #f3f4f6;
-      color: #374151;
-      font-size: 13px;
-      font-weight: 700;
-      padding: 10px 8px;
-      cursor: pointer;
-    }
-
-    .nav-btn.active {
-      background: #2563eb;
-      color: #ffffff;
-    }
-
-    body {
-      padding-bottom: 86px;
-    }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Лента гостей</h1>
 
-    <section id="feedSection" class="page-section active">
-
-      <section class="card">
+    <section class="card">
       <form id="postForm" class="grid">
         <div class="form-group">
           <label for="author">Ваше имя</label>
@@ -304,9 +260,9 @@
         </div>
         <div id="errorBox" class="error"></div>
       </form>
-      </section>
+    </section>
 
-      <section class="card grid">
+    <section class="card grid">
       <div class="grid grid-2">
         <div class="form-group">
           <label for="searchInput">Поиск (имя или текст)</label>
@@ -339,32 +295,11 @@
       </div>
 
       <div id="resultNote" class="toolbar-note"></div>
-      </section>
-
-      <section id="feed" class="feed"></section>
-      <div id="pagination" class="pagination"></div>
     </section>
 
-    <section id="profileSection" class="page-section">
-      <div class="card">
-        <h2>Профиль</h2>
-        <p>Раздел профиля: здесь можно разместить данные пользователя, его настройки и активность.</p>
-      </div>
-    </section>
-
-    <section id="legalSection" class="page-section">
-      <div class="card">
-        <h2>Правовой раздел</h2>
-        <p>Разместите здесь оферту, политику конфиденциальности и правила публикации контента.</p>
-      </div>
-    </section>
+    <section id="feed" class="feed"></section>
+    <div id="pagination" class="pagination"></div>
   </div>
-
-  <nav class="bottom-nav" aria-label="Основные разделы">
-    <button class="nav-btn active" data-tab="feedSection" type="button">Лента</button>
-    <button class="nav-btn" data-tab="profileSection" type="button">Профиль</button>
-    <button class="nav-btn" data-tab="legalSection" type="button">Право</button>
-  </nav>
 
   <div id="editBackdrop" class="modal-backdrop" aria-hidden="true">
     <div class="modal">
@@ -414,8 +349,6 @@
     const editMessage = document.getElementById('editMessage');
     const cancelEditBtn = document.getElementById('cancelEditBtn');
     const editErrorBox = document.getElementById('editErrorBox');
-    const navButtons = document.querySelectorAll('.nav-btn');
-    const pageSections = document.querySelectorAll('.page-section');
 
     let editingPostId = null;
     let cooldownUntil = 0;
@@ -793,20 +726,6 @@
       if (e.key === 'Escape' && editBackdrop.style.display === 'flex') {
         closeEdit();
       }
-    });
-
-    navButtons.forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const targetId = btn.dataset.tab;
-
-        pageSections.forEach((section) => {
-          section.classList.toggle('active', section.id === targetId);
-        });
-
-        navButtons.forEach((item) => {
-          item.classList.toggle('active', item === btn);
-        });
-      });
     });
 
     bindSettingsInputs();
