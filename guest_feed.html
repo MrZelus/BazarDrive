@@ -117,6 +117,14 @@
       color: #6b7280;
     }
 
+    .hint.success {
+      color: #065f46;
+    }
+
+    .hint.warning {
+      color: #92400e;
+    }
+
     .error {
       color: #dc2626;
       font-size: 13px;
@@ -532,12 +540,39 @@
       }
     }
 
+    function getProfileData() {
+      return {
     function saveProfile() {
       const data = {
         name: profileName.value.trim(),
         email: profileEmail.value.trim(),
         avatar: profileAvatar.value.trim(),
         bio: profileBio.value.trim(),
+      };
+    }
+
+    function validateProfile(data) {
+      if (!data.name) return 'Заполните имя профиля.';
+      if (!data.email) return 'Заполните email профиля.';
+      if (!data.email.includes('@')) return 'Email должен содержать символ @.';
+      return '';
+    }
+
+    function saveProfile() {
+      const data = getProfileData();
+      const validationMessage = validateProfile(data);
+      profileStatus.className = 'hint';
+
+      if (validationMessage) {
+        profileStatus.textContent = validationMessage;
+        profileStatus.classList.add('warning');
+        return;
+      }
+
+      data.updatedAt = Date.now();
+      localStorage.setItem(PROFILE_KEY, JSON.stringify(data));
+      profileStatus.textContent = 'Профиль сохранён локально.';
+      profileStatus.classList.add('success');
         updatedAt: Date.now(),
       };
       localStorage.setItem(PROFILE_KEY, JSON.stringify(data));
@@ -547,6 +582,7 @@
     function resetProfile() {
       localStorage.removeItem(PROFILE_KEY);
       loadProfile();
+      profileStatus.className = 'hint';
       profileStatus.textContent = 'Профиль сброшен.';
     }
 
@@ -916,6 +952,18 @@
         navButtons.forEach((item) => {
           item.classList.toggle('active', item === btn);
         });
+
+        if (targetId === 'profileSection') {
+          const validationMessage = validateProfile(getProfileData());
+          profileStatus.className = 'hint';
+          if (validationMessage) {
+            profileStatus.textContent = `Проверка профиля: ${validationMessage}`;
+            profileStatus.classList.add('warning');
+          } else {
+            profileStatus.textContent = 'Проверка профиля: данные заполнены корректно.';
+            profileStatus.classList.add('success');
+          }
+        }
       });
     });
 
