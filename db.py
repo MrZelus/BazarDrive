@@ -6,6 +6,7 @@ from urllib.parse import urlparse
 DB_PATH = "bot.db"
 MAX_GUEST_FEED_IMAGE_URL_LENGTH = 2048
 MAX_GUEST_FEED_IMAGE_DATA_URL_LENGTH = 4_500_000
+LOCAL_IMAGE_PATH_PREFIX = "/uploads/feed/"
 
 
 def _validate_guest_feed_image_url(image_url: Optional[str]) -> Optional[str]:
@@ -21,6 +22,13 @@ def _validate_guest_feed_image_url(image_url: Optional[str]) -> Optional[str]:
             raise ValueError(
                 "Изображение в формате data URL слишком большое "
                 f"(максимум {MAX_GUEST_FEED_IMAGE_DATA_URL_LENGTH} символов)"
+            )
+        return image_url_clean
+
+    if image_url_clean.startswith(LOCAL_IMAGE_PATH_PREFIX):
+        if len(image_url_clean) > MAX_GUEST_FEED_IMAGE_URL_LENGTH:
+            raise ValueError(
+                f"Локальный путь изображения слишком длинный (максимум {MAX_GUEST_FEED_IMAGE_URL_LENGTH} символов)"
             )
         return image_url_clean
 
