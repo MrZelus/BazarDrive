@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Гостевая лента</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f5f7fb;
+      color: #222;
+    }
+
+    .container {
+      max-width: 880px;
+      margin: 28px auto;
+      padding: 0 16px 40px;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 18px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, .07);
+      margin-bottom: 14px;
+    }
+
+    .grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .grid-2 {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    @media (max-width: 720px) {
+      .grid-2 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    label {
+      font-size: 14px;
+      font-weight: 600;
+      color: #444;
+    }
+
+    input, textarea, select {
+      border: 1px solid #d2d8e0;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      background: #fff;
+    }
+
+    input:focus, textarea:focus, select:focus {
+      border-color: #4f8cff;
+      box-shadow: 0 0 0 3px rgba(79,140,255,.12);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 90px;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .between {
+      justify-content: space-between;
+    }
+
+    button {
+      border: none;
+      border-radius: 8px;
+      padding: 9px 12px;
+      color: #fff;
+      background: #2563eb;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button:hover { background: #1d4ed8; }
+    button:disabled { background: #9aa8c5; cursor: not-allowed; }
+
+    .btn-secondary { background: #64748b; }
+    .btn-secondary:hover { background: #475569; }
+
+    .btn-danger { background: #ef4444; }
+    .btn-danger:hover { background: #dc2626; }
+
+    .btn-like { background: #e11d48; }
+    .btn-like:hover { background: #be123c; }
+
+    .hint {
+      font-size: 13px;
+      color: #6b7280;
+    }
+
+    .error {
+      color: #dc2626;
+      font-size: 13px;
+      min-height: 18px;
+      margin-top: 6px;
+    }
+
+    .feed {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .post {
+      background: #fff;
+      border-radius: 12px;
+      padding: 14px 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.07);
+    }
+
+    .post-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+      font-size: 13px;
+      color: #666;
+    }
+
+    .author {
+      font-size: 15px;
+      font-weight: 700;
+      color: #1f2937;
+    }
+
+    .post-text {
+      font-size: 15px;
+      line-height: 1.5;
+      white-space: pre-line;
+      margin-bottom: 10px;
+    }
+
+    .post-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .edited {
+      color: #6b7280;
+      font-size: 12px;
+    }
+
+    .like-counter {
+      font-size: 13px;
+      font-weight: 700;
+      color: #374151;
+    }
+
+    .empty {
+      text-align: center;
+      color: #6b7280;
+      padding: 18px;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.07);
+    }
+
+    .toolbar-note {
+      font-size: 13px;
+      color: #6b7280;
+    }
+
+    .pagination {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      align-items: center;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+
+    .page-info {
+      font-size: 13px;
+      color: #4b5563;
+      margin: 0 4px;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 12px;
+      z-index: 999;
+    }
+
+    .modal {
+      width: min(560px, 100%);
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.2);
+    }
+
+    .modal h2 {
+      margin: 0 0 10px;
+      font-size: 20px;
+    }
+
+    .legal-box {
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 12px;
+      background: #f9fafb;
+      margin-bottom: 10px;
+    }
+
+    .legal-box h3 {
+      margin: 0 0 8px;
+      font-size: 16px;
+    }
+
+    .legal-box p {
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.5;
+      color: #374151;
+    }
+
+    .page-section {
+      display: none;
+    }
+
+    .page-section.active {
+      display: block;
+    }
+
+    .bottom-nav {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: #ffffff;
+      border-top: 1px solid #e5e7eb;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+      z-index: 1000;
+    }
+
+    .nav-btn {
+      border: none;
+      border-radius: 10px;
+      background: #f3f4f6;
+      color: #374151;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 10px 8px;
+      cursor: pointer;
+    }
+
+    .nav-btn.active {
+      background: #2563eb;
+      color: #ffffff;
+    }
+
+    body {
+      padding-bottom: 86px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Лента гостей</h1>
+
+    <section id="feedSection" class="page-section active">
+
+      <section class="card">
+      <form id="postForm" class="grid">
+        <div class="form-group">
+          <label for="author">Ваше имя</label>
+          <input id="author" type="text" maxlength="40" placeholder="Например: Алексей" required />
+        </div>
+        <div class="form-group">
+          <label for="message">Сообщение</label>
+          <textarea id="message" maxlength="500" placeholder="Напишите что-нибудь..." required></textarea>
+        </div>
+        <div class="row">
+          <button id="submitBtn" type="submit">Опубликовать</button>
+          <span id="cooldownHint" class="hint"></span>
+        </div>
+        <div id="errorBox" class="error"></div>
+      </form>
+      </section>
+
+      <section class="card grid">
+      <div class="grid grid-2">
+        <div class="form-group">
+          <label for="searchInput">Поиск (имя или текст)</label>
+          <input id="searchInput" type="text" placeholder="Введите запрос..." />
+        </div>
+
+        <div class="form-group">
+          <label for="sortSelect">Сортировка</label>
+          <select id="sortSelect">
+            <option value="new">Сначала новые</option>
+            <option value="old">Сначала старые</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row between">
+        <label class="row" style="margin:0;">
+          <input id="likesOnly" type="checkbox" />
+          <span>Только с лайками</span>
+        </label>
+
+        <div class="row">
+          <label for="pageSizeSelect" style="font-size:13px;">На странице:</label>
+          <select id="pageSizeSelect">
+            <option value="5">5</option>
+            <option value="10" selected>10</option>
+            <option value="20">20</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="resultNote" class="toolbar-note"></div>
+      </section>
+
+      <section id="feed" class="feed"></section>
+      <div id="pagination" class="pagination"></div>
+    </section>
+
+    <section id="profileSection" class="page-section">
+      <div class="card">
+        <h2>Профиль</h2>
+        <form id="profileForm" class="grid">
+          <div class="form-group">
+            <label for="profileName">Имя</label>
+            <input id="profileName" type="text" maxlength="60" placeholder="Введите имя" />
+          </div>
+          <div class="form-group">
+            <label for="profileEmail">Email</label>
+            <input id="profileEmail" type="email" maxlength="120" placeholder="example@mail.com" />
+          </div>
+          <div class="form-group">
+            <label for="profileAvatar">Ссылка на аватар</label>
+            <input id="profileAvatar" type="url" maxlength="300" placeholder="https://..." />
+          </div>
+          <div class="form-group">
+            <label for="profileBio">О себе</label>
+            <textarea id="profileBio" maxlength="400" placeholder="Коротко о себе..."></textarea>
+          </div>
+          <div class="row">
+            <button type="submit">Сохранить профиль</button>
+            <button id="profileResetBtn" class="btn-secondary" type="button">Сбросить</button>
+          </div>
+          <div id="profileStatus" class="hint"></div>
+        </form>
+      </div>
+    </section>
+
+    <section id="legalSection" class="page-section">
+      <div class="card">
+        <h2>Правовой раздел</h2>
+        <div class="legal-box">
+          <h3>Политика конфиденциальности (шаблон)</h3>
+          <p>
+            Мы обрабатываем только данные, необходимые для работы сервиса:
+            опубликованные сообщения, настройки интерфейса и профильные поля,
+            сохранённые в браузере пользователя. Продолжая использование сервиса,
+            вы подтверждаете согласие с обработкой этих данных.
+          </p>
+        </div>
+        <div class="legal-box">
+          <h3>Пользовательское соглашение (шаблон)</h3>
+          <p>
+            Пользователь обязуется публиковать только корректный контент,
+            не нарушающий законодательство и права третьих лиц. Администрация
+            оставляет за собой право удалять сообщения, нарушающие правила.
+          </p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <nav class="bottom-nav" aria-label="Основные разделы">
+    <button class="nav-btn active" data-tab="feedSection" type="button">Лента</button>
+    <button class="nav-btn" data-tab="profileSection" type="button">Профиль</button>
+    <button class="nav-btn" data-tab="legalSection" type="button">Право</button>
+  </nav>
+
+  <div id="editBackdrop" class="modal-backdrop" aria-hidden="true">
+    <div class="modal">
+      <h2>Редактировать пост</h2>
+      <form id="editForm" class="grid">
+        <div class="form-group">
+          <label for="editAuthor">Имя</label>
+          <input id="editAuthor" type="text" maxlength="40" required />
+        </div>
+        <div class="form-group">
+          <label for="editMessage">Сообщение</label>
+          <textarea id="editMessage" maxlength="500" required></textarea>
+        </div>
+        <div class="row">
+          <button type="submit">Сохранить</button>
+          <button id="cancelEditBtn" type="button" class="btn-secondary">Отмена</button>
+        </div>
+        <div id="editErrorBox" class="error"></div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'guest_feed_posts_v3';
+    const SETTINGS_KEY = 'guest_feed_settings_v1';
+    const COOLDOWN_SECONDS = 10;
+
+    const postForm = document.getElementById('postForm');
+    const authorInput = document.getElementById('author');
+    const messageInput = document.getElementById('message');
+    const submitBtn = document.getElementById('submitBtn');
+    const cooldownHint = document.getElementById('cooldownHint');
+    const errorBox = document.getElementById('errorBox');
+
+    const searchInput = document.getElementById('searchInput');
+    const sortSelect = document.getElementById('sortSelect');
+    const likesOnly = document.getElementById('likesOnly');
+    const pageSizeSelect = document.getElementById('pageSizeSelect');
+    const resultNote = document.getElementById('resultNote');
+
+    const feed = document.getElementById('feed');
+    const pagination = document.getElementById('pagination');
+
+    const editBackdrop = document.getElementById('editBackdrop');
+    const editForm = document.getElementById('editForm');
+    const editAuthor = document.getElementById('editAuthor');
+    const editMessage = document.getElementById('editMessage');
+    const cancelEditBtn = document.getElementById('cancelEditBtn');
+    const editErrorBox = document.getElementById('editErrorBox');
+    const navButtons = document.querySelectorAll('.nav-btn');
+    const pageSections = document.querySelectorAll('.page-section');
+    const profileForm = document.getElementById('profileForm');
+    const profileName = document.getElementById('profileName');
+    const profileEmail = document.getElementById('profileEmail');
+    const profileAvatar = document.getElementById('profileAvatar');
+    const profileBio = document.getElementById('profileBio');
+    const profileStatus = document.getElementById('profileStatus');
+    const profileResetBtn = document.getElementById('profileResetBtn');
+
+    let editingPostId = null;
+    let cooldownUntil = 0;
+    let cooldownTimer = null;
+    let currentPage = 1;
+    const PROFILE_KEY = 'guest_feed_profile_v1';
+
+    function formatDate(ts) {
+      const d = new Date(ts);
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const yyyy = d.getFullYear();
+      const hh = String(d.getHours()).padStart(2, '0');
+      const min = String(d.getMinutes()).padStart(2, '0');
+      return `${dd}.${mm}.${yyyy} ${hh}:${min}`;
+    }
+
+    function normalizeText(text) {
+      return text.toLowerCase().trim();
+    }
+
+    function newId() {
+      return (crypto.randomUUID && crypto.randomUUID()) || `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    }
+
+    function loadProfile() {
+      try {
+        const raw = localStorage.getItem(PROFILE_KEY);
+        const data = raw ? JSON.parse(raw) : {};
+        profileName.value = data.name || '';
+        profileEmail.value = data.email || '';
+        profileAvatar.value = data.avatar || '';
+        profileBio.value = data.bio || '';
+      } catch {
+        profileName.value = '';
+        profileEmail.value = '';
+        profileAvatar.value = '';
+        profileBio.value = '';
+      }
+    }
+
+    function saveProfile() {
+      const data = {
+        name: profileName.value.trim(),
+        email: profileEmail.value.trim(),
+        avatar: profileAvatar.value.trim(),
+        bio: profileBio.value.trim(),
+        updatedAt: Date.now(),
+      };
+      localStorage.setItem(PROFILE_KEY, JSON.stringify(data));
+      profileStatus.textContent = 'Профиль сохранён локально.';
+    }
+
+    function resetProfile() {
+      localStorage.removeItem(PROFILE_KEY);
+      loadProfile();
+      profileStatus.textContent = 'Профиль сброшен.';
+    }
+
+    function getPosts() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        const parsed = raw ? JSON.parse(raw) : [];
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+
+    function savePosts(posts) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(posts));
+    }
+
+    function getSettings() {
+      try {
+        const raw = localStorage.getItem(SETTINGS_KEY);
+        const parsed = raw ? JSON.parse(raw) : {};
+        return {
+          sort: parsed.sort || 'new',
+          search: parsed.search || '',
+          likesOnly: !!parsed.likesOnly,
+          pageSize: Number(parsed.pageSize) || 10,
+        };
+      } catch {
+        return { sort: 'new', search: '', likesOnly: false, pageSize: 10 };
+      }
+    }
+
+    function saveSettings(settings) {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    }
+
+    function setError(msg = '') {
+      errorBox.textContent = msg;
+    }
+
+    function setEditError(msg = '') {
+      editErrorBox.textContent = msg;
+    }
+
+    function addPost(author, text) {
+      const posts = getPosts();
+      posts.push({
+        id: newId(),
+        author,
+        text,
+        likes: 0,
+        createdAt: Date.now(),
+        editedAt: null,
+      });
+      savePosts(posts);
+    }
+
+    function deletePost(postId) {
+      const posts = getPosts().filter((p) => p.id !== postId);
+      savePosts(posts);
+      refreshAfterMutation();
+    }
+
+    function likePost(postId) {
+      const posts = getPosts();
+      const post = posts.find((p) => p.id === postId);
+      if (!post) return;
+      post.likes = (post.likes || 0) + 1;
+      savePosts(posts);
+      render();
+    }
+
+    function openEdit(postId) {
+      const post = getPosts().find((p) => p.id === postId);
+      if (!post) return;
+
+      editingPostId = post.id;
+      editAuthor.value = post.author;
+      editMessage.value = post.text;
+      setEditError('');
+      editBackdrop.style.display = 'flex';
+      editBackdrop.setAttribute('aria-hidden', 'false');
+      editAuthor.focus();
+    }
+
+    function closeEdit() {
+      editingPostId = null;
+      editBackdrop.style.display = 'none';
+      editBackdrop.setAttribute('aria-hidden', 'true');
+      editForm.reset();
+      setEditError('');
+    }
+
+    function saveEdit() {
+      const author = editAuthor.value.trim();
+      const text = editMessage.value.trim();
+
+      if (!author || !text) {
+        setEditError('Имя и сообщение не должны быть пустыми.');
+        return;
+      }
+
+      const posts = getPosts();
+      const post = posts.find((p) => p.id === editingPostId);
+      if (!post) {
+        setEditError('Пост не найден.');
+        return;
+      }
+
+      post.author = author;
+      post.text = text;
+      post.editedAt = Date.now();
+      savePosts(posts);
+      closeEdit();
+      render();
+    }
+
+    function getFilteredSortedPosts() {
+      const settings = getSettings();
+      const query = normalizeText(settings.search);
+
+      let posts = [...getPosts()];
+
+      if (settings.likesOnly) {
+        posts = posts.filter((p) => (p.likes || 0) > 0);
+      }
+
+      if (query) {
+        posts = posts.filter((p) =>
+          normalizeText(p.author).includes(query) ||
+          normalizeText(p.text).includes(query)
+        );
+      }
+
+      posts.sort((a, b) => (settings.sort === 'new' ? b.createdAt - a.createdAt : a.createdAt - b.createdAt));
+
+      return posts;
+    }
+
+    function paginate(posts) {
+      const { pageSize } = getSettings();
+      const totalPages = Math.max(1, Math.ceil(posts.length / pageSize));
+      if (currentPage > totalPages) currentPage = totalPages;
+
+      const start = (currentPage - 1) * pageSize;
+      return {
+        items: posts.slice(start, start + pageSize),
+        totalPages,
+        totalItems: posts.length,
+      };
+    }
+
+    function createPostElement(post) {
+      const article = document.createElement('article');
+      article.className = 'post';
+      article.dataset.id = post.id;
+
+      const editedHtml = post.editedAt
+        ? `<span class="edited">· изменено ${formatDate(post.editedAt)}</span>`
+        : '';
+
+      article.innerHTML = `
+        <div class="post-header">
+          <div>
+            <span class="author"></span>
+            ${editedHtml}
+          </div>
+          <time>${formatDate(post.createdAt)}</time>
+        </div>
+
+        <div class="post-text"></div>
+
+        <div class="post-footer">
+          <span class="like-counter">❤️ ${post.likes || 0}</span>
+          <div class="actions">
+            <button class="btn-like" type="button">Лайк</button>
+            <button class="btn-secondary" type="button">Редактировать</button>
+            <button class="btn-danger" type="button">Удалить</button>
+          </div>
+        </div>
+      `;
+
+      article.querySelector('.author').textContent = post.author;
+      article.querySelector('.post-text').textContent = post.text;
+
+      const [likeBtn, editBtn, delBtn] = article.querySelectorAll('button');
+      likeBtn.addEventListener('click', () => likePost(post.id));
+      editBtn.addEventListener('click', () => openEdit(post.id));
+      delBtn.addEventListener('click', () => deletePost(post.id));
+
+      return article;
+    }
+
+    function renderPagination(totalPages) {
+      pagination.innerHTML = '';
+      if (totalPages <= 1) return;
+
+      const prevBtn = document.createElement('button');
+      prevBtn.textContent = '← Назад';
+      prevBtn.disabled = currentPage === 1;
+      prevBtn.addEventListener('click', () => {
+        if (currentPage > 1) {
+          currentPage -= 1;
+          render();
+        }
+      });
+
+      const info = document.createElement('span');
+      info.className = 'page-info';
+      info.textContent = `Страница ${currentPage} из ${totalPages}`;
+
+      const nextBtn = document.createElement('button');
+      nextBtn.textContent = 'Вперёд →';
+      nextBtn.disabled = currentPage === totalPages;
+      nextBtn.addEventListener('click', () => {
+        if (currentPage < totalPages) {
+          currentPage += 1;
+          render();
+        }
+      });
+
+      pagination.append(prevBtn, info, nextBtn);
+    }
+
+    function render() {
+      const all = getFilteredSortedPosts();
+      const { items, totalPages, totalItems } = paginate(all);
+
+      feed.innerHTML = '';
+
+      if (totalItems === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'empty';
+        empty.textContent = 'Нет постов по заданным условиям.';
+        feed.appendChild(empty);
+      } else {
+        items.forEach((p) => feed.appendChild(createPostElement(p)));
+      }
+
+      resultNote.textContent = `Найдено постов: ${totalItems}`;
+      renderPagination(totalPages);
+    }
+
+    function refreshAfterMutation() {
+      const all = getFilteredSortedPosts();
+      const { pageSize } = getSettings();
+      const totalPages = Math.max(1, Math.ceil(all.length / pageSize));
+      if (currentPage > totalPages) currentPage = totalPages;
+      render();
+    }
+
+    function updateCooldownUI() {
+      const msLeft = cooldownUntil - Date.now();
+
+      if (msLeft <= 0) {
+        submitBtn.disabled = false;
+        cooldownHint.textContent = '';
+        if (cooldownTimer) {
+          clearInterval(cooldownTimer);
+          cooldownTimer = null;
+        }
+        return;
+      }
+
+      const sec = Math.ceil(msLeft / 1000);
+      submitBtn.disabled = true;
+      cooldownHint.textContent = `Следующий пост через ${sec} сек.`;
+    }
+
+    function startCooldown() {
+      cooldownUntil = Date.now() + COOLDOWN_SECONDS * 1000;
+      updateCooldownUI();
+
+      if (cooldownTimer) clearInterval(cooldownTimer);
+      cooldownTimer = setInterval(updateCooldownUI, 250);
+    }
+
+    function bindSettingsInputs() {
+      const settings = getSettings();
+      searchInput.value = settings.search;
+      sortSelect.value = settings.sort;
+      likesOnly.checked = settings.likesOnly;
+      pageSizeSelect.value = String(settings.pageSize);
+    }
+
+    function saveSettingsFromInputs(resetPage = false) {
+      const settings = {
+        search: searchInput.value.trim(),
+        sort: sortSelect.value,
+        likesOnly: likesOnly.checked,
+        pageSize: Number(pageSizeSelect.value) || 10,
+      };
+      saveSettings(settings);
+      if (resetPage) currentPage = 1;
+    }
+
+    postForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      setError('');
+
+      if (Date.now() < cooldownUntil) {
+        setError('Слишком часто. Подождите несколько секунд.');
+        return;
+      }
+
+      const author = authorInput.value.trim();
+      const text = messageInput.value.trim();
+
+      if (!author || !text) {
+        setError('Заполните имя и сообщение.');
+        return;
+      }
+
+      addPost(author, text);
+      postForm.reset();
+      authorInput.focus();
+      currentPage = 1;
+      render();
+      startCooldown();
+    });
+
+    searchInput.addEventListener('input', () => {
+      saveSettingsFromInputs(true);
+      render();
+    });
+
+    sortSelect.addEventListener('change', () => {
+      saveSettingsFromInputs(true);
+      render();
+    });
+
+    likesOnly.addEventListener('change', () => {
+      saveSettingsFromInputs(true);
+      render();
+    });
+
+    pageSizeSelect.addEventListener('change', () => {
+      saveSettingsFromInputs(true);
+      render();
+    });
+
+    editForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      saveEdit();
+    });
+
+    cancelEditBtn.addEventListener('click', closeEdit);
+
+    editBackdrop.addEventListener('click', (e) => {
+      if (e.target === editBackdrop) closeEdit();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && editBackdrop.style.display === 'flex') {
+        closeEdit();
+      }
+    });
+
+    navButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const targetId = btn.dataset.tab;
+
+        pageSections.forEach((section) => {
+          section.classList.toggle('active', section.id === targetId);
+        });
+
+        navButtons.forEach((item) => {
+          item.classList.toggle('active', item === btn);
+        });
+      });
+    });
+
+    profileForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      saveProfile();
+    });
+
+    profileResetBtn.addEventListener('click', () => {
+      resetProfile();
+    });
+
+    loadProfile();
+    bindSettingsInputs();
+    render();
+  </script>
+</body>
+</html>
