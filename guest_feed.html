@@ -267,8 +267,39 @@
       color: #374151;
     }
 
+    .rules-toggle {
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: #f9fafb;
+    }
+
+    .rules-toggle summary {
+      cursor: pointer;
+      font-size: 18px;
+      font-weight: 700;
+      color: #1f2937;
+      list-style: none;
+    }
+
+    .rules-toggle summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .rules-toggle summary::after {
+      content: 'Показать';
+      float: right;
+      font-size: 13px;
+      font-weight: 600;
+      color: #2563eb;
+    }
+
+    .rules-toggle[open] summary::after {
+      content: 'Скрыть';
+    }
+
     .rules-list {
-      margin: 0;
+      margin: 10px 0 0;
       padding-left: 20px;
       display: grid;
       gap: 8px;
@@ -325,14 +356,16 @@
 
     <section id="feedSection" class="page-section active">
       <section class="card grid">
-      <h2>Как публиковать посты (пошагово)</h2>
-      <ol class="rules-list">
-        <li>Укажите имя, чтобы другие пользователи понимали, кто автор публикации.</li>
-        <li>Пишите по теме и без оскорблений, уважайте участников сообщества.</li>
-        <li>Не публикуйте персональные данные, запрещённый контент и материалы, нарушающие закон.</li>
-        <li>Перед отправкой внимательно проверьте текст на ошибки и смысл.</li>
-        <li>При нарушениях пост может быть удалён администрацией без дополнительного уведомления.</li>
-      </ol>
+      <details class="rules-toggle">
+        <summary>Как публиковать посты (пошагово)</summary>
+        <ol class="rules-list">
+          <li>Укажите имя, чтобы другие пользователи понимали, кто автор публикации.</li>
+          <li>Пишите по теме и без оскорблений, уважайте участников сообщества.</li>
+          <li>Не публикуйте персональные данные, запрещённый контент и материалы, нарушающие закон.</li>
+          <li>Перед отправкой внимательно проверьте текст на ошибки и смысл.</li>
+          <li>При нарушениях пост может быть удалён администрацией без дополнительного уведомления.</li>
+        </ol>
+      </details>
       <form id="postForm" class="grid">
         <div class="form-group">
           <label for="author">Ваше имя</label>
