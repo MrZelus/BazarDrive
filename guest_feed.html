@@ -601,6 +601,7 @@
     ];
 
     let posts = [];
+    let totalPosts = 0;
     let currentPage = 1;
     let cooldownUntil = 0;
     let cooldownTimer = null;
@@ -666,7 +667,7 @@
       if (resetPage) currentPage = 1;
     }
 
-    function getFilteredSortedPosts() {
+    function getVisiblePosts() {
       const settings = getSettings();
       const query = normalizeText(settings.search);
       let items = [...posts];
@@ -681,18 +682,6 @@
 
       items.sort((a, b) => (settings.sort === 'new' ? b.createdAt - a.createdAt : a.createdAt - b.createdAt));
       return items;
-    }
-
-    function paginate(items) {
-      const { pageSize } = getSettings();
-      const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
-      if (currentPage > totalPages) currentPage = totalPages;
-      const start = (currentPage - 1) * pageSize;
-      return {
-        items: items.slice(start, start + pageSize),
-        totalPages,
-        totalItems: items.length,
-      };
     }
 
     function createPostElement(post) {
@@ -724,7 +713,7 @@
       prevBtn.addEventListener('click', () => {
         if (currentPage > 1) {
           currentPage -= 1;
-          render();
+          loadPosts();
         }
       });
 
@@ -738,7 +727,7 @@
       nextBtn.addEventListener('click', () => {
         if (currentPage < totalPages) {
           currentPage += 1;
-          render();
+          loadPosts();
         }
       });
 
@@ -767,11 +756,12 @@
     }
 
     function render() {
-      const all = getFilteredSortedPosts();
-      const { items, totalPages, totalItems } = paginate(all);
+      const items = getVisiblePosts();
+      const { pageSize } = getSettings();
+      const totalPages = Math.max(1, Math.ceil(totalPosts / pageSize));
       feed.innerHTML = '';
 
-      if (!totalItems) {
+      if (!items.length) {
         const empty = document.createElement('div');
         empty.className = 'empty';
         empty.textContent = 'Нет постов по заданным условиям.';
@@ -780,7 +770,7 @@
         items.forEach((p) => feed.appendChild(createPostElement(p)));
       }
 
-      resultNote.textContent = `Найдено постов: ${totalItems}`;
+      resultNote.textContent = `Всего постов: ${totalPosts}. На странице: ${items.length}.`;
       renderPagination(totalPages);
     }
 
@@ -798,7 +788,14 @@
       setError('');
       renderLoading();
       try {
-        const response = await fetch(FEED_API_URL, { method: 'GET' });
+        const { pageSize } = getSettings();
+        const limit = Math.min(100, Math.max(1, Number(pageSize) || 10));
+        const offset = Math.max(0, (currentPage - 1) * limit);
+        const feedUrl = new URL(FEED_API_URL);
+        feedUrl.searchParams.set('limit', String(limit));
+        feedUrl.searchParams.set('offset', String(offset));
+
+        const response = await fetch(feedUrl.toString(), { method: 'GET' });
         if (!response.ok) throw new Error('feed_load_failed');
 
         const payload = await response.json();
@@ -811,6 +808,11 @@
           likes: Number(item.likes) || 0,
           createdAt: Date.parse(item.created_at) || Date.now(),
         }));
+
+        totalPosts = Number(payload.total) || 0;
+        const safeLimit = Math.min(100, Math.max(1, Number(payload.limit) || limit));
+        const safeOffset = Math.max(0, Number(payload.offset) || offset);
+        currentPage = Math.floor(safeOffset / safeLimit) + 1;
 
         render();
       } catch {
@@ -988,7 +990,7 @@
     });
     pageSizeSelect.addEventListener('change', () => {
       saveSettingsFromInputs(true);
-      render();
+      loadPosts();
     });
     resetFiltersBtn.addEventListener('click', () => {
       searchInput.value = '';
@@ -996,7 +998,7 @@
       likesOnly.checked = false;
       pageSizeSelect.value = '10';
       saveSettingsFromInputs(true);
-      render();
+      loadPosts();
     });
     authorInput.addEventListener('input', updateCounters);
     messageInput.addEventListener('input', updateCounters);

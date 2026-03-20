@@ -1,9 +1,15 @@
 import json
 import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
-from db import create_guest_feed_post, init_db, list_approved_posts, list_guest_feed_posts
+from db import (
+    count_guest_feed_posts,
+    create_guest_feed_post,
+    init_db,
+    list_approved_posts,
+    list_guest_feed_posts,
+)
 
 
 class FeedAPIHandler(BaseHTTPRequestHandler):
@@ -26,10 +32,35 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self) -> None:  # noqa: N802
-        path = urlparse(self.path).path
+        parsed = urlparse(self.path)
+        path = parsed.path
         if path == "/api/feed/posts":
-            posts = list_guest_feed_posts()
-            self._send_json(200, {"items": posts})
+            params = parse_qs(parsed.query)
+
+            def _parse_int(name: str, default: int) -> int:
+                raw = params.get(name, [str(default)])[0]
+                try:
+                    return int(raw)
+                except (TypeError, ValueError):
+                    return default
+
+            limit = _parse_int("limit", 20)
+            offset = _parse_int("offset", 0)
+
+            limit = max(1, min(100, limit))
+            offset = max(0, offset)
+
+            posts = list_guest_feed_posts(limit=limit, offset=offset)
+            total = count_guest_feed_posts()
+            self._send_json(
+                200,
+                {
+                    "items": posts,
+                    "limit": limit,
+                    "offset": offset,
+                    "total": total,
+                },
+            )
             return
 
         if path == "/api/feed/approved":

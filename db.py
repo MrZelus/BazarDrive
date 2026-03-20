@@ -229,7 +229,7 @@ def list_approved_posts(
 
         return [dict(row) for row in cur.fetchall()]
 
-def list_guest_feed_posts(limit: int = 200) -> list[dict[str, Any]]:
+def list_guest_feed_posts(limit: int = 20, offset: int = 0) -> list[dict[str, Any]]:
     with closing(sqlite3.connect(DB_PATH)) as conn:
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
@@ -238,11 +238,19 @@ def list_guest_feed_posts(limit: int = 200) -> list[dict[str, Any]]:
             SELECT id, author, text, likes, created_at
             FROM guest_feed_posts
             ORDER BY datetime(created_at) DESC, id DESC
-            LIMIT ?
+            LIMIT ? OFFSET ?
             """,
-            (limit,),
+            (limit, offset),
         )
         return [dict(row) for row in cur.fetchall()]
+
+
+def count_guest_feed_posts() -> int:
+    with closing(sqlite3.connect(DB_PATH)) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM guest_feed_posts")
+        row = cur.fetchone()
+        return int(row[0]) if row else 0
 
 
 def create_guest_feed_post(author: str, text: str) -> dict[str, Any]:
