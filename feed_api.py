@@ -8,6 +8,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 from db import (
+    MAX_GUEST_FEED_IMAGE_URL_LENGTH,
     count_guest_feed_posts,
     create_guest_feed_post,
     init_db,
@@ -27,6 +28,27 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
     _rate_limit_timestamps: dict[str, list[float]] = {}
     _rate_limit_expire_at: dict[str, float] = {}
     _rate_limit_last_cleanup_at = 0.0
+
+    @staticmethod
+    def _validate_image_url_metadata(payload: dict[str, object]) -> str | None:
+        raw_value = payload.get("image_url")
+        if raw_value is None:
+            return None
+
+        image_url = str(raw_value).strip()
+        if not image_url:
+            return None
+
+        if len(image_url) > MAX_GUEST_FEED_IMAGE_URL_LENGTH:
+            raise ValueError(
+                f"Ссылка на изображение слишком длинная (максимум {MAX_GUEST_FEED_IMAGE_URL_LENGTH} символов)"
+            )
+
+        parsed = urlparse(image_url)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            raise ValueError("Некорректный формат image_url: поддерживаются только http/https URL")
+
+        return image_url
 
     @staticmethod
     def _isoformat_timestamp(value: object) -> object:
@@ -203,6 +225,11 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
 
         author = str(payload.get("author", "")).strip()
         text = str(payload.get("text", "")).strip()
+        try:
+            image_url = self._validate_image_url_metadata(payload)
+        except ValueError as error:
+            self._send_json(400, {"error": str(error)})
+            return
 
         if not author or not text:
             self._send_json(400, {"error": "Поля author и text обязательны"})
@@ -225,7 +252,11 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             )
             return
 
-        item = create_guest_feed_post(author, text)
+        try:
+            item = create_guest_feed_post(author, text, image_url=image_url)
+        except ValueError as error:
+            self._send_json(400, {"error": str(error)})
+            return
         self._send_json(201, item)
 
     def do_PATCH(self) -> None:  # noqa: N802
@@ -259,13 +290,18 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
 
         author = str(payload.get("author", "")).strip()
         text = str(payload.get("text", "")).strip()
+        try:
+            image_url = self._validate_image_url_metadata(payload)
+        except ValueError as error:
+            self._send_json(400, {"error": str(error)})
+            return
 
         if not author or not text:
             self._send_json(400, {"error": "Поля author и text обязательны"})
             return
 
         try:
-            updated = update_guest_feed_post(post_id=post_id, author=author, text=text)
+            updated = update_guest_feed_post(post_id=post_id, author=author, text=text, image_url=image_url)
         except ValueError as error:
             self._send_json(400, {"error": str(error)})
             return
