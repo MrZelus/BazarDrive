@@ -403,23 +403,20 @@
 
     <section id="legalSection" class="page-section">
       <div class="card">
-        <h2>Правовой раздел</h2>
         <div class="legal-box">
-          <h3>Политика конфиденциальности (шаблон)</h3>
+          <h2>Правила и документы</h2>
+          <h3>Правила платформы</h3>
           <p>
-            Мы обрабатываем только данные, необходимые для работы сервиса:
-            опубликованные сообщения, настройки интерфейса и профильные поля,
-            сохранённые в браузере пользователя. Продолжая использование сервиса,
-            вы подтверждаете согласие с обработкой этих данных.
+            Публикуйте корректный контент, уважайте других пользователей
+            и не размещайте материалы, нарушающие законодательство и права
+            третьих лиц. Администрация может ограничивать доступ к контенту,
+            который нарушает правила платформы.
           </p>
         </div>
         <div class="legal-box">
-          <h3>Пользовательское соглашение (шаблон)</h3>
-          <p>
-            Пользователь обязуется публиковать только корректный контент,
-            не нарушающий законодательство и права третьих лиц. Администрация
-            оставляет за собой право удалять сообщения, нарушающие правила.
-          </p>
+          <h3>Документы</h3>
+          <p>Актуальные шаблоны документов платформы.</p>
+          <div id="documentsList"></div>
         </div>
       </div>
     </section>
@@ -428,7 +425,7 @@
   <nav class="bottom-nav" aria-label="Основные разделы">
     <button class="nav-btn active" data-tab="feedSection" type="button">Лента</button>
     <button class="nav-btn" data-tab="profileSection" type="button">Профиль</button>
-    <button class="nav-btn" data-tab="legalSection" type="button">Право</button>
+    <button class="nav-btn" data-tab="legalSection" type="button">Правила</button>
   </nav>
 
   <div id="editBackdrop" class="modal-backdrop" aria-hidden="true">
@@ -483,6 +480,24 @@
     const profileBio = document.getElementById('profileBio');
     const profileStatus = document.getElementById('profileStatus');
     const profileResetBtn = document.getElementById('profileResetBtn');
+    const documentsList = document.getElementById('documentsList');
+
+    const DOCUMENTS = [
+      {
+        id: 'privacy-policy',
+        title: 'Политика конфиденциальности (шаблон)',
+        type: 'policy',
+        content: 'Мы обрабатываем только данные, необходимые для работы сервиса: опубликованные сообщения, настройки интерфейса и профильные поля, сохранённые в браузере пользователя. Продолжая использование сервиса, вы подтверждаете согласие с обработкой этих данных.',
+        updatedAt: '2026-03-20',
+      },
+      {
+        id: 'user-agreement',
+        title: 'Пользовательское соглашение (шаблон)',
+        type: 'agreement',
+        content: 'Пользователь обязуется публиковать только корректный контент, не нарушающий законодательство и права третьих лиц. Администрация оставляет за собой право удалять сообщения, нарушающие правила.',
+        updatedAt: '2026-03-20',
+      },
+    ];
 
     let posts = [];
     let currentPage = 1;
@@ -783,6 +798,23 @@
       profileStatus.textContent = 'Профиль сброшен.';
     }
 
+    function renderDocumentsSection() {
+      if (!documentsList) return;
+      documentsList.innerHTML = '';
+
+      DOCUMENTS.forEach((doc) => {
+        const card = document.createElement('article');
+        card.className = 'legal-box';
+        card.dataset.documentId = doc.id;
+        card.innerHTML = `
+          <h3>${doc.title}</h3>
+          <p>${doc.content}</p>
+          <p><strong>Тип:</strong> ${doc.type} · <strong>Обновлено:</strong> ${doc.updatedAt}</p>
+        `;
+        documentsList.appendChild(card);
+      });
+    }
+
     postForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       setError('');
@@ -868,6 +900,7 @@
 
     loadProfile();
     bindSettingsInputs();
+    renderDocumentsSection();
     loadPosts();
   </script>
 
