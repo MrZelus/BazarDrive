@@ -175,41 +175,7 @@
   </nav>
 
   <script>
-    const posts = [
-      {
-        id: 1,
-        author: 'Анна К.',
-        avatar: 'https://i.pravatar.cc/80?img=5',
-        publishedAt: '20 мар 2026, 22:14',
-        text: 'Сегодня завершила редизайн профиля. Минималистичный подход реально делает интерфейс легче для восприятия.',
-        image: 'https://images.unsplash.com/photo-1516383740770-fbcc5ccbece0?auto=format&fit=crop&w=1200&q=80',
-        likes: 24,
-        comments: 6,
-        reposts: 3,
-      },
-      {
-        id: 2,
-        author: 'Максим И.',
-        avatar: 'https://i.pravatar.cc/80?img=15',
-        publishedAt: '20 мар 2026, 21:02',
-        text: 'Тестирую адаптивную ленту на Tailwind. На мобильном всё выглядит аккуратно и читабельно.',
-        image: '',
-        likes: 12,
-        comments: 2,
-        reposts: 1,
-      },
-      {
-        id: 3,
-        author: 'София Л.',
-        avatar: 'https://i.pravatar.cc/80?img=32',
-        publishedAt: '20 мар 2026, 19:48',
-        text: 'Добавила в посты карточки с hover-эффектом и мягкими тенями. Получилось в стиле Notion/Threads.',
-        image: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1200&q=80',
-        likes: 41,
-        comments: 11,
-        reposts: 7,
-      },
-    ];
+    const posts = [];
 
     const docs = [
       {
@@ -233,6 +199,8 @@
     ];
 
     const ROLE_STORAGE_KEY = 'bazardrive_selected_role';
+    const PROFILE_STORAGE_KEY = 'bazardrive_profile';
+    const FEED_API_BASE = `${window.location.protocol}//${window.location.hostname || 'localhost'}:8001`;
 
     const feedEl = document.getElementById('feed');
     const newPostInput = document.getElementById('newPostInput');
@@ -251,6 +219,40 @@
     const roleButtons = document.querySelectorAll('.role-btn');
     const roleDriver = document.getElementById('role-driver');
     const roleCommon = document.getElementById('role-common');
+    
+    function formatPostDate(createdAt) {
+      const date = createdAt ? new Date(createdAt) : new Date();
+      if (Number.isNaN(date.getTime())) {
+        return 'только что';
+      }
+
+      return date.toLocaleString('ru-RU', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+
+    function pickAvatar(author) {
+      const seed = encodeURIComponent(author || 'guest');
+      return `https://api.dicebear.com/8.x/initials/svg?seed=${seed}`;
+    }
+
+    function mapApiPost(item) {
+      return {
+        id: item.id,
+        author: item.author || 'Гость',
+        avatar: pickAvatar(item.author),
+        publishedAt: formatPostDate(item.created_at),
+        text: item.text || '',
+        image: item.image_url || '',
+        likes: Number(item.likes) || 0,
+        comments: 0,
+        reposts: 0,
+      };
+    }
 
     function interactionButton(icon, value, label) {
       return `
@@ -299,30 +301,62 @@
       `).join('');
     }
 
-    function addNewPost() {
+    async function loadPosts() {
+      try {
+        const response = await fetch(`${FEED_API_BASE}/api/feed/posts?limit=50&offset=0`);
+        if (!response.ok) {
+          throw new Error(`Не удалось загрузить ленту (HTTP ${response.status})`);
+        }
+
+        const payload = await response.json();
+        const items = Array.isArray(payload.items) ? payload.items : [];
+        posts.splice(0, posts.length, ...items.map(mapApiPost));
+        renderFeed();
+      } catch (error) {
+        console.error(error);
+        feedEl.innerHTML = '<div class="rounded-2xl bg-panel p-4 border border-white/10 text-sm text-warning">Не удалось загрузить посты. Проверьте, что API запущен на порту 8001.</div>';
+      }
+    }
+
+    function resolveAuthorName() {
+      try {
+        const profileRaw = localStorage.getItem(PROFILE_STORAGE_KEY);
+        if (!profileRaw) return 'Гость';
+        const profile = JSON.parse(profileRaw);
+        const fullName = String(profile?.fullName || '').trim();
+        if (fullName.length >= 2) return fullName;
+      } catch (error) {
+        console.warn('Не удалось прочитать профиль пользователя', error);
+      }
+      return 'Гость';
+    }
+
+    async function addNewPost() {
       const text = newPostInput.value.trim();
       if (!text) return;
-
-      posts.unshift({
-        id: Date.now(),
-        author: 'Вы',
-        avatar: 'https://i.pravatar.cc/80?img=12',
-        publishedAt: new Date().toLocaleString('ru-RU', {
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        }),
-        text,
-        image: '',
-        likes: 0,
-        comments: 0,
-        reposts: 0,
-      });
-
-      newPostInput.value = '';
-      renderFeed();
+      
+      const author = resolveAuthorName();
+      publishBtn.disabled = true;
+      publishBtn.textContent = 'Публикация...';
+      try {
+        const response = await fetch(`${FEED_API_BASE}/api/feed/posts`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ author, text }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload.error || `Ошибка публикации (HTTP ${response.status})`);
+        }
+        newPostInput.value = '';
+        await loadPosts();
+      } catch (error) {
+        console.error(error);
+        alert(error.message || 'Не удалось опубликовать пост');
+      } finally {
+        publishBtn.disabled = false;
+        publishBtn.textContent = 'Опубликовать';
+      }
     }
 
     function renderDocs(query = '') {
@@ -406,7 +440,7 @@
     const savedRole = localStorage.getItem(ROLE_STORAGE_KEY);
     const initialRole = ['driver', 'passenger', 'guest'].includes(savedRole) ? savedRole : 'driver';
 
-    renderFeed();
+    loadPosts();
     renderDocs();
     setRole(initialRole);
     setActiveScreen('feed');
