@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 
 DB_PATH = "bot.db"
 MAX_GUEST_FEED_IMAGE_URL_LENGTH = 2048
+MAX_GUEST_FEED_IMAGE_DATA_URL_LENGTH = 4_500_000
 
 
 def _validate_guest_feed_image_url(image_url: Optional[str]) -> Optional[str]:
@@ -14,6 +15,14 @@ def _validate_guest_feed_image_url(image_url: Optional[str]) -> Optional[str]:
     image_url_clean = image_url.strip()
     if not image_url_clean:
         return None
+
+    if image_url_clean.startswith("data:"):
+        if len(image_url_clean) > MAX_GUEST_FEED_IMAGE_DATA_URL_LENGTH:
+            raise ValueError(
+                "Изображение в формате data URL слишком большое "
+                f"(максимум {MAX_GUEST_FEED_IMAGE_DATA_URL_LENGTH} символов)"
+            )
+        return image_url_clean
 
     if len(image_url_clean) > MAX_GUEST_FEED_IMAGE_URL_LENGTH:
         raise ValueError(

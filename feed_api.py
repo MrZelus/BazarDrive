@@ -1,6 +1,10 @@
+import base64
+import binascii
 import json
 import os
 import time
+from email.parser import BytesParser
+from email.policy import default as default_policy
 from math import ceil
 from threading import Lock
 from datetime import datetime, timezone
@@ -23,6 +27,8 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
     RATE_LIMIT_MAX_POSTS_PER_IP = 8
     RATE_LIMIT_MAX_POSTS_PER_AUTHOR = 5
     RATE_LIMIT_CLEANUP_INTERVAL_SECONDS = 30
+    MAX_IMAGE_BYTES = 3 * 1024 * 1024
+    SUPPORTED_IMAGE_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
     _rate_limit_lock = Lock()
     _rate_limit_timestamps: dict[str, list[float]] = {}
@@ -49,6 +55,123 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             raise ValueError("Некорректный формат image_url: поддерживаются только http/https URL")
 
         return image_url
+
+    @classmethod
+    def _image_bytes_to_data_url(cls, image_bytes: bytes, mime_type: str) -> str:
+        if mime_type not in cls.SUPPORTED_IMAGE_MIME_TYPES:
+            raise ValueError(
+                "Неподдерживаемый MIME-тип изображения. Допустимые значения: image/jpeg, image/png, image/webp"
+            )
+
+        if len(image_bytes) > cls.MAX_IMAGE_BYTES:
+            raise ValueError(f"Изображение слишком большое (максимум {cls.MAX_IMAGE_BYTES} байт)")
+
+        encoded = base64.b64encode(image_bytes).decode("ascii")
+        return f"data:{mime_type};base64,{encoded}"
+
+    @classmethod
+    def _extract_image_from_json_payload(cls, payload: dict[str, object]) -> str | None:
+        image_base64_raw = payload.get("image_base64")
+        if image_base64_raw is None:
+            return None
+
+        image_base64 = str(image_base64_raw).strip()
+        if not image_base64:
+            return None
+
+        if image_base64.startswith("data:"):
+            try:
+                meta, encoded = image_base64.split(",", 1)
+            except ValueError as error:
+                raise ValueError("Некорректный формат image_base64 (ожидается data URL)") from error
+
+            if ";base64" not in meta:
+                raise ValueError("Некорректный формат image_base64: отсутствует ;base64")
+
+            mime_type = meta[5:].split(";", 1)[0].strip().lower()
+        else:
+            mime_type = str(payload.get("image_mime_type", "")).strip().lower()
+            if not mime_type:
+                raise ValueError("Для image_base64 без data URL необходимо поле image_mime_type")
+            encoded = image_base64
+
+        try:
+            image_bytes = base64.b64decode(encoded, validate=True)
+        except (binascii.Error, ValueError) as error:
+            raise ValueError("Некорректный формат image_base64: неверная base64-строка") from error
+
+        return cls._image_bytes_to_data_url(image_bytes=image_bytes, mime_type=mime_type)
+
+    @classmethod
+    def _parse_multipart_form_data(cls, content_type: str, raw: bytes) -> dict[str, object]:
+        if not raw:
+            return {}
+
+        envelope = (
+            f"Content-Type: {content_type}\r\nMIME-Version: 1.0\r\n\r\n".encode("utf-8") + raw
+        )
+        message = BytesParser(policy=default_policy).parsebytes(envelope)
+        if not message.is_multipart():
+            raise ValueError("Некорректный multipart/form-data")
+
+        payload: dict[str, object] = {}
+        for part in message.iter_parts():
+            name = part.get_param("name", header="content-disposition")
+            if not name:
+                continue
+
+            if name in {"image", "photo"}:
+                image_bytes = part.get_payload(decode=True) or b""
+                mime_type = part.get_content_type().lower()
+                payload["image_url"] = cls._image_bytes_to_data_url(image_bytes=image_bytes, mime_type=mime_type)
+                continue
+
+            value = part.get_payload(decode=True)
+            if value is None:
+                continue
+            payload[name] = value.decode(part.get_content_charset() or "utf-8").strip()
+
+        return payload
+
+    def _parse_feed_request_payload(self) -> tuple[dict[str, object] | None, str | None]:
+        try:
+            raw_len = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            raw_len = 0
+
+        raw = self.rfile.read(raw_len) if raw_len > 0 else b""
+        content_type = str(self.headers.get("Content-Type", "")).lower()
+
+        if content_type.startswith("multipart/form-data"):
+            try:
+                payload = self._parse_multipart_form_data(content_type=content_type, raw=raw)
+            except ValueError as error:
+                return None, str(error)
+            return payload, None
+
+        try:
+            payload = json.loads(raw.decode("utf-8") if raw else "{}")
+        except json.JSONDecodeError:
+            return None, "Некорректный JSON"
+
+        if not isinstance(payload, dict):
+            return None, "Некорректный формат payload: ожидается JSON-объект"
+
+        try:
+            image_url = self._validate_image_url_metadata(payload)
+            image_from_base64 = self._extract_image_from_json_payload(payload)
+        except ValueError as error:
+            return None, str(error)
+
+        if image_url and image_from_base64:
+            return None, "Укажите только одно поле изображения: image_url или image_base64"
+
+        if image_from_base64:
+            payload["image_url"] = image_from_base64
+        elif image_url is not None:
+            payload["image_url"] = image_url
+
+        return payload, None
 
     @staticmethod
     def _isoformat_timestamp(value: object) -> object:
@@ -211,25 +334,17 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             self._send_json(404, {"error": "Not found"})
             return
 
-        try:
-            raw_len = int(self.headers.get("Content-Length", "0"))
-        except ValueError:
-            raw_len = 0
-
-        raw = self.rfile.read(raw_len) if raw_len > 0 else b""
-        try:
-            payload = json.loads(raw.decode("utf-8") if raw else "{}")
-        except json.JSONDecodeError:
-            self._send_json(400, {"error": "Некорректный JSON"})
+        payload, error = self._parse_feed_request_payload()
+        if error:
+            self._send_json(400, {"error": error})
+            return
+        if payload is None:
+            self._send_json(400, {"error": "Некорректный payload"})
             return
 
         author = str(payload.get("author", "")).strip()
         text = str(payload.get("text", "")).strip()
-        try:
-            image_url = self._validate_image_url_metadata(payload)
-        except ValueError as error:
-            self._send_json(400, {"error": str(error)})
-            return
+        image_url = str(payload.get("image_url", "")).strip() or None
 
         if not author or not text:
             self._send_json(400, {"error": "Поля author и text обязательны"})
@@ -276,25 +391,17 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             self._send_json(400, {"error": "Некорректный id поста"})
             return
 
-        try:
-            raw_len = int(self.headers.get("Content-Length", "0"))
-        except ValueError:
-            raw_len = 0
-
-        raw = self.rfile.read(raw_len) if raw_len > 0 else b""
-        try:
-            payload = json.loads(raw.decode("utf-8") if raw else "{}")
-        except json.JSONDecodeError:
-            self._send_json(400, {"error": "Некорректный JSON"})
+        payload, error = self._parse_feed_request_payload()
+        if error:
+            self._send_json(400, {"error": error})
+            return
+        if payload is None:
+            self._send_json(400, {"error": "Некорректный payload"})
             return
 
         author = str(payload.get("author", "")).strip()
         text = str(payload.get("text", "")).strip()
-        try:
-            image_url = self._validate_image_url_metadata(payload)
-        except ValueError as error:
-            self._send_json(400, {"error": str(error)})
-            return
+        image_url = str(payload.get("image_url", "")).strip() or None
 
         if not author or not text:
             self._send_json(400, {"error": "Поля author и text обязательны"})
