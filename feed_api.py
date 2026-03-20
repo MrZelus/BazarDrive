@@ -3,13 +3,14 @@ import binascii
 import json
 import os
 import time
+import uuid
 from email.parser import BytesParser
 from email.policy import default as default_policy
 from math import ceil
 from threading import Lock
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 from db import (
     MAX_GUEST_FEED_IMAGE_URL_LENGTH,
@@ -28,7 +29,13 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
     RATE_LIMIT_MAX_POSTS_PER_AUTHOR = 5
     RATE_LIMIT_CLEANUP_INTERVAL_SECONDS = 30
     MAX_IMAGE_BYTES = 3 * 1024 * 1024
-    SUPPORTED_IMAGE_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
+    STORAGE_DIR = os.path.abspath(os.getenv("FEED_UPLOAD_DIR", "storage/feed_images"))
+    STORAGE_URL_PREFIX = "/uploads/feed/"
+    SUPPORTED_IMAGE_MIME_TYPES = {
+        "image/jpeg": ".jpg",
+        "image/png": ".png",
+        "image/webp": ".webp",
+    }
 
     _rate_limit_lock = Lock()
     _rate_limit_timestamps: dict[str, list[float]] = {}
@@ -57,8 +64,13 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
         return image_url
 
     @classmethod
-    def _image_bytes_to_data_url(cls, image_bytes: bytes, mime_type: str) -> str:
-        if mime_type not in cls.SUPPORTED_IMAGE_MIME_TYPES:
+    def _ensure_storage_dir(cls) -> None:
+        os.makedirs(cls.STORAGE_DIR, mode=0o700, exist_ok=True)
+
+    @classmethod
+    def _image_bytes_to_stored_url(cls, image_bytes: bytes, mime_type: str) -> str:
+        extension = cls.SUPPORTED_IMAGE_MIME_TYPES.get(mime_type)
+        if extension is None:
             raise ValueError(
                 "Неподдерживаемый MIME-тип изображения. Допустимые значения: image/jpeg, image/png, image/webp"
             )
@@ -66,8 +78,13 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
         if len(image_bytes) > cls.MAX_IMAGE_BYTES:
             raise ValueError(f"Изображение слишком большое (максимум {cls.MAX_IMAGE_BYTES} байт)")
 
-        encoded = base64.b64encode(image_bytes).decode("ascii")
-        return f"data:{mime_type};base64,{encoded}"
+        cls._ensure_storage_dir()
+        filename = f"{uuid.uuid4().hex}{extension}"
+        destination = os.path.join(cls.STORAGE_DIR, filename)
+        with open(destination, "xb") as file_obj:
+            file_obj.write(image_bytes)
+
+        return f"{cls.STORAGE_URL_PREFIX}{filename}"
 
     @classmethod
     def _extract_image_from_json_payload(cls, payload: dict[str, object]) -> str | None:
@@ -100,7 +117,7 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
         except (binascii.Error, ValueError) as error:
             raise ValueError("Некорректный формат image_base64: неверная base64-строка") from error
 
-        return cls._image_bytes_to_data_url(image_bytes=image_bytes, mime_type=mime_type)
+        return cls._image_bytes_to_stored_url(image_bytes=image_bytes, mime_type=mime_type)
 
     @classmethod
     def _parse_multipart_form_data(cls, content_type: str, raw: bytes) -> dict[str, object]:
@@ -116,22 +133,73 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
 
         payload: dict[str, object] = {}
         for part in message.iter_parts():
-            name = part.get_param("name", header="content-disposition")
-            if not name:
+            name = part.get_param("name", header="content-disposition") or ""
+            filename = part.get_filename()
+            mime_type = part.get_content_type().lower()
+            is_image_part = name in {"image", "photo"} or (filename and part.get_content_maintype() == "image")
+
+            if is_image_part:
+                image_bytes = part.get_payload(decode=True) or b""
+                payload["image_url"] = cls._image_bytes_to_stored_url(image_bytes=image_bytes, mime_type=mime_type)
                 continue
 
-            if name in {"image", "photo"}:
-                image_bytes = part.get_payload(decode=True) or b""
-                mime_type = part.get_content_type().lower()
-                payload["image_url"] = cls._image_bytes_to_data_url(image_bytes=image_bytes, mime_type=mime_type)
+            if not name:
                 continue
 
             value = part.get_payload(decode=True)
             if value is None:
                 continue
-            payload[name] = value.decode(part.get_content_charset() or "utf-8").strip()
+            try:
+                payload[name] = value.decode(part.get_content_charset() or "utf-8").strip()
+            except UnicodeDecodeError as error:
+                raise ValueError(f"Поле {name} содержит некорректные байты (ожидается текст UTF-8)") from error
 
         return payload
+
+    @classmethod
+    def _resolve_storage_path(cls, request_path: str) -> str | None:
+        decoded_path = unquote(request_path)
+        if not decoded_path.startswith(cls.STORAGE_URL_PREFIX):
+            return None
+
+        filename = decoded_path[len(cls.STORAGE_URL_PREFIX) :]
+        if not filename:
+            return None
+
+        normalized = os.path.basename(filename)
+        if normalized != filename:
+            return None
+
+        candidate = os.path.abspath(os.path.join(cls.STORAGE_DIR, normalized))
+        if os.path.commonpath([candidate, cls.STORAGE_DIR]) != cls.STORAGE_DIR:
+            return None
+
+        return candidate
+
+    def _serve_stored_file(self, request_path: str) -> bool:
+        file_path = self._resolve_storage_path(request_path)
+        if file_path is None or not os.path.isfile(file_path):
+            return False
+
+        extension = os.path.splitext(file_path)[1].lower()
+        mime_type = {
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".png": "image/png",
+            ".webp": "image/webp",
+        }.get(extension, "application/octet-stream")
+
+        with open(file_path, "rb") as file_obj:
+            body = file_obj.read()
+
+        self.send_response(200)
+        self.send_header("Content-Type", mime_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "public, max-age=86400")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(body)
+        return True
 
     def _parse_feed_request_payload(self) -> tuple[dict[str, object] | None, str | None]:
         try:
@@ -140,17 +208,20 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             raw_len = 0
 
         raw = self.rfile.read(raw_len) if raw_len > 0 else b""
-        content_type = str(self.headers.get("Content-Type", "")).lower()
+        content_type_header = str(self.headers.get("Content-Type", ""))
+        content_type = content_type_header.lower()
 
         if content_type.startswith("multipart/form-data"):
             try:
-                payload = self._parse_multipart_form_data(content_type=content_type, raw=raw)
+                payload = self._parse_multipart_form_data(content_type=content_type_header, raw=raw)
             except ValueError as error:
                 return None, str(error)
             return payload, None
 
         try:
             payload = json.loads(raw.decode("utf-8") if raw else "{}")
+        except UnicodeDecodeError:
+            return None, "Тело запроса должно быть в UTF-8"
         except json.JSONDecodeError:
             return None, "Некорректный JSON"
 
@@ -292,6 +363,13 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
         path = parsed.path
+
+        if path.startswith(self.STORAGE_URL_PREFIX):
+            if self._serve_stored_file(path):
+                return
+            self._send_json(404, {"error": "Файл не найден"})
+            return
+
         if path == "/api/feed/posts":
             params = parse_qs(parsed.query)
 
