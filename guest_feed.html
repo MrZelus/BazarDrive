@@ -159,6 +159,7 @@
       border-radius: 12px;
       padding: 14px 16px;
       box-shadow: 0 2px 8px rgba(0,0,0,.07);
+      position: relative;
     }
 
     .post-header {
@@ -170,6 +171,7 @@
       margin-bottom: 8px;
       font-size: 13px;
       color: #666;
+      padding-right: 40px;
     }
 
     .author {
@@ -193,10 +195,27 @@
       flex-wrap: wrap;
     }
 
-    .actions {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
+    .post-menu-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 30px;
+      height: 30px;
+      border-radius: 999px;
+      border: 1px solid #d1d5db;
+      background: #ffffff;
+      color: #374151;
+      font-size: 20px;
+      line-height: 1;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .post-menu-btn:hover {
+      background: #f3f4f6;
+      border-color: #9ca3af;
     }
 
     .edited {
@@ -568,6 +587,12 @@
 
     const feed = document.getElementById('feed');
     const pagination = document.getElementById('pagination');
+    const editBackdrop = document.getElementById('editBackdrop');
+    const editForm = document.getElementById('editForm');
+    const editAuthorInput = document.getElementById('editAuthor');
+    const editMessageInput = document.getElementById('editMessage');
+    const cancelEditBtn = document.getElementById('cancelEditBtn');
+    const editErrorBox = document.getElementById('editErrorBox');
 
     const navButtons = document.querySelectorAll('.nav-btn');
     const pageSections = document.querySelectorAll('.page-section');
@@ -605,6 +630,7 @@
     let currentPage = 1;
     let cooldownUntil = 0;
     let cooldownTimer = null;
+    let editingPostId = null;
 
     function formatDate(ts) {
       if (!Number.isFinite(ts)) return 'Дата не указана';
@@ -622,6 +648,7 @@
     }
 
     function parseCreatedAt(value, postId = 'unknown') {
+      if (value == null) return null;
       if (typeof value !== 'string') {
         console.warn('[feed] created_at is not a string:', { postId, value });
         return null;
@@ -737,18 +764,48 @@
       article.className = 'post';
       article.dataset.id = String(post.id);
       article.innerHTML = `
+        <button type="button" class="post-menu-btn" data-action="edit" aria-label="Редактировать пост">⋯</button>
         <div class="post-header">
           <div><span class="author"></span></div>
           <time>${formatDate(post.createdAt)}</time>
         </div>
         <div class="post-text"></div>
         <div class="post-footer">
-          <span class="like-counter">❤️ ${post.likes || 0}</span>
+          <div class="row">
+            <span class="like-counter">❤️ ${post.likes || 0}</span>
+            ${post.updatedAt ? `<span class="edited">Изменено: ${formatDate(post.updatedAt)}</span>` : ''}
+          </div>
         </div>
       `;
       article.querySelector('.author').textContent = post.author;
       article.querySelector('.post-text').textContent = post.text;
+      const editBtn = article.querySelector('[data-action="edit"]');
+      editBtn.addEventListener('click', () => {
+        openEditModal(post);
+      });
       return article;
+    }
+
+    function setEditError(msg = '') {
+      if (editErrorBox) editErrorBox.textContent = msg;
+    }
+
+    function closeEditModal() {
+      editingPostId = null;
+      setEditError('');
+      editForm.reset();
+      editBackdrop.style.display = 'none';
+      editBackdrop.setAttribute('aria-hidden', 'true');
+    }
+
+    function openEditModal(post) {
+      editingPostId = post.id;
+      editAuthorInput.value = post.author || '';
+      editMessageInput.value = post.text || '';
+      setEditError('');
+      editBackdrop.style.display = 'flex';
+      editBackdrop.setAttribute('aria-hidden', 'false');
+      editAuthorInput.focus();
     }
 
     function renderPagination(totalPages) {
@@ -855,6 +912,7 @@
           text: item.text || '',
           likes: Number(item.likes) || 0,
           createdAt: parseCreatedAt(item.created_at, item.id),
+          updatedAt: parseCreatedAt(item.updated_at, item.id),
         }));
 
         totalPosts = Number(payload.total) || 0;
@@ -902,6 +960,27 @@
         }
         throw new Error(msg);
       }
+    }
+
+    async function updatePost(postId, author, text) {
+      const response = await fetch(`${FEED_API_URL}/${postId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ author, text }),
+      });
+
+      let payload = {};
+      try {
+        payload = await response.json();
+      } catch {
+        payload = {};
+      }
+
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Не удалось сохранить изменения.');
+      }
+
+      return payload;
     }
 
     function updateCooldownUI() {
@@ -1102,6 +1181,56 @@
 
     profileResetBtn.addEventListener('click', () => {
       resetProfile();
+    });
+
+    cancelEditBtn.addEventListener('click', () => {
+      closeEditModal();
+    });
+
+    editBackdrop.addEventListener('click', (event) => {
+      if (event.target === editBackdrop) {
+        closeEditModal();
+      }
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && editBackdrop.style.display === 'flex') {
+        closeEditModal();
+      }
+    });
+
+    editForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      setEditError('');
+
+      if (!editingPostId) {
+        setEditError('Не выбран пост для редактирования.');
+        return;
+      }
+
+      const author = editAuthorInput.value.trim();
+      const text = editMessageInput.value.trim();
+
+      if (author.length < 2) {
+        setEditError('Имя должно содержать минимум 2 символа.');
+        return;
+      }
+      if (text.length < 5) {
+        setEditError('Сообщение должно содержать минимум 5 символов.');
+        return;
+      }
+
+      const submitEditBtn = editForm.querySelector('button[type="submit"]');
+      submitEditBtn.disabled = true;
+      try {
+        await updatePost(editingPostId, author, text);
+        closeEditModal();
+        await loadPosts();
+      } catch (error) {
+        setEditError(error.message || 'Не удалось сохранить изменения.');
+      } finally {
+        submitEditBtn.disabled = false;
+      }
     });
 
     loadProfile();
