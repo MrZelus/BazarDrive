@@ -55,7 +55,7 @@
 1. Запустите API-сервер:
 
 ```bash
-FEED_API_HOST=0.0.0.0 FEED_API_PORT=8001 python feed_api.py
+FEED_API_HOST=0.0.0.0 FEED_API_PORT=8001 python run_api.py
 ```
 
 2. В отдельном терминале запустите статический сервер (с привязкой ко всем интерфейсам):
@@ -106,10 +106,27 @@ ADMIN_IDS=123456789,987654321
 2. Запустите бота:
 
 ```bash
-python bot.py
+python run_bot.py
 ```
 
 `bot.py` автоматически подхватывает `.env`, поэтому дополнительно делать `export` не нужно.
+
+
+## Новая структура проекта
+
+```text
+app/
+  api/http_handlers.py        # HTTP-роутинг + сериализация ответов
+  bot/handlers.py             # Telegram conversation/callback handlers
+  db/repository.py            # SQL-операции и инициализация БД
+  services/feed_service.py    # валидация и бизнес-логика API ленты
+  services/moderation_service.py # бизнес-правила модерации
+  models/                     # доменные константы и настройки
+run_api.py                    # запуск API: python run_api.py
+run_bot.py                    # запуск бота: python run_bot.py
+```
+
+Совместимость со старыми точками входа (`feed_api.py`, `bot.py`, `db.py`) сохранена через прокси-импорты в новые модули.
 
 ## Спецификация профиля водителя такси (ИП, УСН «Доходы»)
 
