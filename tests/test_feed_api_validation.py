@@ -103,5 +103,42 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertIn("retry-after", limited_headers)
 
 
+    def test_health_endpoint_returns_ok(self) -> None:
+        conn = HTTPConnection(self.host, self.port, timeout=5)
+        conn.request("GET", "/health")
+        response = conn.getresponse()
+        data = response.read().decode("utf-8")
+        payload = json.loads(data) if data else {}
+        headers = {k.lower(): v for k, v in response.getheaders()}
+        conn.close()
+
+        self.assertEqual(response.status, 200)
+        self.assertEqual(payload.get("status"), "ok")
+        self.assertEqual(payload.get("database"), "ok")
+        self.assertIn("x-request-id", headers)
+
+    def test_unexpected_error_returns_unified_json(self) -> None:
+        original = repository.list_guest_feed_posts
+
+        def _boom(limit: int, offset: int):
+            raise RuntimeError("boom")
+
+        repository.list_guest_feed_posts = _boom
+        try:
+            conn = HTTPConnection(self.host, self.port, timeout=5)
+            conn.request("GET", "/api/feed/posts")
+            response = conn.getresponse()
+            data = response.read().decode("utf-8")
+            payload = json.loads(data) if data else {}
+            conn.close()
+
+            self.assertEqual(response.status, 500)
+            self.assertIn("error", payload)
+            self.assertEqual(payload["error"].get("code"), "internal_error")
+            self.assertIn("request_id", payload["error"])
+        finally:
+            repository.list_guest_feed_posts = original
+
+
 if __name__ == "__main__":
     unittest.main()
