@@ -72,6 +72,14 @@
 
     <main class="px-4 py-4 space-y-4">
       <section id="screen-feed" class="screen active animate-fadeInUp">
+        <div class="rounded-2xl bg-panel p-4 border border-white/10">
+          <p class="text-base font-semibold">Как публиковать посты (пошагово)</p>
+          <ol class="mt-2 text-sm text-textSoft space-y-1 list-decimal pl-5">
+            <li>Откройте «Профиль» и заполните гостевой профиль.</li>
+            <li>На вкладке «Лента» напишите текст публикации.</li>
+            <li>Нажмите «Опубликовать» и дождитесь обновления ленты.</li>
+          </ol>
+        </div>
         <div class="mb-4 rounded-2xl bg-panel p-4 border border-white/10">
           <label for="newPostInput" class="mb-2 block text-sm font-medium text-textSoft">Что нового?</label>
           <div class="flex items-center gap-3">
@@ -93,15 +101,27 @@
         <section id="feed" class="space-y-3"></section>
       </section>
 
-      <section id="screen-docs" class="screen">
+      <section id="screen-rules" class="screen">
         <div class="mb-4 rounded-2xl bg-panel p-4 border border-white/10">
-          <label for="docsSearch" class="mb-2 block text-sm font-medium text-textSoft">Поиск по базе знаний</label>
+          <h2 class="text-lg font-semibold">Правила и документы</h2>
+          <p class="mt-2 text-sm text-textSoft">Единый раздел: правила платформы, публикации и шаблоны документов.</p>
+        </div>
+        <div class="mb-4 rounded-2xl bg-panel p-4 border border-white/10">
+          <label for="docsSearch" class="mb-2 block text-sm font-medium text-textSoft">Поиск по правилам и документам</label>
           <input
             id="docsSearch"
             type="search"
             placeholder="Например: УСН 6%, ПДД, тарифы"
             class="h-12 w-full rounded-xl border border-white/10 bg-panelSoft px-4 text-sm outline-none transition focus:border-accent"
           />
+        </div>
+        <div class="mb-4 rounded-2xl bg-panel p-4 border border-white/10">
+          <p class="text-base font-semibold">Краткие правила публикации</p>
+          <ol class="mt-2 text-sm text-textSoft space-y-1 list-decimal pl-5">
+            <li>Заполните профиль гостя (имя + email или телефон).</li>
+            <li>Опишите пост без персональных и платёжных данных.</li>
+            <li>Проверьте текст перед публикацией и отправьте в ленту.</li>
+          </ol>
         </div>
         <section id="docsList" class="space-y-3"></section>
       </section>
@@ -212,12 +232,12 @@
         </svg>
         <span class="text-xs">Лента</span>
       </button>
-      <button data-tab="docs" class="tab-btn h-14 rounded-xl flex flex-col items-center justify-center text-textSoft transition">
+      <button data-tab="rules" class="tab-btn h-14 rounded-xl flex flex-col items-center justify-center text-textSoft transition">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
           <path stroke-linecap="round" stroke-linejoin="round" d="M7 3h7l5 5v13H7z" />
           <path stroke-linecap="round" stroke-linejoin="round" d="M14 3v5h5M10 13h6M10 17h6" />
         </svg>
-        <span class="text-xs">Документы</span>
+        <span class="text-xs">Правила</span>
       </button>
       <button data-tab="profile" class="tab-btn h-14 rounded-xl flex flex-col items-center justify-center text-textSoft transition">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
@@ -234,22 +254,39 @@
 
     const docs = [
       {
+        id: 'platform-rules',
+        title: 'Правила платформы',
+        description: 'Основные требования к безопасности, коммуникации и публикациям.',
+        tags: ['правила', 'безопасность', 'публикации'],
+        type: 'Правило'
+      },
+      {
         id: 'pdd-moscow',
         title: 'ПДД Москвы',
         description: 'Актуальные правила дорожного движения в пределах Москвы.',
-        tags: ['пдд', 'москва', 'дорога']
+        tags: ['пдд', 'москва', 'дорога'],
+        type: 'Документ'
       },
       {
         id: 'ip-usn',
         title: 'Правила ИП на УСН',
         description: 'УСН 6%, отчётность, сроки и важные нюансы для водителей-ИП.',
-        tags: ['ип', 'усн', 'налоги', '6%']
+        tags: ['ип', 'усн', 'налоги', '6%'],
+        type: 'Документ'
       },
       {
         id: 'tariffs',
         title: 'Тарифы',
         description: 'Тарифные планы, комиссии платформы и коэффициенты по зонам.',
-        tags: ['тарифы', 'комиссия', 'цены']
+        tags: ['тарифы', 'комиссия', 'цены'],
+        type: 'Документ'
+      },
+      {
+        id: 'post-template',
+        title: 'Шаблон поста гостя',
+        description: 'Готовая структура: тема, детали, контакт и время актуальности.',
+        tags: ['шаблон', 'пост', 'пример'],
+        type: 'Шаблон'
       }
     ];
 
@@ -299,7 +336,7 @@
     };
     const screens = {
       feed: document.getElementById('screen-feed'),
-      docs: document.getElementById('screen-docs'),
+      rules: document.getElementById('screen-rules'),
       profile: document.getElementById('screen-profile')
     };
 
@@ -517,7 +554,7 @@
                   <h3 class="text-base font-semibold">${doc.title}</h3>
                   <p class="text-sm text-textSoft mt-1">${doc.description}</p>
                 </div>
-                <span class="text-[10px] uppercase tracking-wide rounded-full bg-panelSoft text-textSoft px-2 py-1">Документ</span>
+                <span class="text-[10px] uppercase tracking-wide rounded-full bg-panelSoft text-textSoft px-2 py-1">${doc.type || 'Документ'}</span>
               </div>
               <div class="mt-3 flex flex-wrap gap-2">
                 ${doc.tags.map((tag) => `<span class="rounded-full bg-panelSoft px-2.5 py-1 text-xs text-textSoft">#${tag}</span>`).join('')}
@@ -537,6 +574,10 @@
         screen.classList.toggle('active', isActive);
         screen.classList.toggle('animate-fadeInUp', isActive);
       });
+
+      if (tab === 'profile') {
+        updateGuestProfileStatus();
+      }
     }
 
     function setActiveProfileTab(tab) {
