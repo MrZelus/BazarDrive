@@ -31,7 +31,7 @@ export type ProfileTabId =
   | 'payouts'
   | 'security';
 
-export type ActionStyle = 'primary' | 'secondary' | 'ghost';
+export type ActionStyle = 'primary' | 'secondary' | 'tertiary' | 'ghost' | 'destructive';
 
 // =============================
 // SCREEN META
@@ -212,7 +212,15 @@ export interface QuickStatusCard {
 }
 
 export interface StickyAction {
-  id: 'editProfile' | 'addDocument' | 'uploadDocument' | 'openPayouts' | 'openSecurity';
+  id:
+    | 'edit_profile'
+    | 'add_document'
+    | 'upload_document'
+    | 'open_payouts'
+    | 'open_security'
+    | 'download_report'
+    | 'change_password'
+    | 'terminate_all_sessions';
   label: string;
   style: ActionStyle;
 }
@@ -236,10 +244,10 @@ export interface ProfileTabsProps {
 export interface DocumentsTabProps {
   documents: DriverDocument[];
   onAdd: () => void;
-  onUpload: () => void;
-  onOpen: (id: string) => void;
-  onReplace: (id: string) => void;
-  onDelete: (id: string) => void;
+  onUpload: (type: DocumentType) => void;
+  onOpen: (documentId: DriverDocument['id']) => void;
+  onReplace: (documentId: DriverDocument['id']) => void;
+  onDelete: (documentId: DriverDocument['id']) => void;
 }
 
 export interface PayoutsTabProps {
