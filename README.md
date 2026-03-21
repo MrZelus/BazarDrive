@@ -104,3 +104,4 @@ python bot.py
 
 - `docs/driver_profile_wireframe_spec.md` — текстовая спецификация layout, состояний, событий и адаптива.
 - `docs/driver_profile_screen.schema.json` — JSON-схема экрана для проектирования компонентной архитектуры.
+- `docs/driver_profile.types.ts` — TypeScript-интерфейсы и union-типы для типизации payload экрана.
