@@ -130,16 +130,16 @@
         <h2 class="text-lg font-semibold px-1 mb-3">Профиль</h2>
 
         <div class="bg-panel rounded-2xl p-2 border border-white/10 mb-4">
-          <div class="flex gap-2 overflow-x-auto pb-1">
-            <button data-profile-tab="overview" class="profile-menu-btn active h-11 min-w-[112px] px-3 rounded-xl border border-transparent text-sm font-medium bg-panelSoft text-textSoft transition">Обзор</button>
-            <button data-profile-tab="taxi_ip" class="profile-menu-btn h-11 min-w-[112px] px-3 rounded-xl border border-transparent text-sm font-medium bg-panelSoft text-textSoft transition">Такси / ИП</button>
-            <button data-profile-tab="documents" class="profile-menu-btn h-11 min-w-[112px] px-3 rounded-xl border border-transparent text-sm font-medium bg-panelSoft text-textSoft transition">Документы</button>
-            <button data-profile-tab="payouts" class="profile-menu-btn h-11 min-w-[112px] px-3 rounded-xl border border-transparent text-sm font-medium bg-panelSoft text-textSoft transition">Выплаты</button>
-            <button data-profile-tab="security" class="profile-menu-btn h-11 min-w-[112px] px-3 rounded-xl border border-transparent text-sm font-medium bg-panelSoft text-textSoft transition">Безопасность</button>
+          <div class="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Вкладки профиля">
+            <button id="profile-tab-btn-overview" data-profile-tab="overview" role="tab" aria-selected="true" aria-controls="profile-tab-overview" class="profile-menu-btn active h-11 min-w-[112px] px-3 rounded-xl border border-transparent text-sm font-medium bg-panelSoft text-textSoft transition">Обзор</button>
+            <button id="profile-tab-btn-taxi_ip" data-profile-tab="taxi_ip" role="tab" aria-selected="false" aria-controls="profile-tab-taxi_ip" class="profile-menu-btn h-11 min-w-[112px] px-3 rounded-xl border border-transparent text-sm font-medium bg-panelSoft text-textSoft transition">Такси / ИП</button>
+            <button id="profile-tab-btn-documents" data-profile-tab="documents" role="tab" aria-selected="false" aria-controls="profile-tab-documents" class="profile-menu-btn h-11 min-w-[112px] px-3 rounded-xl border border-transparent text-sm font-medium bg-panelSoft text-textSoft transition">Документы</button>
+            <button id="profile-tab-btn-payouts" data-profile-tab="payouts" role="tab" aria-selected="false" aria-controls="profile-tab-payouts" class="profile-menu-btn h-11 min-w-[112px] px-3 rounded-xl border border-transparent text-sm font-medium bg-panelSoft text-textSoft transition">Выплаты</button>
+            <button id="profile-tab-btn-security" data-profile-tab="security" role="tab" aria-selected="false" aria-controls="profile-tab-security" class="profile-menu-btn h-11 min-w-[112px] px-3 rounded-xl border border-transparent text-sm font-medium bg-panelSoft text-textSoft transition">Безопасность</button>
           </div>
         </div>
 
-        <div id="profile-tab-overview" class="profile-tab-screen space-y-3">
+        <div id="profile-tab-overview" class="profile-tab-screen space-y-3" role="tabpanel" aria-labelledby="profile-tab-btn-overview">
           <div class="bg-panel rounded-2xl p-2 border border-white/10">
             <div class="grid grid-cols-3 gap-2">
               <button data-role="driver" class="role-btn h-11 rounded-xl text-sm font-medium bg-panelSoft text-text transition">Водитель</button>
@@ -184,7 +184,7 @@
           </div>
         </div>
 
-        <div id="profile-tab-taxi_ip" class="profile-tab-screen hidden space-y-3">
+        <div id="profile-tab-taxi_ip" class="profile-tab-screen hidden space-y-3" role="tabpanel" aria-labelledby="profile-tab-btn-taxi_ip" hidden aria-hidden="true" inert>
           <div class="bg-panel rounded-2xl p-4 border border-white/10">
             <p class="text-base font-semibold">Такси / ИП</p>
             <ul class="mt-2 text-sm text-textSoft space-y-1 list-disc pl-5">
@@ -197,7 +197,7 @@
           </div>
         </div>
 
-        <div id="profile-tab-documents" class="profile-tab-screen hidden bg-panel rounded-2xl p-4 border border-white/10 space-y-3">
+        <div id="profile-tab-documents" class="profile-tab-screen hidden bg-panel rounded-2xl p-4 border border-white/10 space-y-3" role="tabpanel" aria-labelledby="profile-tab-btn-documents" hidden aria-hidden="true" inert>
           <p class="text-base font-semibold">Документы и профиль гостя для публикаций</p>
           <p class="text-sm text-textSoft">Заполните профиль: это обязательное условие для публикации постов в ленте.</p>
           <div class="space-y-2">
@@ -221,7 +221,7 @@
           <button id="saveProfileBtn" type="button" class="h-11 rounded-xl bg-accent px-4 text-sm font-medium text-white transition active:scale-[0.99]">Сохранить профиль гостя</button>
         </div>
 
-        <div id="profile-tab-payouts" class="profile-tab-screen hidden space-y-3">
+        <div id="profile-tab-payouts" class="profile-tab-screen hidden space-y-3" role="tabpanel" aria-labelledby="profile-tab-btn-payouts" hidden aria-hidden="true" inert>
           <div class="bg-panel rounded-2xl p-4 border border-white/10">
             <p class="font-semibold">Выплаты</p>
             <ul class="mt-2 text-sm text-textSoft space-y-1 list-disc pl-5">
@@ -234,7 +234,7 @@
           </div>
         </div>
 
-        <div id="profile-tab-security" class="profile-tab-screen hidden space-y-3">
+        <div id="profile-tab-security" class="profile-tab-screen hidden space-y-3" role="tabpanel" aria-labelledby="profile-tab-btn-security" hidden aria-hidden="true" inert>
           <div class="bg-panel rounded-2xl p-4 border border-white/10">
             <p class="font-semibold">Статус профиля публикации</p>
             <p id="guestProfileStatus" class="mt-2 text-sm text-textSoft">Профиль не проверен</p>
@@ -254,20 +254,20 @@
 
   <nav class="fixed bottom-0 left-0 right-0 bg-panel/95 backdrop-blur border-t border-white/10">
     <div class="mx-auto max-w-[520px] grid grid-cols-3 gap-2 p-2">
-      <button data-tab="feed" class="tab-btn active h-14 rounded-xl flex flex-col items-center justify-center text-textSoft transition">
+      <button data-tab="feed" aria-current="page" class="tab-btn active h-14 rounded-xl flex flex-col items-center justify-center text-textSoft transition">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
           <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l9-8 9 8M5 10v10h14V10" />
         </svg>
         <span class="text-xs">Лента</span>
       </button>
-      <button data-tab="rules" class="tab-btn h-14 rounded-xl flex flex-col items-center justify-center text-textSoft transition">
+      <button data-tab="rules" aria-current="false" class="tab-btn h-14 rounded-xl flex flex-col items-center justify-center text-textSoft transition">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
           <path stroke-linecap="round" stroke-linejoin="round" d="M7 3h7l5 5v13H7z" />
           <path stroke-linecap="round" stroke-linejoin="round" d="M14 3v5h5M10 13h6M10 17h6" />
         </svg>
         <span class="text-xs">Правила</span>
       </button>
-      <button data-tab="profile" class="tab-btn h-14 rounded-xl flex flex-col items-center justify-center text-textSoft transition">
+      <button data-tab="profile" aria-current="false" class="tab-btn h-14 rounded-xl flex flex-col items-center justify-center text-textSoft transition">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
           <path stroke-linecap="round" stroke-linejoin="round" d="M20 21a8 8 0 10-16 0" />
           <circle cx="12" cy="8" r="4" />
@@ -596,13 +596,22 @@
 
     function setActiveScreen(tab) {
       tabButtons.forEach((btn) => {
-        btn.classList.toggle('active', btn.dataset.tab === tab);
+        const isActive = btn.dataset.tab === tab;
+        btn.classList.toggle('active', isActive);
+        if (isActive) {
+          btn.setAttribute('aria-current', 'page');
+        } else {
+          btn.removeAttribute('aria-current');
+        }
       });
 
       Object.entries(screens).forEach(([name, screen]) => {
         const isActive = name === tab;
         screen.classList.toggle('active', isActive);
         screen.classList.toggle('animate-fadeInUp', isActive);
+        screen.toggleAttribute('hidden', !isActive);
+        screen.setAttribute('aria-hidden', String(!isActive));
+        screen.toggleAttribute('inert', !isActive);
       });
 
       if (tab === 'profile') {
@@ -612,10 +621,17 @@
 
     function setActiveProfileTab(tab) {
       profileMenuButtons.forEach((btn) => {
-        btn.classList.toggle('active', btn.dataset.profileTab === tab);
+        const isActive = btn.dataset.profileTab === tab;
+        btn.classList.toggle('active', isActive);
+        btn.setAttribute('aria-selected', String(isActive));
+        btn.tabIndex = isActive ? 0 : -1;
       });
       Object.entries(profileTabScreens).forEach(([name, screen]) => {
-        screen.classList.toggle('hidden', name !== tab);
+        const isActive = name === tab;
+        screen.classList.toggle('hidden', !isActive);
+        screen.toggleAttribute('hidden', !isActive);
+        screen.setAttribute('aria-hidden', String(!isActive));
+        screen.toggleAttribute('inert', !isActive);
       });
     }
 
