@@ -1,7 +1,4 @@
 import logging
-import os
-from pathlib import Path
-
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, Update
 from telegram.ext import (
     Application,
@@ -18,28 +15,15 @@ from app.models.bot_settings import load_bot_settings
 from app.services import moderation_service
 
 
-def load_env_file(env_path: str = ".env") -> None:
-    path = Path(env_path)
-    if not path.exists():
-        return
-
-    for raw_line in path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
-        if line.startswith("export "):
-            line = line[len("export ") :].strip()
-        if "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        key = key.strip()
-        value = value.strip().strip("'\"")
-        if key:
-            os.environ.setdefault(key, value)
+SETTINGS = None
 
 
-load_env_file()
-SETTINGS = load_bot_settings()
+def get_settings():
+    global SETTINGS
+    if SETTINGS is None:
+        SETTINGS = load_bot_settings()
+    return SETTINGS
+
 
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 
@@ -103,7 +87,7 @@ async def taxi_comment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
         f"Комментарий: {comment}\n"
         f"User ID: {user_id}"
     )
-    await context.bot.send_message(chat_id=SETTINGS.admin_chat_id, text=text)
+    await context.bot.send_message(chat_id=get_settings().admin_chat_id, text=text)
     await update.message.reply_text("Заявка принята! Мы скоро свяжемся.")
     return ConversationHandler.END
 
@@ -125,7 +109,7 @@ async def ad_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     user_id = update.effective_user.id
     ad_id = repository.create_ad(user_id, title, text)
     await context.bot.send_message(
-        chat_id=SETTINGS.admin_chat_id,
+        chat_id=get_settings().admin_chat_id,
         text=f"📢 Объявление #{ad_id} (модерация)\nЗаголовок: {title}\nТекст: {text}\nUser ID: {user_id}",
         reply_markup=moderation_kb("ad", ad_id),
     )
@@ -143,7 +127,7 @@ async def post_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     user_id = update.effective_user.id
     post_id = repository.create_post(user_id, text)
     await context.bot.send_message(
-        chat_id=SETTINGS.admin_chat_id,
+        chat_id=get_settings().admin_chat_id,
         text=f"📝 Пост #{post_id} на модерацию:\n{text}\nUser ID: {user_id}",
         reply_markup=moderation_kb("post", post_id),
     )
@@ -155,7 +139,7 @@ async def moderation_action(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     query = update.callback_query
     await query.answer()
 
-    if not query.from_user or not moderation_service.is_admin(query.from_user.id, SETTINGS.admin_ids):
+    if not query.from_user or not moderation_service.is_admin(query.from_user.id, get_settings().admin_ids):
         await query.edit_message_reply_markup(reply_markup=None)
         await query.message.reply_text("У вас нет прав на модерацию.")
         return
@@ -168,13 +152,13 @@ async def moderation_action(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         return
 
     if "publish_text" in result:
-        await context.bot.send_message(chat_id=SETTINGS.group_chat_id, text=str(result["publish_text"]))
+        await context.bot.send_message(chat_id=get_settings().group_chat_id, text=str(result["publish_text"]))
     await query.edit_message_text(str(result["status_text"]))
 
 
 async def pending(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id if update.effective_user else 0
-    if not moderation_service.is_admin(user_id, SETTINGS.admin_ids):
+    if not moderation_service.is_admin(user_id, get_settings().admin_ids):
         await update.message.reply_text("Команда доступна только администраторам.")
         return
 
@@ -210,11 +194,8 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 
 def build_application() -> Application:
-    if SETTINGS.bot_token == "PASTE_YOUR_TOKEN_HERE":
-        raise ValueError("Укажите BOT_TOKEN через переменную окружения BOT_TOKEN или добавьте BOT_TOKEN=... в файл .env")
-
     repository.init_db()
-    app = Application.builder().token(SETTINGS.bot_token).build()
+    app = Application.builder().token(get_settings().bot_token).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("pending", pending))
     app.add_handler(CommandHandler("feed", feed))
