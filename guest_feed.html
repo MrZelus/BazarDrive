@@ -55,6 +55,12 @@
       background-color: #4f8cff;
       color: #ffffff;
     }
+
+    .profile-menu-btn.active {
+      background-color: #1f2a45;
+      color: #e8edff;
+      border-color: rgba(79, 140, 255, 0.7);
+    }
   </style>
 </head>
 <body class="bg-bg text-text antialiased font-sans">
@@ -105,48 +111,58 @@
 
         <div class="bg-panel rounded-2xl p-2 border border-white/10 mb-4">
           <div class="grid grid-cols-3 gap-2">
-            <button data-role="driver" class="role-btn h-11 rounded-xl text-sm font-medium bg-panelSoft text-text transition">Водитель</button>
-            <button data-role="passenger" class="role-btn h-11 rounded-xl text-sm font-medium bg-panelSoft text-text transition">Пассажир</button>
-            <button data-role="guest" class="role-btn h-11 rounded-xl text-sm font-medium bg-panelSoft text-text transition">Гость</button>
+            <button data-profile-tab="overview" class="profile-menu-btn active h-11 rounded-xl border border-transparent text-sm font-medium bg-panelSoft text-textSoft transition">Обзор</button>
+            <button data-profile-tab="guest" class="profile-menu-btn h-11 rounded-xl border border-transparent text-sm font-medium bg-panelSoft text-textSoft transition">Гость</button>
+            <button data-profile-tab="safety" class="profile-menu-btn h-11 rounded-xl border border-transparent text-sm font-medium bg-panelSoft text-textSoft transition">Безопасность</button>
           </div>
         </div>
 
-        <div id="role-driver" class="role-screen space-y-3">
-          <div class="bg-panel rounded-2xl p-4 border border-white/10">
-            <p class="text-sm text-textSoft">Доход за месяц</p>
-            <p class="text-2xl font-bold mt-1">₽128 400</p>
+        <div id="profile-tab-overview" class="profile-tab-screen space-y-3">
+          <div class="bg-panel rounded-2xl p-2 border border-white/10">
+            <div class="grid grid-cols-3 gap-2">
+              <button data-role="driver" class="role-btn h-11 rounded-xl text-sm font-medium bg-panelSoft text-text transition">Водитель</button>
+              <button data-role="passenger" class="role-btn h-11 rounded-xl text-sm font-medium bg-panelSoft text-text transition">Пассажир</button>
+              <button data-role="guest" class="role-btn h-11 rounded-xl text-sm font-medium bg-panelSoft text-text transition">Гость</button>
+            </div>
           </div>
-          <div class="bg-panel rounded-2xl p-4 border border-white/10">
-            <p class="text-sm text-textSoft">Налог (УСН 6%)</p>
-            <p class="text-xl font-semibold mt-1 text-warning">₽7 704</p>
+
+          <div id="role-driver" class="role-screen space-y-3">
+            <div class="bg-panel rounded-2xl p-4 border border-white/10">
+              <p class="text-sm text-textSoft">Доход за месяц</p>
+              <p class="text-2xl font-bold mt-1">₽128 400</p>
+            </div>
+            <div class="bg-panel rounded-2xl p-4 border border-white/10">
+              <p class="text-sm text-textSoft">Налог (УСН 6%)</p>
+              <p class="text-xl font-semibold mt-1 text-warning">₽7 704</p>
+            </div>
+            <div class="bg-panel rounded-2xl p-4 border border-white/10">
+              <p class="text-sm text-textSoft">Баланс к выводу</p>
+              <p class="text-xl font-semibold mt-1 text-success">₽120 696</p>
+            </div>
+            <button class="w-full h-14 rounded-2xl bg-accent text-white font-semibold text-base active:scale-[0.99] transition">
+              Добавить поездку
+            </button>
           </div>
-          <div class="bg-panel rounded-2xl p-4 border border-white/10">
-            <p class="text-sm text-textSoft">Баланс к выводу</p>
-            <p class="text-xl font-semibold mt-1 text-success">₽120 696</p>
+
+          <div id="role-common" class="role-screen hidden space-y-3">
+            <div class="bg-panel rounded-2xl p-4 border border-white/10">
+              <p class="text-lg font-semibold">Добро пожаловать 👋</p>
+              <p class="text-sm text-textSoft mt-2">
+                Вы можете просматривать документы, новости сервиса и общую информацию.
+              </p>
+            </div>
+            <div class="bg-panel rounded-2xl p-4 border border-white/10">
+              <p class="font-medium">Общая информация</p>
+              <ul class="mt-2 text-sm text-textSoft space-y-1 list-disc pl-5">
+                <li>Как начать пользоваться платформой</li>
+                <li>Где найти условия безопасности и поддержки</li>
+                <li>Где смотреть базовые тарифы и правила</li>
+              </ul>
+            </div>
           </div>
-          <button class="w-full h-14 rounded-2xl bg-accent text-white font-semibold text-base active:scale-[0.99] transition">
-            Добавить поездку
-          </button>
         </div>
 
-        <div id="role-common" class="role-screen hidden space-y-3">
-          <div class="bg-panel rounded-2xl p-4 border border-white/10">
-            <p class="text-lg font-semibold">Добро пожаловать 👋</p>
-            <p class="text-sm text-textSoft mt-2">
-              Вы можете просматривать документы, новости сервиса и общую информацию.
-            </p>
-          </div>
-          <div class="bg-panel rounded-2xl p-4 border border-white/10">
-            <p class="font-medium">Общая информация</p>
-            <ul class="mt-2 text-sm text-textSoft space-y-1 list-disc pl-5">
-              <li>Как начать пользоваться платформой</li>
-              <li>Где найти условия безопасности и поддержки</li>
-              <li>Где смотреть базовые тарифы и правила</li>
-            </ul>
-          </div>
-        </div>
-
-        <div class="bg-panel rounded-2xl p-4 border border-white/10 space-y-3">
+        <div id="profile-tab-guest" class="profile-tab-screen hidden bg-panel rounded-2xl p-4 border border-white/10 space-y-3">
           <p class="text-base font-semibold">Профиль гостя для публикаций</p>
           <p class="text-sm text-textSoft">Нужен для роли «Гость», чтобы публиковать посты в ленте.</p>
           <div class="space-y-2">
@@ -168,6 +184,21 @@
             <textarea id="profileAbout" rows="3" maxlength="400" placeholder="Коротко о себе" class="w-full rounded-xl border border-white/10 bg-panelSoft px-3 py-2 text-sm outline-none transition focus:border-accent"></textarea>
           </div>
           <button id="saveProfileBtn" type="button" class="h-11 rounded-xl bg-accent px-4 text-sm font-medium text-white transition active:scale-[0.99]">Сохранить профиль гостя</button>
+        </div>
+
+        <div id="profile-tab-safety" class="profile-tab-screen hidden space-y-3">
+          <div class="bg-panel rounded-2xl p-4 border border-white/10">
+            <p class="font-semibold">Статус профиля публикации</p>
+            <p id="guestProfileStatus" class="mt-2 text-sm text-textSoft">Профиль не проверен</p>
+          </div>
+          <div class="bg-panel rounded-2xl p-4 border border-white/10">
+            <p class="font-semibold">Рекомендации по безопасности</p>
+            <ul class="mt-2 text-sm text-textSoft space-y-1 list-disc pl-5">
+              <li>Не публикуйте паспортные данные, номер карты и CVV.</li>
+              <li>Для связи используйте email или рабочий номер.</li>
+              <li>Перед поездкой сверяйте ФИО и номер автомобиля.</li>
+            </ul>
+          </div>
         </div>
       </section>
     </main>
@@ -234,6 +265,12 @@
     const docsSearch = document.getElementById('docsSearch');
 
     const tabButtons = document.querySelectorAll('.tab-btn');
+    const profileMenuButtons = document.querySelectorAll('.profile-menu-btn');
+    const profileTabScreens = {
+      overview: document.getElementById('profile-tab-overview'),
+      guest: document.getElementById('profile-tab-guest'),
+      safety: document.getElementById('profile-tab-safety')
+    };
     const screens = {
       feed: document.getElementById('screen-feed'),
       docs: document.getElementById('screen-docs'),
@@ -248,6 +285,7 @@
     const profilePhoneInput = document.getElementById('profilePhone');
     const profileAboutInput = document.getElementById('profileAbout');
     const saveProfileBtn = document.getElementById('saveProfileBtn');
+    const guestProfileStatus = document.getElementById('guestProfileStatus');
 
     function getStoredGuestProfile() {
       try {
@@ -312,6 +350,7 @@
         likes: Number(item.likes) || 0,
         comments: 0,
         reposts: 0,
+        likedByMe: false,
       };
     }
 
@@ -346,7 +385,7 @@
               '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21s-7-4.35-7-10a4 4 0 0 1 7-2.65A4 4 0 0 1 19 11c0 5.65-7 10-7 10Z"/></svg>',
               post.likes,
               'Лайк'
-            )}
+            ).replace('group inline-flex', `group inline-flex js-like-btn ${post.likedByMe ? 'text-accent' : ''}`).replace('aria-label="Лайк"', `aria-label="Лайк" data-post-id="${post.id}"`)}
             ${interactionButton(
               '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 10h8M8 14h5"/><path d="M21 12a8 8 0 0 1-8 8H5l2.1-2.8A8 8 0 1 1 21 12Z"/></svg>',
               post.comments,
@@ -360,6 +399,17 @@
           </footer>
         </article>
       `).join('');
+
+      feedEl.querySelectorAll('.js-like-btn').forEach((button) => {
+        button.addEventListener('click', () => {
+          const postId = Number(button.dataset.postId);
+          const target = posts.find((post) => post.id === postId);
+          if (!target) return;
+          target.likedByMe = !target.likedByMe;
+          target.likes += target.likedByMe ? 1 : -1;
+          renderFeed();
+        });
+      });
     }
 
     async function loadPosts() {
@@ -397,6 +447,8 @@
       const author = resolveAuthorName();
       const guestProfile = makeGuestProfilePayload();
       if (author === 'Гость' || guestProfile.display_name.length < 2 || (!guestProfile.email && !guestProfile.phone)) {
+        setActiveScreen('profile');
+        setActiveProfileTab('guest');
         alert('Для публикации заполните профиль гостя: имя и хотя бы email или телефон.');
         return;
       }
@@ -461,6 +513,15 @@
       });
     }
 
+    function setActiveProfileTab(tab) {
+      profileMenuButtons.forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.profileTab === tab);
+      });
+      Object.entries(profileTabScreens).forEach(([name, screen]) => {
+        screen.classList.toggle('hidden', name !== tab);
+      });
+    }
+
     function setRole(role) {
       roleButtons.forEach((btn) => {
         btn.classList.toggle('active', btn.dataset.role === role);
@@ -509,6 +570,7 @@
           about: payload.about || profile.about || '',
         };
         localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(localProfile));
+        updateGuestProfileStatus();
         alert('Профиль гостя сохранён.');
       } catch (error) {
         console.error(error);
@@ -527,9 +589,31 @@
       if (profileAboutInput) profileAboutInput.value = String(profile.about || '');
     }
 
+    function updateGuestProfileStatus() {
+      if (!guestProfileStatus) return;
+      const profile = makeGuestProfilePayload();
+      const hasName = profile.display_name.length >= 2;
+      const hasContact = Boolean(profile.email || profile.phone);
+
+      if (hasName && hasContact) {
+        guestProfileStatus.textContent = 'Профиль готов к публикации постов ✅';
+        guestProfileStatus.classList.remove('text-warning');
+        guestProfileStatus.classList.add('text-success');
+      } else {
+        guestProfileStatus.textContent = 'Заполните имя и хотя бы один контакт (email или телефон).';
+        guestProfileStatus.classList.remove('text-success');
+        guestProfileStatus.classList.add('text-warning');
+      }
+    }
+
     tabButtons.forEach((btn) => {
       btn.addEventListener('click', () => {
         setActiveScreen(btn.dataset.tab);
+      });
+    });
+    profileMenuButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        setActiveProfileTab(btn.dataset.profileTab);
       });
     });
 
@@ -551,6 +635,9 @@
       renderDocs(event.target.value);
     });
     saveProfileBtn.addEventListener('click', saveGuestProfile);
+    [profileNameInput, profileEmailInput, profilePhoneInput, profileAboutInput].forEach((field) => {
+      field.addEventListener('input', updateGuestProfileStatus);
+    });
 
     const savedRole = localStorage.getItem(ROLE_STORAGE_KEY);
     const initialRole = ['driver', 'passenger', 'guest'].includes(savedRole) ? savedRole : 'driver';
@@ -559,7 +646,9 @@
     renderDocs();
     hydrateProfileForm();
     setRole(initialRole);
+    setActiveProfileTab('overview');
     setActiveScreen('feed');
+    updateGuestProfileStatus();
   </script>
 </body>
 </html>
