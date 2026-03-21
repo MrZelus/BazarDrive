@@ -51,16 +51,25 @@
 1. Запустите API-сервер:
 
 ```bash
-python feed_api.py
+FEED_API_HOST=0.0.0.0 FEED_API_PORT=8001 python feed_api.py
 ```
 
-2. В отдельном терминале запустите статический сервер:
+2. В отдельном терминале запустите статический сервер (с привязкой ко всем интерфейсам):
 
 ```bash
-python -m http.server 8000
+python -m http.server 8000 --bind 0.0.0.0
 ```
 
-3. Затем откройте `http://localhost:8000/guest_feed.html`.
+3. На текущем устройстве откройте `http://localhost:8000/guest_feed.html`.
+
+4. Для запуска с другого устройства в той же сети откройте:
+
+```text
+http://<LAN-IP-ВАШЕГО-ПК>:8000/guest_feed.html
+```
+
+Если API находится на другом хосте/порту, можно передать его напрямую: `?apiBase=http://<host>:<port>`.
+Пример: `http://192.168.1.50:8000/guest_feed.html?apiBase=http://192.168.1.50:8001`.
 
 ### Как добавить в ваш репозиторий (шаги)
 Если вы переносите файл в другой проект:
@@ -104,3 +113,4 @@ python bot.py
 
 - `docs/driver_profile_wireframe_spec.md` — текстовая спецификация layout, состояний, событий и адаптива.
 - `docs/driver_profile_screen.schema.json` — JSON-схема экрана для проектирования компонентной архитектуры.
+- `docs/driver_profile.types.ts` — TypeScript-интерфейсы и union-типы для типизации payload экрана.

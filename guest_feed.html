@@ -255,7 +255,33 @@
 
     const ROLE_STORAGE_KEY = 'bazardrive_selected_role';
     const PROFILE_STORAGE_KEY = 'bazardrive_profile';
-    const FEED_API_BASE = `${window.location.protocol}//${window.location.hostname || 'localhost'}:8001`;
+    const FEED_API_BASE_STORAGE_KEY = 'bazardrive_feed_api_base';
+
+    function normalizeApiBase(url) {
+      return String(url || '').trim().replace(/\/+$/, '');
+    }
+
+    function resolveFeedApiBase() {
+      const url = new URL(window.location.href);
+      const apiBaseFromQuery = normalizeApiBase(url.searchParams.get('apiBase'));
+      if (apiBaseFromQuery) {
+        localStorage.setItem(FEED_API_BASE_STORAGE_KEY, apiBaseFromQuery);
+        return apiBaseFromQuery;
+      }
+
+      const apiBaseFromStorage = normalizeApiBase(localStorage.getItem(FEED_API_BASE_STORAGE_KEY));
+      if (apiBaseFromStorage) {
+        return apiBaseFromStorage;
+      }
+
+      if (window.location.port === '8001') {
+        return normalizeApiBase(window.location.origin);
+      }
+
+      return normalizeApiBase(`${window.location.protocol}//${window.location.hostname || 'localhost'}:8001`);
+    }
+
+    const FEED_API_BASE = resolveFeedApiBase();
 
     const feedEl = document.getElementById('feed');
     const newPostInput = document.getElementById('newPostInput');
@@ -425,7 +451,7 @@
         renderFeed();
       } catch (error) {
         console.error(error);
-        feedEl.innerHTML = '<div class="rounded-2xl bg-panel p-4 border border-white/10 text-sm text-warning">Не удалось загрузить посты. Проверьте, что API запущен на порту 8001.</div>';
+        feedEl.innerHTML = `<div class="rounded-2xl bg-panel p-4 border border-white/10 text-sm text-warning">Не удалось загрузить посты. Проверьте доступность API: ${FEED_API_BASE}.</div>`;
       }
     }
 
