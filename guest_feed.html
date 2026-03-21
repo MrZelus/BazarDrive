@@ -145,6 +145,30 @@
             </ul>
           </div>
         </div>
+
+        <div class="bg-panel rounded-2xl p-4 border border-white/10 space-y-3">
+          <p class="text-base font-semibold">Профиль гостя для публикаций</p>
+          <p class="text-sm text-textSoft">Нужен для роли «Гость», чтобы публиковать посты в ленте.</p>
+          <div class="space-y-2">
+            <label class="block text-xs text-textSoft" for="profileName">Отображаемое имя</label>
+            <input id="profileName" type="text" maxlength="60" placeholder="Например: Алексей Петров" class="h-11 w-full rounded-xl border border-white/10 bg-panelSoft px-3 text-sm outline-none transition focus:border-accent" />
+          </div>
+          <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div class="space-y-2">
+              <label class="block text-xs text-textSoft" for="profileEmail">Email</label>
+              <input id="profileEmail" type="email" maxlength="254" placeholder="name@example.com" class="h-11 w-full rounded-xl border border-white/10 bg-panelSoft px-3 text-sm outline-none transition focus:border-accent" />
+            </div>
+            <div class="space-y-2">
+              <label class="block text-xs text-textSoft" for="profilePhone">Телефон</label>
+              <input id="profilePhone" type="tel" maxlength="32" placeholder="+7..." class="h-11 w-full rounded-xl border border-white/10 bg-panelSoft px-3 text-sm outline-none transition focus:border-accent" />
+            </div>
+          </div>
+          <div class="space-y-2">
+            <label class="block text-xs text-textSoft" for="profileAbout">О себе</label>
+            <textarea id="profileAbout" rows="3" maxlength="400" placeholder="Коротко о себе" class="w-full rounded-xl border border-white/10 bg-panelSoft px-3 py-2 text-sm outline-none transition focus:border-accent"></textarea>
+          </div>
+          <button id="saveProfileBtn" type="button" class="h-11 rounded-xl bg-accent px-4 text-sm font-medium text-white transition active:scale-[0.99]">Сохранить профиль гостя</button>
+        </div>
       </section>
     </main>
   </div>
@@ -219,6 +243,43 @@
     const roleButtons = document.querySelectorAll('.role-btn');
     const roleDriver = document.getElementById('role-driver');
     const roleCommon = document.getElementById('role-common');
+    const profileNameInput = document.getElementById('profileName');
+    const profileEmailInput = document.getElementById('profileEmail');
+    const profilePhoneInput = document.getElementById('profilePhone');
+    const profileAboutInput = document.getElementById('profileAbout');
+    const saveProfileBtn = document.getElementById('saveProfileBtn');
+
+    function getStoredGuestProfile() {
+      try {
+        const raw = localStorage.getItem(PROFILE_STORAGE_KEY);
+        const parsed = raw ? JSON.parse(raw) : {};
+        if (parsed && typeof parsed === 'object') return parsed;
+      } catch (error) {
+        console.warn('Не удалось прочитать профиль гостя', error);
+      }
+      return {};
+    }
+
+    function makeGuestProfilePayload() {
+      const stored = getStoredGuestProfile();
+      const fallbackName = String(stored.fullName || '').trim();
+      const profileId = String(stored.id || `guest-${crypto.randomUUID()}`).trim();
+      const fullName = String(profileNameInput?.value || fallbackName).trim();
+      const email = String(profileEmailInput?.value || stored.email || '').trim();
+      const phone = String(profilePhoneInput?.value || stored.phone || '').trim();
+      const about = String(profileAboutInput?.value || stored.about || '').trim();
+
+      return {
+        id: profileId,
+        role: 'guest_author',
+        display_name: fullName,
+        email: email || null,
+        phone: phone || null,
+        about: about || null,
+        status: 'active',
+        is_verified: false
+      };
+    }
     
     function formatPostDate(createdAt) {
       const date = createdAt ? new Date(createdAt) : new Date();
@@ -320,9 +381,7 @@
 
     function resolveAuthorName() {
       try {
-        const profileRaw = localStorage.getItem(PROFILE_STORAGE_KEY);
-        if (!profileRaw) return 'Гость';
-        const profile = JSON.parse(profileRaw);
+        const profile = getStoredGuestProfile();
         const fullName = String(profile?.fullName || '').trim();
         if (fullName.length >= 2) return fullName;
       } catch (error) {
@@ -336,13 +395,18 @@
       if (!text) return;
       
       const author = resolveAuthorName();
+      const guestProfile = makeGuestProfilePayload();
+      if (author === 'Гость' || guestProfile.display_name.length < 2 || (!guestProfile.email && !guestProfile.phone)) {
+        alert('Для публикации заполните профиль гостя: имя и хотя бы email или телефон.');
+        return;
+      }
       publishBtn.disabled = true;
       publishBtn.textContent = 'Публикация...';
       try {
         const response = await fetch(`${FEED_API_BASE}/api/feed/posts`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ author, text }),
+          body: JSON.stringify({ author, text, guest_profile: guestProfile }),
         });
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) {
@@ -413,6 +477,56 @@
       localStorage.setItem(ROLE_STORAGE_KEY, role);
     }
 
+    async function saveGuestProfile() {
+      const profile = makeGuestProfilePayload();
+      if (profile.display_name.length < 2) {
+        alert('Имя должно содержать минимум 2 символа.');
+        return;
+      }
+      if (!profile.email && !profile.phone) {
+        alert('Укажите email или телефон.');
+        return;
+      }
+
+      saveProfileBtn.disabled = true;
+      saveProfileBtn.textContent = 'Сохранение...';
+      try {
+        const response = await fetch(`${FEED_API_BASE}/api/feed/profiles`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(profile),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload.error || `Ошибка сохранения профиля (HTTP ${response.status})`);
+        }
+
+        const localProfile = {
+          id: payload.id || profile.id,
+          fullName: payload.display_name || profile.display_name,
+          email: payload.email || profile.email || '',
+          phone: payload.phone || profile.phone || '',
+          about: payload.about || profile.about || '',
+        };
+        localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(localProfile));
+        alert('Профиль гостя сохранён.');
+      } catch (error) {
+        console.error(error);
+        alert(error.message || 'Не удалось сохранить профиль гостя');
+      } finally {
+        saveProfileBtn.disabled = false;
+        saveProfileBtn.textContent = 'Сохранить профиль гостя';
+      }
+    }
+
+    function hydrateProfileForm() {
+      const profile = getStoredGuestProfile();
+      if (profileNameInput) profileNameInput.value = String(profile.fullName || '');
+      if (profileEmailInput) profileEmailInput.value = String(profile.email || '');
+      if (profilePhoneInput) profilePhoneInput.value = String(profile.phone || '');
+      if (profileAboutInput) profileAboutInput.value = String(profile.about || '');
+    }
+
     tabButtons.forEach((btn) => {
       btn.addEventListener('click', () => {
         setActiveScreen(btn.dataset.tab);
@@ -436,12 +550,14 @@
     docsSearch.addEventListener('input', (event) => {
       renderDocs(event.target.value);
     });
+    saveProfileBtn.addEventListener('click', saveGuestProfile);
 
     const savedRole = localStorage.getItem(ROLE_STORAGE_KEY);
     const initialRole = ['driver', 'passenger', 'guest'].includes(savedRole) ? savedRole : 'driver';
 
     loadPosts();
     renderDocs();
+    hydrateProfileForm();
     setRole(initialRole);
     setActiveScreen('feed');
   </script>
