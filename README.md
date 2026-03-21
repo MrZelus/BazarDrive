@@ -153,3 +153,21 @@ migrations/                   # SQL-миграции (001_init.sql, 002_...sql, 
 - `docs/driver_profile_wireframe_spec.md` — текстовая спецификация layout, состояний, событий и адаптива.
 - `docs/driver_profile_screen.schema.json` — JSON-схема экрана для проектирования компонентной архитектуры.
 - `docs/driver_profile.types.ts` — TypeScript-интерфейсы и union-типы для типизации payload экрана.
+
+
+## Тесты
+
+Для изоляции тестов используется отдельный временный SQLite-файл через переменную окружения `BAZAR_DB_PATH`.
+В самих тестах файл создаётся автоматически, но при ручном запуске можно указать путь явно.
+
+### Запуск всех тестов
+
+```bash
+python -m unittest discover -s tests -p "test_*.py" -v
+```
+
+### Пример ручного запуска с отдельной БД
+
+```bash
+BAZAR_DB_PATH=/tmp/bazardrive-test.db python -m unittest tests.test_db_guest_feed -v
+```

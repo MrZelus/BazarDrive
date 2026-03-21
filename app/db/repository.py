@@ -1,18 +1,24 @@
+import os
 import sqlite3
 from contextlib import closing
 from typing import Any, Optional
 
-DB_PATH = "bot.db"
+DB_PATH_ENV_VAR = "BAZAR_DB_PATH"
+DEFAULT_DB_PATH = "bot.db"
+
+
+def get_db_path() -> str:
+    return os.getenv(DB_PATH_ENV_VAR, DEFAULT_DB_PATH)
 
 
 def init_db() -> None:
     from app.db.migrator import apply_migrations
 
-    apply_migrations(DB_PATH)
+    apply_migrations(get_db_path())
 
 
 def add_user(tg_id: int, username: str, full_name: str) -> None:
-    with closing(sqlite3.connect(DB_PATH)) as conn:
+    with closing(sqlite3.connect(get_db_path())) as conn:
         cur = conn.cursor()
         cur.execute(
             """
@@ -25,7 +31,7 @@ def add_user(tg_id: int, username: str, full_name: str) -> None:
 
 
 def create_taxi_request(user_tg_id: int, from_addr: str, to_addr: str, ride_time: str, comment: str) -> int:
-    with closing(sqlite3.connect(DB_PATH)) as conn:
+    with closing(sqlite3.connect(get_db_path())) as conn:
         cur = conn.cursor()
         cur.execute(
             """
@@ -39,7 +45,7 @@ def create_taxi_request(user_tg_id: int, from_addr: str, to_addr: str, ride_time
 
 
 def create_ad(user_tg_id: int, title: str, text: str) -> int:
-    with closing(sqlite3.connect(DB_PATH)) as conn:
+    with closing(sqlite3.connect(get_db_path())) as conn:
         cur = conn.cursor()
         cur.execute(
             """
@@ -53,7 +59,7 @@ def create_ad(user_tg_id: int, title: str, text: str) -> int:
 
 
 def create_post(user_tg_id: int, text: str) -> int:
-    with closing(sqlite3.connect(DB_PATH)) as conn:
+    with closing(sqlite3.connect(get_db_path())) as conn:
         cur = conn.cursor()
         cur.execute(
             """
@@ -67,7 +73,7 @@ def create_post(user_tg_id: int, text: str) -> int:
 
 
 def get_ad(ad_id: int) -> Optional[sqlite3.Row]:
-    with closing(sqlite3.connect(DB_PATH)) as conn:
+    with closing(sqlite3.connect(get_db_path())) as conn:
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
         cur.execute("SELECT * FROM ads WHERE id = ?", (ad_id,))
@@ -75,7 +81,7 @@ def get_ad(ad_id: int) -> Optional[sqlite3.Row]:
 
 
 def get_post(post_id: int) -> Optional[sqlite3.Row]:
-    with closing(sqlite3.connect(DB_PATH)) as conn:
+    with closing(sqlite3.connect(get_db_path())) as conn:
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
         cur.execute("SELECT * FROM posts WHERE id = ?", (post_id,))
@@ -83,7 +89,7 @@ def get_post(post_id: int) -> Optional[sqlite3.Row]:
 
 
 def update_ad_status(ad_id: int, status: str) -> bool:
-    with closing(sqlite3.connect(DB_PATH)) as conn:
+    with closing(sqlite3.connect(get_db_path())) as conn:
         cur = conn.cursor()
         cur.execute("UPDATE ads SET status = ? WHERE id = ?", (status, ad_id))
         conn.commit()
@@ -91,7 +97,7 @@ def update_ad_status(ad_id: int, status: str) -> bool:
 
 
 def update_post_status(post_id: int, status: str) -> bool:
-    with closing(sqlite3.connect(DB_PATH)) as conn:
+    with closing(sqlite3.connect(get_db_path())) as conn:
         cur = conn.cursor()
         cur.execute("UPDATE posts SET status = ? WHERE id = ?", (status, post_id))
         conn.commit()
@@ -99,7 +105,7 @@ def update_post_status(post_id: int, status: str) -> bool:
 
 
 def list_pending_content(limit: int = 20) -> list[dict[str, Any]]:
-    with closing(sqlite3.connect(DB_PATH)) as conn:
+    with closing(sqlite3.connect(get_db_path())) as conn:
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
         cur.execute(
@@ -120,7 +126,7 @@ def list_pending_content(limit: int = 20) -> list[dict[str, Any]]:
 
 
 def list_approved_posts(limit: int = 50, offset: int = 0, include_ads: bool = True) -> list[dict[str, Any]]:
-    with closing(sqlite3.connect(DB_PATH)) as conn:
+    with closing(sqlite3.connect(get_db_path())) as conn:
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
 
@@ -158,7 +164,7 @@ def list_approved_posts(limit: int = 50, offset: int = 0, include_ads: bool = Tr
 
 
 def list_guest_feed_posts(limit: int = 20, offset: int = 0) -> list[dict[str, Any]]:
-    with closing(sqlite3.connect(DB_PATH)) as conn:
+    with closing(sqlite3.connect(get_db_path())) as conn:
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
         cur.execute(
@@ -174,7 +180,7 @@ def list_guest_feed_posts(limit: int = 20, offset: int = 0) -> list[dict[str, An
 
 
 def count_guest_feed_posts() -> int:
-    with closing(sqlite3.connect(DB_PATH)) as conn:
+    with closing(sqlite3.connect(get_db_path())) as conn:
         cur = conn.cursor()
         cur.execute("SELECT COUNT(*) FROM guest_feed_posts")
         row = cur.fetchone()
@@ -182,7 +188,7 @@ def count_guest_feed_posts() -> int:
 
 
 def create_guest_feed_post(author: str, text: str, image_url: Optional[str] = None, guest_profile_id: Optional[str] = None) -> dict[str, Any]:
-    with closing(sqlite3.connect(DB_PATH)) as conn:
+    with closing(sqlite3.connect(get_db_path())) as conn:
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
         cur.execute(
@@ -208,7 +214,7 @@ def create_guest_feed_post(author: str, text: str, image_url: Optional[str] = No
 
 
 def update_guest_feed_post(post_id: int, author: str, text: str, image_url: Optional[str] = None, guest_profile_id: Optional[str] = None) -> Optional[dict[str, Any]]:
-    with closing(sqlite3.connect(DB_PATH)) as conn:
+    with closing(sqlite3.connect(get_db_path())) as conn:
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
         cur.execute(
@@ -250,7 +256,7 @@ def upsert_guest_profile(
     status: str = "active",
     is_verified: bool = False,
 ) -> dict[str, Any]:
-    with closing(sqlite3.connect(DB_PATH)) as conn:
+    with closing(sqlite3.connect(get_db_path())) as conn:
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
         cur.execute(
@@ -297,7 +303,7 @@ def upsert_guest_profile(
 
 
 def get_guest_profile(profile_id: str) -> Optional[dict[str, Any]]:
-    with closing(sqlite3.connect(DB_PATH)) as conn:
+    with closing(sqlite3.connect(get_db_path())) as conn:
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
         cur.execute(
