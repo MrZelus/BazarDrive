@@ -301,7 +301,16 @@ def count_guest_feed_posts() -> int:
 
 
 def create_guest_feed_post(author: str, text: str, image_url: Optional[str] = None) -> dict[str, Any]:
+    author_clean = author.strip()
+    text_clean = text.strip()
     image_url_clean = _validate_guest_feed_image_url(image_url)
+
+    if len(author_clean) < 2:
+        raise ValueError("Имя должно содержать минимум 2 символа")
+    if len(text_clean) < 5:
+        raise ValueError("Сообщение должно содержать минимум 5 символов")
+    if len(author_clean) > 40 or len(text_clean) > 500:
+        raise ValueError("Превышена максимальная длина полей")
 
     with closing(sqlite3.connect(DB_PATH)) as conn:
         conn.row_factory = sqlite3.Row
@@ -311,7 +320,7 @@ def create_guest_feed_post(author: str, text: str, image_url: Optional[str] = No
             INSERT INTO guest_feed_posts (author, text, image_url)
             VALUES (?, ?, ?)
             """,
-            (author, text, image_url_clean),
+            (author_clean, text_clean, image_url_clean),
         )
         conn.commit()
         new_id = cur.lastrowid

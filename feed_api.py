@@ -428,6 +428,14 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             self._send_json(400, {"error": "Поля author и text обязательны"})
             return
 
+        if len(author) < 2:
+            self._send_json(400, {"error": "Имя должно содержать минимум 2 символа"})
+            return
+
+        if len(text) < 5:
+            self._send_json(400, {"error": "Сообщение должно содержать минимум 5 символов"})
+            return
+
         if len(author) > 40 or len(text) > 500:
             self._send_json(400, {"error": "Превышена максимальная длина полей"})
             return
@@ -483,6 +491,14 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
 
         if not author or not text:
             self._send_json(400, {"error": "Поля author и text обязательны"})
+            return
+
+        if len(author) < 2:
+            self._send_json(400, {"error": "Имя должно содержать минимум 2 символа"})
+            return
+
+        if len(text) < 5:
+            self._send_json(400, {"error": "Сообщение должно содержать минимум 5 символов"})
             return
 
         try:
