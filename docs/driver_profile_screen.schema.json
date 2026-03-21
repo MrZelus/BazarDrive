@@ -1,7 +1,7 @@
 {
   "screenId": "driver_profile_ip_usn_income",
   "screenTitle": "Профиль водителя такси (ИП, УСН Доходы)",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "meta": {
     "entity": "driver_profile",
     "taxMode": "usn_income_6",
@@ -325,7 +325,8 @@
                 "loading",
                 "success",
                 "error"
-              ]
+              ],
+              "target": "add_document_form"
             },
             {
               "id": "upload_document",
@@ -496,7 +497,14 @@
           "id": "add_document",
           "label": "Добавить документ",
           "type": "open_add_document_form",
-          "style": "secondary"
+          "style": "secondary",
+          "target": "add_document_form",
+          "states": [
+            "idle",
+            "loading",
+            "success",
+            "error"
+          ]
         },
         {
           "id": "upload_document",
@@ -574,6 +582,10 @@
     },
     {
       "id": "add_document_click",
+      "effect": "open_add_document_form"
+    },
+    {
+      "id": "add_document_click_sticky",
       "effect": "open_add_document_form"
     },
     {
