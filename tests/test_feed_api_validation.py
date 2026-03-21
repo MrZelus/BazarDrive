@@ -52,6 +52,16 @@ class FeedAPIValidationTests(unittest.TestCase):
         if os.path.exists(self.temp_db.name):
             os.unlink(self.temp_db.name)
 
+    def _get(self, path: str) -> tuple[int, dict, dict]:
+        conn = HTTPConnection(self.host, self.port, timeout=5)
+        conn.request("GET", path)
+        response = conn.getresponse()
+        data = response.read().decode("utf-8")
+        parsed = json.loads(data) if data else {}
+        headers = {k.lower(): v for k, v in response.getheaders()}
+        conn.close()
+        return response.status, parsed, headers
+
     def _post(self, path: str, payload: dict) -> tuple[int, dict, dict]:
         conn = HTTPConnection(self.host, self.port, timeout=5)
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -102,6 +112,28 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertIn("retry_after", limited_payload)
         self.assertIn("retry-after", limited_headers)
 
+
+
+    def test_driver_documents_crud_validation_and_list(self) -> None:
+        bad_status, bad_payload, _ = self._post(
+            "/api/driver/documents",
+            {"profile_id": "driver-main", "type": "unknown", "number": "1", "valid_until": "bad-date"},
+        )
+        self.assertEqual(bad_status, 400)
+        self.assertEqual(bad_payload.get("error"), "validation_error")
+        self.assertIn("fields", bad_payload)
+
+        ok_status, ok_payload, _ = self._post(
+            "/api/driver/documents",
+            {"profile_id": "driver-main", "type": "passport", "number": "4010 123456", "valid_until": "2030-12-31"},
+        )
+        self.assertEqual(ok_status, 201)
+        self.assertIn("id", ok_payload)
+
+        list_status, list_payload, _ = self._get("/api/driver/documents?profile_id=driver-main")
+        self.assertEqual(list_status, 200)
+        self.assertEqual(list_payload.get("total"), 1)
+        self.assertEqual(list_payload["items"][0]["id"], ok_payload["id"])
 
     def test_health_endpoint_returns_ok(self) -> None:
         conn = HTTPConnection(self.host, self.port, timeout=5)

@@ -15,3 +15,21 @@ ABOUT_MAX_LEN = 400
 
 ALLOWED_PROFILE_ROLES = {"guest_author", "guest_reader"}
 ALLOWED_PROFILE_STATUSES = {"active", "blocked", "pending_moderation"}
+
+
+ALLOWED_DRIVER_DOCUMENT_TYPES = {
+    'passport',
+    'inn',
+    'ogrnip',
+    'taxi_license',
+    'driver_license',
+    'sts',
+    'osago',
+    'diagnostic_card',
+    'self_employed_certificate',
+}
+
+ALLOWED_DRIVER_DOCUMENT_STATUSES = {'uploaded', 'checking', 'approved', 'rejected', 'expired'}
+DRIVER_DOCUMENT_NUMBER_MIN_LEN = 3
+DRIVER_DOCUMENT_NUMBER_MAX_LEN = 64
+DRIVER_DOCUMENT_FILE_URL_MAX_LEN = 2048

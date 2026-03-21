@@ -100,6 +100,189 @@
     const profileAboutInput = document.getElementById('profileAbout');
     const saveProfileBtn = document.getElementById('saveProfileBtn');
     const guestProfileStatus = document.getElementById('guestProfileStatus');
+    const addDocumentBtn = document.getElementById('addDocumentBtn');
+    const addDocumentForm = document.getElementById('addDocumentForm');
+    const submitDocumentBtn = document.getElementById('submitDocumentBtn');
+    const cancelDocumentBtn = document.getElementById('cancelDocumentBtn');
+    const driverDocumentsList = document.getElementById('driverDocumentsList');
+    const documentsApiAlert = document.getElementById('documentsApiAlert');
+    const documentTypeInput = document.getElementById('documentType');
+    const documentNumberInput = document.getElementById('documentNumber');
+    const documentValidUntilInput = document.getElementById('documentValidUntil');
+    const documentTypeError = document.getElementById('documentTypeError');
+    const documentNumberError = document.getElementById('documentNumberError');
+    const documentValidUntilError = document.getElementById('documentValidUntilError');
+
+
+    function clearDocumentErrors() {
+      [documentTypeError, documentNumberError, documentValidUntilError].forEach((el) => {
+        if (!el) return;
+        el.textContent = '';
+        el.classList.add('hidden');
+      });
+    }
+
+    function showDocumentErrors(errors = {}) {
+      const fieldToElement = {
+        type: documentTypeError,
+        number: documentNumberError,
+        valid_until: documentValidUntilError,
+      };
+      Object.entries(errors).forEach(([field, message]) => {
+        const target = fieldToElement[field];
+        if (!target) return;
+        target.textContent = String(message || 'Некорректное значение');
+        target.classList.remove('hidden');
+      });
+    }
+
+    function setDocumentAlert(message = '') {
+      if (!documentsApiAlert) return;
+      const normalized = String(message || '').trim();
+      if (!normalized) {
+        documentsApiAlert.textContent = '';
+        documentsApiAlert.classList.add('hidden');
+        return;
+      }
+      documentsApiAlert.textContent = normalized;
+      documentsApiAlert.classList.remove('hidden');
+    }
+
+    function renderDriverDocuments(items = []) {
+      if (!driverDocumentsList) return;
+      if (!Array.isArray(items) || items.length === 0) {
+        driverDocumentsList.innerHTML = '<div class="rounded-xl border border-white/10 bg-panelSoft px-3 py-2 text-sm text-textSoft">Документы пока не добавлены.</div>';
+        return;
+      }
+
+      const labels = {
+        passport: 'Паспорт', inn: 'ИНН', ogrnip: 'ОГРНИП', taxi_license: 'Разрешение на такси',
+        driver_license: 'Водительское удостоверение', sts: 'СТС', osago: 'ОСАГО',
+        diagnostic_card: 'Диагностическая карта', self_employed_certificate: 'Справка самозанятого'
+      };
+
+      driverDocumentsList.innerHTML = items.map((item) => `
+        <article class="rounded-xl border border-white/10 bg-panelSoft px-3 py-2">
+          <div class="flex items-center justify-between gap-2">
+            <div>
+              <p class="text-sm font-medium">${labels[item.type] || item.type}</p>
+              <p class="text-xs text-textSoft">№ ${item.number}${item.valid_until ? ` • до ${item.valid_until}` : ''}</p>
+            </div>
+            <button type="button" data-doc-delete="${item.id}" class="text-xs text-warning">Удалить</button>
+          </div>
+        </article>
+      `).join('');
+
+      driverDocumentsList.querySelectorAll('[data-doc-delete]').forEach((button) => {
+        button.addEventListener('click', async () => {
+          const id = Number(button.getAttribute('data-doc-delete'));
+          if (!id) return;
+          try {
+            const response = await fetch(`${FEED_API_BASE}/api/driver/documents/${id}`, { method: 'DELETE' });
+            if (!response.ok) {
+              throw new Error(`Не удалось удалить документ (HTTP ${response.status})`);
+            }
+            await loadDriverDocuments();
+          } catch (error) {
+            console.error(error);
+            setDocumentAlert(error.message || 'Не удалось удалить документ');
+          }
+        });
+      });
+    }
+
+    async function loadDriverDocuments() {
+      try {
+        const response = await fetch(`${FEED_API_BASE}/api/driver/documents?profile_id=driver-main`);
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload.error || `Не удалось загрузить документы (HTTP ${response.status})`);
+        }
+        renderDriverDocuments(payload.items || []);
+      } catch (error) {
+        console.error(error);
+        setDocumentAlert(error.message || 'Не удалось загрузить список документов');
+      }
+    }
+
+    function toggleDocumentForm(forceOpen) {
+      if (!addDocumentForm) return;
+      const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : addDocumentForm.classList.contains('hidden');
+      addDocumentForm.classList.toggle('hidden', !shouldOpen);
+      if (!shouldOpen) {
+        addDocumentForm.reset();
+        clearDocumentErrors();
+        setDocumentAlert('');
+      }
+    }
+
+    function validateDocumentForm() {
+      const errors = {};
+      const type = String(documentTypeInput?.value || '').trim();
+      const number = String(documentNumberInput?.value || '').trim();
+      const validUntil = String(documentValidUntilInput?.value || '').trim();
+
+      if (!type) errors.type = 'Выберите тип документа';
+      if (number.length < 3) errors.number = 'Укажите номер документа (минимум 3 символа)';
+      if (validUntil && !/^\d{4}-\d{2}-\d{2}$/.test(validUntil)) {
+        errors.valid_until = 'Дата должна быть в формате YYYY-MM-DD';
+      }
+
+      return {
+        payload: {
+          profile_id: 'driver-main',
+          type,
+          number,
+          valid_until: validUntil || null,
+          status: 'uploaded',
+        },
+        errors,
+      };
+    }
+
+    async function submitDriverDocument(event) {
+      event.preventDefault();
+      clearDocumentErrors();
+      setDocumentAlert('');
+
+      const { payload, errors } = validateDocumentForm();
+      if (Object.keys(errors).length > 0) {
+        showDocumentErrors(errors);
+        return;
+      }
+
+      if (submitDocumentBtn) {
+        submitDocumentBtn.disabled = true;
+        submitDocumentBtn.textContent = 'Сохранение...';
+      }
+
+      try {
+        const response = await fetch(`${FEED_API_BASE}/api/driver/documents`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          if (data.error === 'validation_error') {
+            showDocumentErrors(data.fields || {});
+            return;
+          }
+          throw new Error(data.error || `Не удалось добавить документ (HTTP ${response.status})`);
+        }
+
+        toggleDocumentForm(false);
+        await loadDriverDocuments();
+      } catch (error) {
+        console.error(error);
+        setDocumentAlert(error.message || 'Не удалось добавить документ');
+      } finally {
+        if (submitDocumentBtn) {
+          submitDocumentBtn.disabled = false;
+          submitDocumentBtn.textContent = 'Сохранить';
+        }
+      }
+    }
 
     function getStoredGuestProfile() {
       try {
@@ -469,6 +652,9 @@
       renderDocs(event.target.value);
     });
     saveProfileBtn.addEventListener('click', saveGuestProfile);
+    addDocumentBtn?.addEventListener('click', () => toggleDocumentForm(true));
+    cancelDocumentBtn?.addEventListener('click', () => toggleDocumentForm(false));
+    addDocumentForm?.addEventListener('submit', submitDriverDocument);
     [profileNameInput, profileEmailInput, profilePhoneInput, profileAboutInput].forEach((field) => {
       field.addEventListener('input', updateGuestProfileStatus);
     });
@@ -478,6 +664,7 @@
 
     loadPosts();
     renderDocs();
+    loadDriverDocuments();
     hydrateProfileForm();
     setRole(initialRole);
     setActiveProfileTab('overview');
