@@ -324,3 +324,100 @@ def get_guest_profile(profile_id: str) -> Optional[dict[str, Any]]:
         )
         row = cur.fetchone()
         return dict(row) if row else None
+
+
+
+def list_driver_documents(profile_id: str = "driver-main") -> list[dict[str, Any]]:
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT id, profile_id, type, number, valid_until, file_url, status, created_at, updated_at
+            FROM driver_documents
+            WHERE profile_id = ?
+            ORDER BY datetime(created_at) DESC, id DESC
+            """,
+            (profile_id,),
+        )
+        return [dict(row) for row in cur.fetchall()]
+
+
+def create_driver_document(
+    profile_id: str,
+    type: str,
+    number: str,
+    valid_until: Optional[str] = None,
+    file_url: Optional[str] = None,
+    status: str = "uploaded",
+) -> dict[str, Any]:
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO driver_documents (profile_id, type, number, valid_until, file_url, status)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (profile_id, type, number, valid_until, file_url, status),
+        )
+        conn.commit()
+        new_id = cur.lastrowid
+        cur.execute(
+            """
+            SELECT id, profile_id, type, number, valid_until, file_url, status, created_at, updated_at
+            FROM driver_documents
+            WHERE id = ?
+            """,
+            (new_id,),
+        )
+        row = cur.fetchone()
+        return dict(row) if row else {}
+
+
+def update_driver_document(
+    doc_id: int,
+    type: str,
+    number: str,
+    valid_until: Optional[str] = None,
+    file_url: Optional[str] = None,
+    status: str = "uploaded",
+) -> Optional[dict[str, Any]]:
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute(
+            """
+            UPDATE driver_documents
+            SET type = ?,
+                number = ?,
+                valid_until = ?,
+                file_url = ?,
+                status = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (type, number, valid_until, file_url, status, doc_id),
+        )
+        if cur.rowcount == 0:
+            conn.rollback()
+            return None
+        conn.commit()
+        cur.execute(
+            """
+            SELECT id, profile_id, type, number, valid_until, file_url, status, created_at, updated_at
+            FROM driver_documents
+            WHERE id = ?
+            """,
+            (doc_id,),
+        )
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+
+def delete_driver_document(doc_id: int) -> bool:
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM driver_documents WHERE id = ?", (doc_id,))
+        conn.commit()
+        return cur.rowcount > 0

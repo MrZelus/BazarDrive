@@ -73,6 +73,33 @@ class GuestFeedRepositoryTests(unittest.TestCase):
         total = repository.count_guest_feed_posts()
         self.assertEqual(total, 1)
 
+        created_doc = repository.create_driver_document(
+            profile_id="driver-main",
+            type="passport",
+            number="4010 123456",
+            valid_until="2030-01-01",
+            status="uploaded",
+        )
+        self.assertEqual(created_doc["type"], "passport")
+
+        updated_doc = repository.update_driver_document(
+            doc_id=created_doc["id"],
+            type="passport",
+            number="4010 999999",
+            valid_until="2031-01-01",
+            status="approved",
+        )
+        self.assertIsNotNone(updated_doc)
+        self.assertEqual(updated_doc["number"], "4010 999999")
+
+        listed_docs = repository.list_driver_documents(profile_id="driver-main")
+        self.assertEqual(len(listed_docs), 1)
+        self.assertEqual(listed_docs[0]["id"], created_doc["id"])
+
+        deleted = repository.delete_driver_document(created_doc["id"])
+        self.assertTrue(deleted)
+        self.assertEqual(repository.list_driver_documents(profile_id="driver-main"), [])
+
 
 if __name__ == "__main__":
     unittest.main()

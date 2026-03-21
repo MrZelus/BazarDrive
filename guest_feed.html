@@ -169,8 +169,49 @@
         </div>
 
         <div id="profile-tab-documents" class="profile-tab-screen hidden bg-panel rounded-2xl p-4 border border-white/10 space-y-3" role="tabpanel" aria-labelledby="profile-tab-btn-documents" hidden aria-hidden="true" inert>
-          <p class="text-base font-semibold">Документы и профиль гостя для публикаций</p>
-          <p class="text-sm text-textSoft">Заполните профиль: это обязательное условие для публикации постов в ленте.</p>
+          <div class="flex items-center justify-between gap-2">
+            <p class="text-base font-semibold">Документы водителя</p>
+            <button id="addDocumentBtn" type="button" class="h-10 rounded-xl bg-accent px-4 text-sm font-medium text-white transition active:scale-[0.99]">Добавить документ</button>
+          </div>
+          <div id="documentsApiAlert" class="hidden rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning"></div>
+          <form id="addDocumentForm" class="hidden space-y-2 rounded-xl border border-white/10 bg-panelSoft p-3">
+            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <div class="space-y-1">
+                <label class="block text-xs text-textSoft" for="documentType">Тип документа</label>
+                <select id="documentType" class="h-11 w-full rounded-xl border border-white/10 bg-panel px-3 text-sm outline-none transition focus:border-accent">
+                  <option value="">Выберите тип</option>
+                  <option value="passport">Паспорт</option>
+                  <option value="inn">ИНН</option>
+                  <option value="ogrnip">ОГРНИП</option>
+                  <option value="taxi_license">Разрешение на такси</option>
+                  <option value="driver_license">Водительское удостоверение</option>
+                  <option value="sts">СТС</option>
+                  <option value="osago">ОСАГО</option>
+                  <option value="diagnostic_card">Диагностическая карта</option>
+                  <option value="self_employed_certificate">Справка самозанятого</option>
+                </select>
+                <p id="documentTypeError" class="hidden text-xs text-warning"></p>
+              </div>
+              <div class="space-y-1">
+                <label class="block text-xs text-textSoft" for="documentNumber">Номер документа</label>
+                <input id="documentNumber" type="text" maxlength="64" class="h-11 w-full rounded-xl border border-white/10 bg-panel px-3 text-sm outline-none transition focus:border-accent" />
+                <p id="documentNumberError" class="hidden text-xs text-warning"></p>
+              </div>
+            </div>
+            <div class="space-y-1">
+              <label class="block text-xs text-textSoft" for="documentValidUntil">Действует до</label>
+              <input id="documentValidUntil" type="date" class="h-11 w-full rounded-xl border border-white/10 bg-panel px-3 text-sm outline-none transition focus:border-accent" />
+              <p id="documentValidUntilError" class="hidden text-xs text-warning"></p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button id="submitDocumentBtn" type="submit" class="h-10 rounded-xl bg-accent px-4 text-sm font-medium text-white transition active:scale-[0.99]">Сохранить</button>
+              <button id="cancelDocumentBtn" type="button" class="h-10 rounded-xl border border-white/20 px-4 text-sm text-textSoft">Отмена</button>
+            </div>
+          </form>
+          <div id="driverDocumentsList" class="space-y-2"></div>
+
+          <hr class="border-white/10 my-2" />
+          <p class="text-sm text-textSoft">Профиль гостя: обязательное условие для публикации постов в ленте.</p>
           <div class="space-y-2">
             <label class="block text-xs text-textSoft" for="profileName">Отображаемое имя</label>
             <input id="profileName" type="text" maxlength="60" placeholder="Например: Алексей Петров" class="h-11 w-full rounded-xl border border-white/10 bg-panelSoft px-3 text-sm outline-none transition focus:border-accent" />

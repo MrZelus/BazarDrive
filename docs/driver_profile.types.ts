@@ -128,7 +128,8 @@ export type DocumentType =
   | 'driver_license'
   | 'sts'
   | 'osago'
-  | 'diagnostic_card';
+  | 'diagnostic_card'
+  | 'self_employed_certificate';
 
 export interface DriverDocument {
   id: string;
@@ -211,7 +212,7 @@ export interface QuickStatusCard {
 }
 
 export interface StickyAction {
-  id: 'editProfile' | 'uploadDocument' | 'openPayouts' | 'openSecurity';
+  id: 'editProfile' | 'addDocument' | 'uploadDocument' | 'openPayouts' | 'openSecurity';
   label: string;
   style: ActionStyle;
 }
@@ -234,6 +235,7 @@ export interface ProfileTabsProps {
 
 export interface DocumentsTabProps {
   documents: DriverDocument[];
+  onAdd: () => void;
   onUpload: () => void;
   onOpen: (id: string) => void;
   onReplace: (id: string) => void;

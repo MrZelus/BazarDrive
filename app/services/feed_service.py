@@ -16,6 +16,8 @@ from app.models.feed import (
     ABOUT_MAX_LEN,
     ALLOWED_PROFILE_ROLES,
     ALLOWED_PROFILE_STATUSES,
+    ALLOWED_DRIVER_DOCUMENT_STATUSES,
+    ALLOWED_DRIVER_DOCUMENT_TYPES,
     AUTHOR_MAX_LEN,
     AUTHOR_MIN_LEN,
     DISPLAY_NAME_MAX_LEN,
@@ -25,6 +27,9 @@ from app.models.feed import (
     MAX_GUEST_FEED_IMAGE_DATA_URL_LENGTH,
     MAX_GUEST_FEED_IMAGE_URL_LENGTH,
     PHONE_MAX_LEN,
+    DRIVER_DOCUMENT_FILE_URL_MAX_LEN,
+    DRIVER_DOCUMENT_NUMBER_MAX_LEN,
+    DRIVER_DOCUMENT_NUMBER_MIN_LEN,
     TEXT_MAX_LEN,
     TEXT_MIN_LEN,
 )
@@ -304,6 +309,45 @@ class FeedService:
             "status": status,
             "is_verified": is_verified,
         }
+
+
+
+    @staticmethod
+    def validate_driver_document_fields(payload: dict[str, object]) -> tuple[dict[str, object], dict[str, str]]:
+        profile_id = str(payload.get("profile_id", "driver-main")).strip() or "driver-main"
+        document_type = str(payload.get("type", "")).strip()
+        number = str(payload.get("number", "")).strip()
+        valid_until = str(payload.get("valid_until", "")).strip() or None
+        file_url = str(payload.get("file_url", "")).strip() or None
+        status = str(payload.get("status", "uploaded")).strip() or "uploaded"
+
+        errors: dict[str, str] = {}
+
+        if document_type not in ALLOWED_DRIVER_DOCUMENT_TYPES:
+            errors["type"] = "Некорректный тип документа"
+        if len(number) < DRIVER_DOCUMENT_NUMBER_MIN_LEN:
+            errors["number"] = "Номер документа должен содержать минимум 3 символа"
+        if len(number) > DRIVER_DOCUMENT_NUMBER_MAX_LEN:
+            errors["number"] = "Номер документа слишком длинный"
+        if valid_until:
+            try:
+                datetime.strptime(valid_until, "%Y-%m-%d")
+            except ValueError:
+                errors["valid_until"] = "Дата должна быть в формате YYYY-MM-DD"
+        if file_url and len(file_url) > DRIVER_DOCUMENT_FILE_URL_MAX_LEN:
+            errors["file_url"] = "Ссылка на файл слишком длинная"
+        if status not in ALLOWED_DRIVER_DOCUMENT_STATUSES:
+            errors["status"] = "Некорректный статус документа"
+
+        cleaned = {
+            "profile_id": profile_id,
+            "type": document_type,
+            "number": number,
+            "valid_until": valid_until,
+            "file_url": file_url,
+            "status": status,
+        }
+        return cleaned, errors
 
     @staticmethod
     def extract_profile_payload(payload: dict[str, object]) -> dict[str, object]:

@@ -31,7 +31,7 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Request-ID")
         self.send_header("X-Request-ID", getattr(self, "request_id", "-"))
         if extra_headers:
@@ -140,7 +140,7 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
         def _impl() -> None:
             self.send_response(204)
             self.send_header("Access-Control-Allow-Origin", "*")
-            self.send_header("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
             self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Request-ID")
             self.send_header("X-Request-ID", getattr(self, "request_id", "-"))
             self.end_headers()
@@ -197,6 +197,14 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             self._send_json(200, profile)
             return
 
+
+        if path == "/api/driver/documents":
+            params = parse_qs(parsed.query)
+            profile_id = str(params.get("profile_id", ["driver-main"])[0] or "driver-main").strip()
+            items = repository.list_driver_documents(profile_id=profile_id)
+            self._send_json(200, {"items": items, "profile_id": profile_id, "total": len(items)})
+            return
+
         if path == "/api/feed/approved":
             self._send_json(200, {"items": repository.list_approved_posts(limit=50, offset=0, include_ads=True)})
             return
@@ -214,6 +222,16 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             return
         if payload is None:
             self._send_json(400, {"error": "Некорректный payload"})
+            return
+
+
+        if path == "/api/driver/documents":
+            cleaned, errors = FeedService.validate_driver_document_fields(payload)
+            if errors:
+                self._send_json(400, {"error": "validation_error", "fields": errors})
+                return
+            created = repository.create_driver_document(**cleaned)
+            self._send_json(201, created)
             return
 
         if path == "/api/feed/profiles":
@@ -253,6 +271,34 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
 
     def _handle_patch(self) -> None:
         path = urlparse(self.path).path
+
+        docs_prefix = "/api/driver/documents/"
+        if path.startswith(docs_prefix):
+            doc_id_raw = path[len(docs_prefix) :]
+            if not doc_id_raw.isdigit() or int(doc_id_raw) <= 0:
+                self._send_json(400, {"error": "Некорректный id документа"})
+                return
+
+            payload, error = self._parse_feed_request_payload()
+            if error:
+                self._send_json(400, {"error": error})
+                return
+            if payload is None:
+                self._send_json(400, {"error": "Некорректный payload"})
+                return
+
+            cleaned, errors = FeedService.validate_driver_document_fields(payload)
+            if errors:
+                self._send_json(400, {"error": "validation_error", "fields": errors})
+                return
+
+            updated = repository.update_driver_document(int(doc_id_raw), **cleaned)
+            if not updated:
+                self._send_json(404, {"error": "Документ не найден"})
+                return
+            self._send_json(200, updated)
+            return
+
         prefix = "/api/feed/posts/"
         if not path.startswith(prefix):
             self._send_json(404, {"error": "Not found"})
@@ -282,6 +328,28 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
 
         self._send_json(200, updated)
 
+
+
+    def do_DELETE(self) -> None:  # noqa: N802
+        self._with_error_handling(self._handle_delete)
+
+    def _handle_delete(self) -> None:
+        path = urlparse(self.path).path
+        docs_prefix = "/api/driver/documents/"
+        if not path.startswith(docs_prefix):
+            self._send_json(404, {"error": "Not found"})
+            return
+
+        doc_id_raw = path[len(docs_prefix) :]
+        if not doc_id_raw.isdigit() or int(doc_id_raw) <= 0:
+            self._send_json(400, {"error": "Некорректный id документа"})
+            return
+
+        deleted = repository.delete_driver_document(int(doc_id_raw))
+        if not deleted:
+            self._send_json(404, {"error": "Документ не найден"})
+            return
+        self._send_json(200, {"ok": True})
 
 def run_api() -> None:
     configure_logging("feed-api")
