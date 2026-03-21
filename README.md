@@ -51,6 +51,22 @@
 - Вкладка «Правила» объединяет правила платформы, краткие правила публикации и список шаблонов документов.
 - На вкладке «Лента» дублируется подробный пошаговый блок «Как публиковать посты (пошагово)» для быстрого доступа перед отправкой поста.
 
+### Миграции базы данных
+
+Перед запуском API/бота можно явно применить миграции:
+
+```bash
+python -c "from app.db.migrator import apply_migrations; apply_migrations('bot.db')"
+```
+
+В CI/деплое добавьте отдельный шаг перед запуском приложения:
+
+```bash
+# пример для CI/CD pipeline
+python -c "from app.db.migrator import apply_migrations; apply_migrations('bot.db')"
+python run_api.py
+```
+
 ### Как запустить локально
 1. Запустите API-сервер:
 
@@ -118,12 +134,14 @@ python run_bot.py
 app/
   api/http_handlers.py        # HTTP-роутинг + сериализация ответов
   bot/handlers.py             # Telegram conversation/callback handlers
-  db/repository.py            # SQL-операции и инициализация БД
+  db/repository.py            # SQL-операции и доступ к данным
+  db/migrator.py              # запуск SQL-миграций и schema_migrations
   services/feed_service.py    # валидация и бизнес-логика API ленты
   services/moderation_service.py # бизнес-правила модерации
   models/                     # доменные константы и настройки
 run_api.py                    # запуск API: python run_api.py
 run_bot.py                    # запуск бота: python run_bot.py
+migrations/                   # SQL-миграции (001_init.sql, 002_...sql, ...)
 ```
 
 Совместимость со старыми точками входа (`feed_api.py`, `bot.py`, `db.py`) сохранена через прокси-импорты в новые модули.
