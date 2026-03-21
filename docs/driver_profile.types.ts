@@ -1,10 +1,79 @@
+/**
+ * TypeScript model for `docs/driver_profile_screen.schema.json` and
+ * the expanded payload sample shared by product/frontend.
+ */
+
+export type ISODate = string;
+export type ISODateTime = string;
+export type PhoneNumber = string;
+export type Email = string;
+
 export type ScreenStatus = 'loading' | 'loaded' | 'empty' | 'error';
 export type ProfileStatus = 'active' | 'pending_verification' | 'blocked';
-export type DocumentStatus = 'uploaded' | 'checking' | 'approved' | 'rejected' | 'expired' | 'expiring_soon';
+export type DocumentStatus =
+  | 'uploaded'
+  | 'checking'
+  | 'approved'
+  | 'rejected'
+  | 'expired'
+  | 'expiring_soon';
 export type LicenseStatus = 'active' | 'expiring_soon' | 'expired' | 'missing';
 export type PayoutStatus = 'connected' | 'pending' | 'disabled';
 
+export type DriverRole = 'taxi_driver';
+export type BusinessType = 'ip';
+export type TaxMode = 'usn_income';
+
+export type LayoutSection = 'header' | 'quickStatuses' | 'tabs' | 'content' | 'stickyActions';
+export type PageLayoutType = 'page';
+
 export type TabId = 'overview' | 'taxi_ip' | 'documents' | 'payouts' | 'security';
+
+export type DriverLicenseValidationStatus = 'valid' | 'expiring_soon' | 'expired';
+export type InsuranceStatus = 'valid' | 'expiring_soon' | 'expired';
+export type QuickStatusState = 'ok' | 'warning' | 'error';
+
+export type DocumentType =
+  | 'passport'
+  | 'inn'
+  | 'ogrnip'
+  | 'taxi_license'
+  | 'driver_license'
+  | 'sts'
+  | 'osago'
+  | 'diagnostic_card';
+
+export type PayoutHistoryStatus = 'completed' | 'pending' | 'failed';
+
+export type ComponentName =
+  | 'ProfileHeader'
+  | 'StatusCardsRow'
+  | 'ProfileTabs'
+  | 'TabContentRouter'
+  | 'OverviewTab'
+  | 'TaxiIpTab'
+  | 'DocumentsTab'
+  | 'DocumentItem'
+  | 'PayoutsTab'
+  | 'PayoutHistoryList'
+  | 'SecurityTab'
+  | 'SettingsList'
+  | 'DevicesList'
+  | 'StickyActionBar'
+  | 'InfoGrid'
+  | 'StatsCards'
+  | 'DataCard';
+
+export type ValueFormat = 'currency_rub';
+
+export type ActionId =
+  | 'editProfile'
+  | 'uploadDocument'
+  | 'openPayouts'
+  | 'openSecurity'
+  | 'changeAvatar'
+  | 'toggle2FA'
+  | 'deleteDocument';
 
 export interface DriverProfilePayload {
   screen: Screen;
@@ -17,12 +86,12 @@ export interface DriverProfilePayload {
 export interface Screen {
   id: 'driverProfile';
   title: string;
-  role: 'taxi_driver';
-  businessType: 'ip';
-  taxMode: 'usn_income';
+  role: DriverRole;
+  businessType: BusinessType;
+  taxMode: TaxMode;
   layout: {
-    type: 'page';
-    sections: Array<'header' | 'quickStatuses' | 'tabs' | 'content' | 'stickyActions'>;
+    type: PageLayoutType;
+    sections: LayoutSection[];
   };
   state: {
     status: ScreenStatus;
@@ -49,14 +118,14 @@ export interface User {
     placeholder: boolean;
   };
   fullName: string;
-  phone: string;
-  email: string;
+  phone: PhoneNumber;
+  email: Email;
   city: string;
   workZone: string;
   rating: number;
   tripsCompleted: number;
   profileStatus: ProfileStatus;
-  registeredAt: string;
+  registeredAt: ISODate;
 }
 
 export interface Professional {
@@ -66,17 +135,17 @@ export interface Professional {
   taxRatePercent: number;
   inn: string;
   ogrnip: string;
-  ipRegisteredAt: string;
+  ipRegisteredAt: ISODate;
   license: {
     number: string;
     region: string;
     status: LicenseStatus;
-    expiresAt: string;
+    expiresAt: ISODate;
   };
   driverLicense: {
     number: string;
-    status: 'valid' | 'expiring_soon' | 'expired';
-    expiresAt: string;
+    status: DriverLicenseValidationStatus;
+    expiresAt: ISODate;
     experienceYears: number;
   };
   vehicle: {
@@ -94,24 +163,16 @@ export interface Insurance {
 }
 
 export interface InsuranceItem {
-  status: 'valid' | 'expiring_soon' | 'expired';
-  expiresAt: string;
+  status: InsuranceStatus;
+  expiresAt: ISODate;
 }
 
 export interface Document {
   id: string;
-  type:
-    | 'passport'
-    | 'inn'
-    | 'ogrnip'
-    | 'taxi_license'
-    | 'driver_license'
-    | 'sts'
-    | 'osago'
-    | 'diagnostic_card';
+  type: DocumentType;
   title: string;
-  uploadedAt: string;
-  expiresAt: string | null;
+  uploadedAt: ISODate;
+  expiresAt: ISODate | null;
   status: DocumentStatus;
   fileUrl: string;
 }
@@ -131,9 +192,9 @@ export interface Payouts {
 
 export interface PayoutHistoryItem {
   id: string;
-  date: string;
+  date: ISODate;
   amount: number;
-  status: 'completed' | 'pending' | 'failed';
+  status: PayoutHistoryStatus;
 }
 
 export interface Security {
@@ -146,45 +207,45 @@ export interface Security {
 export interface ActiveDevice {
   id: string;
   name: string;
-  lastSeen: string;
+  lastSeen: ISODateTime;
   current: boolean;
 }
 
 export interface DriverProfileUI {
-  header: {
-    component: 'ProfileHeader';
-    props: {
-      showAvatar: boolean;
-      showEditAvatar: boolean;
-      titleField: string;
-      subtitle: string[];
-      statusField: string;
-    };
-  };
-  quickStatuses: {
-    component: 'StatusCardsRow';
-    items: QuickStatus[];
-  };
-  tabs: {
-    component: 'ProfileTabs';
-    items: TabItem[];
-    activeTabField: string;
-  };
-  content: {
-    component: 'TabContentRouter';
-    views: Record<TabId, TabView>;
-  };
-  stickyActions: {
-    component: 'StickyActionBar';
-    actions: StickyAction[];
+  header: HeaderUI;
+  quickStatuses: QuickStatusesUI;
+  tabs: TabsUI;
+  content: ContentUI;
+  stickyActions: StickyActionsUI;
+}
+
+export interface HeaderUI {
+  component: 'ProfileHeader';
+  props: {
+    showAvatar: boolean;
+    showEditAvatar: boolean;
+    titleField: 'data.user.fullName';
+    subtitle: ['data.professional.roleLabel', 'data.professional.businessTypeLabel', 'data.professional.taxModeLabel'];
+    statusField: 'data.user.profileStatus';
   };
 }
 
+export interface QuickStatusesUI {
+  component: 'StatusCardsRow';
+  items: QuickStatus[];
+}
+
 export interface QuickStatus {
-  id: string;
+  id: 'documents_status' | 'taxi_license_status' | 'payouts_status' | 'osago_status' | string;
   label: string;
   value: string;
-  status: 'ok' | 'warning' | 'error';
+  status: QuickStatusState;
+}
+
+export interface TabsUI {
+  component: 'ProfileTabs';
+  items: TabItem[];
+  activeTabField: 'screen.state.activeTab';
 }
 
 export interface TabItem {
@@ -192,38 +253,144 @@ export interface TabItem {
   label: string;
 }
 
-export interface TabView {
-  component: string;
-  blocks?: unknown[];
-  listField?: string;
-  itemComponent?: string;
-  emptyState?: {
-    title: string;
-    action: ActionId;
+export interface ContentUI {
+  component: 'TabContentRouter';
+  views: {
+    overview: OverviewTabView;
+    taxi_ip: TaxiIpTabView;
+    documents: DocumentsTabView;
+    payouts: PayoutsTabView;
+    security: SecurityTabView;
   };
 }
 
-export type ActionId =
-  | 'editProfile'
-  | 'uploadDocument'
-  | 'openPayouts'
-  | 'openSecurity'
-  | 'changeAvatar'
-  | 'toggle2FA'
-  | 'deleteDocument';
+export interface OverviewTabView {
+  component: 'OverviewTab';
+  blocks: [InfoGridBlock, StatsCardsBlock];
+}
 
-export type ActionConfig =
-  | { type: 'navigate'; target: string }
-  | { type: 'modal'; target: string }
-  | { type: 'setActiveTab'; target: TabId }
-  | { type: 'fileUpload'; target: 'avatar' }
-  | { type: 'api'; method: 'PATCH'; target: string }
-  | { type: 'confirmThenApi'; method: 'DELETE'; target: string };
+export interface TaxiIpTabView {
+  component: 'TaxiIpTab';
+  blocks: [DataCardBlock, DataCardBlock, DataCardBlock];
+}
+
+export interface DocumentsTabView {
+  component: 'DocumentsTab';
+  listField: 'data.documents';
+  itemComponent: 'DocumentItem';
+  emptyState: {
+    title: string;
+    action: 'uploadDocument';
+  };
+}
+
+export interface PayoutsTabView {
+  component: 'PayoutsTab';
+  blocks: [DataCardBlock, StatsCardsBlock, PayoutHistoryListBlock];
+}
+
+export interface SecurityTabView {
+  component: 'SecurityTab';
+  blocks: [SettingsListBlock, DevicesListBlock];
+}
+
+export interface InfoGridBlock {
+  component: 'InfoGrid';
+  items: Array<
+    | { label: string; valueField: string }
+    | { label: string; value: string }
+  >;
+}
+
+export interface StatsCardsBlock {
+  component: 'StatsCards';
+  items: Array<{
+    label: string;
+    valueField: string;
+    format: ValueFormat;
+    emphasis?: 'highlight';
+  }>;
+}
+
+export interface DataCardBlock {
+  component: 'DataCard';
+  title: string;
+  items: Array<{
+    label: string;
+    valueField: string;
+    suffix?: '%';
+  }>;
+}
+
+export interface PayoutHistoryListBlock {
+  component: 'PayoutHistoryList';
+  listField: 'data.payouts.history';
+}
+
+export interface SettingsListBlock {
+  component: 'SettingsList';
+  items: Array<{
+    id: 'phoneVerified' | 'emailVerified' | 'twoFactorEnabled';
+    label: string;
+    valueField: string;
+    type: 'boolean_status' | 'toggle';
+  }>;
+}
+
+export interface DevicesListBlock {
+  component: 'DevicesList';
+  listField: 'data.security.activeDevices';
+}
+
+export interface StickyActionsUI {
+  component: 'StickyActionBar';
+  actions: StickyAction[];
+}
 
 export interface StickyAction {
   id: ActionId;
   label: string;
   style: 'primary' | 'secondary' | 'ghost';
+}
+
+export type ActionConfig =
+  | NavigateAction
+  | ModalAction
+  | SetActiveTabAction
+  | FileUploadAction
+  | ApiAction
+  | ConfirmThenApiAction;
+
+export interface NavigateAction {
+  type: 'navigate';
+  target: '/profile/edit' | string;
+}
+
+export interface ModalAction {
+  type: 'modal';
+  target: 'documentUploader' | string;
+}
+
+export interface SetActiveTabAction {
+  type: 'setActiveTab';
+  target: Extract<TabId, 'payouts' | 'security'> | TabId;
+}
+
+export interface FileUploadAction {
+  type: 'fileUpload';
+  target: 'avatar';
+}
+
+export interface ApiAction {
+  type: 'api';
+  method: 'PATCH';
+  target: '/api/profile/security/2fa' | string;
+}
+
+export interface ConfirmThenApiAction {
+  type: 'confirmThenApi';
+  method: 'DELETE';
+  target: '/api/profile/documents/:id' | string;
 }
 
 export interface DriverProfileEnums {
