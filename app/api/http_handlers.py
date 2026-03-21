@@ -3,6 +3,7 @@ import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
+from app.config import get_api_settings
 from app.db import repository
 from app.services.feed_service import FeedService
 
@@ -217,8 +218,9 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
 
 def run_api() -> None:
     repository.init_db()
-    host = os.getenv("FEED_API_HOST", "0.0.0.0")
-    port = int(os.getenv("FEED_API_PORT", "8001"))
+    settings = get_api_settings()
+    host = settings.host
+    port = settings.port
     server = ThreadingHTTPServer((host, port), FeedAPIHandler)
     print(f"Feed API server started on http://{host}:{port}")
     server.serve_forever()

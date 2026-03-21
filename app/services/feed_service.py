@@ -10,6 +10,7 @@ from math import ceil
 from threading import Lock
 from urllib.parse import urlparse
 
+from app.config import get_feed_upload_dir
 from app.db import repository
 from app.models.feed import (
     ABOUT_MAX_LEN,
@@ -35,7 +36,7 @@ class FeedService:
     RATE_LIMIT_MAX_POSTS_PER_AUTHOR = 5
     RATE_LIMIT_CLEANUP_INTERVAL_SECONDS = 30
     MAX_IMAGE_BYTES = 3 * 1024 * 1024
-    STORAGE_DIR = os.path.abspath(os.getenv("FEED_UPLOAD_DIR", "storage/feed_images"))
+    STORAGE_DIR = os.path.abspath(get_feed_upload_dir())
     STORAGE_URL_PREFIX = "/uploads/feed/"
     SUPPORTED_IMAGE_MIME_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
 
