@@ -17,6 +17,14 @@ def init_db() -> None:
     apply_migrations(get_db_path())
 
 
+def check_db_health() -> bool:
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT 1")
+        row = cur.fetchone()
+        return bool(row and row[0] == 1)
+
+
 def add_user(tg_id: int, username: str, full_name: str) -> None:
     with closing(sqlite3.connect(get_db_path())) as conn:
         cur = conn.cursor()

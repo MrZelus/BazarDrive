@@ -1,14 +1,30 @@
 import json
+import logging
 import os
+import traceback
+import uuid
+from typing import Callable
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 from app.config import get_api_settings
 from app.db import repository
+from app.logging_setup import configure_logging
 from app.services.feed_service import FeedService
 
 
+logger = logging.getLogger(__name__)
+
+
 class FeedAPIHandler(BaseHTTPRequestHandler):
+    request_id: str
+
+    def _get_client_ip(self) -> str:
+        return self.client_address[0] if self.client_address else "unknown"
+
+    def _request_log_extra(self) -> dict[str, str]:
+        return {"request_id": getattr(self, "request_id", "-"), "client_ip": self._get_client_ip()}
+
     def _send_json(self, status: int, payload: dict, extra_headers: dict[str, str] | None = None) -> None:
         body = json.dumps(FeedService.serialize_payload(payload), ensure_ascii=False).encode("utf-8")
         self.send_response(status)
@@ -16,12 +32,25 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Request-ID")
+        self.send_header("X-Request-ID", getattr(self, "request_id", "-"))
         if extra_headers:
             for name, value in extra_headers.items():
                 self.send_header(name, value)
         self.end_headers()
         self.wfile.write(body)
+
+    def _send_internal_error(self) -> None:
+        self._send_json(
+            500,
+            {
+                "error": {
+                    "code": "internal_error",
+                    "message": "Internal server error",
+                    "request_id": getattr(self, "request_id", "-"),
+                }
+            },
+        )
 
     def _parse_feed_request_payload(self) -> tuple[dict[str, object] | None, str | None]:
         try:
@@ -87,20 +116,51 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "public, max-age=86400")
         self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("X-Request-ID", getattr(self, "request_id", "-"))
         self.end_headers()
         self.wfile.write(body)
         return True
 
+    def _with_error_handling(self, handler: Callable[[], None]) -> None:
+        self.request_id = self.headers.get("X-Request-ID", "") or str(uuid.uuid4())
+        try:
+            handler()
+            logger.info("%s %s -> completed", self.command, self.path, extra=self._request_log_extra())
+        except Exception:
+            logger.error(
+                "Unhandled error on %s %s\n%s",
+                self.command,
+                self.path,
+                traceback.format_exc(),
+                extra=self._request_log_extra(),
+            )
+            self._send_internal_error()
+
     def do_OPTIONS(self) -> None:  # noqa: N802
-        self.send_response(204)
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
-        self.end_headers()
+        def _impl() -> None:
+            self.send_response(204)
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Request-ID")
+            self.send_header("X-Request-ID", getattr(self, "request_id", "-"))
+            self.end_headers()
+
+        self._with_error_handling(_impl)
 
     def do_GET(self) -> None:  # noqa: N802
+        self._with_error_handling(self._handle_get)
+
+    def _handle_get(self) -> None:
         parsed = urlparse(self.path)
         path = parsed.path
+
+        if path == "/health":
+            db_ok = repository.check_db_health()
+            if db_ok:
+                self._send_json(200, {"status": "ok", "process": "ok", "database": "ok"})
+            else:
+                self._send_json(503, {"status": "degraded", "process": "ok", "database": "unavailable"})
+            return
 
         if path.startswith(FeedService.STORAGE_URL_PREFIX):
             if self._serve_stored_file(path):
@@ -110,6 +170,7 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
 
         if path == "/api/feed/posts":
             params = parse_qs(parsed.query)
+
             def _parse_int(name: str, default: int) -> int:
                 raw = params.get(name, [str(default)])[0]
                 try:
@@ -143,6 +204,9 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
         self._send_json(404, {"error": "Not found"})
 
     def do_POST(self) -> None:  # noqa: N802
+        self._with_error_handling(self._handle_post)
+
+    def _handle_post(self) -> None:
         path = urlparse(self.path).path
         payload, error = self._parse_feed_request_payload()
         if error:
@@ -166,7 +230,7 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             return
 
         try:
-            item = FeedService.create_guest_post(payload, self.client_address[0] if self.client_address else "unknown")
+            item = FeedService.create_guest_post(payload, self._get_client_ip())
         except RuntimeError as retry_error:
             retry_after = int(str(retry_error))
             self._send_json(
@@ -185,6 +249,9 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
         self._send_json(201, item)
 
     def do_PATCH(self) -> None:  # noqa: N802
+        self._with_error_handling(self._handle_patch)
+
+    def _handle_patch(self) -> None:
         path = urlparse(self.path).path
         prefix = "/api/feed/posts/"
         if not path.startswith(prefix):
@@ -217,10 +284,11 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
 
 
 def run_api() -> None:
+    configure_logging("feed-api")
     repository.init_db()
     settings = get_api_settings()
     host = settings.host
     port = settings.port
     server = ThreadingHTTPServer((host, port), FeedAPIHandler)
-    print(f"Feed API server started on http://{host}:{port}")
+    logger.info("Feed API server started on http://%s:%s", host, port, extra={"request_id": "startup", "client_ip": "-"})
     server.serve_forever()

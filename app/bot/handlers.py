@@ -11,6 +11,7 @@ from telegram.ext import (
 )
 
 from app.db import repository
+from app.logging_setup import configure_logging
 from app.models.bot_settings import load_bot_settings
 from app.services import moderation_service
 
@@ -24,8 +25,6 @@ def get_settings():
         SETTINGS = load_bot_settings()
     return SETTINGS
 
-
-logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 
 MAIN_MENU = [["🚕 Такси", "📢 Объявление"], ["📝 Пост в группу"]]
 TAXI_FROM, TAXI_TO, TAXI_TIME, TAXI_COMMENT = range(4)
@@ -237,4 +236,6 @@ def build_application() -> Application:
 
 
 def run_bot() -> None:
+    configure_logging("telegram-bot")
+    logging.getLogger(__name__).info("Starting telegram bot", extra={"request_id": "startup", "client_ip": "-"})
     build_application().run_polling()
