@@ -1,3 +1,7 @@
+// =============================
+// ENUMS
+// =============================
+
 export type ScreenStatus = 'loading' | 'loaded' | 'empty' | 'error';
 
 export type ProfileStatus = 'active' | 'pending_verification' | 'blocked';
@@ -20,9 +24,6 @@ export type PayoutStatus = 'connected' | 'pending' | 'disabled';
 
 export type DriverLicenseStatus = 'valid' | 'expiring' | 'expired';
 
-export type BooleanStatusType = 'boolean_status';
-export type ToggleType = 'toggle';
-
 export type ProfileTabId =
   | 'overview'
   | 'taxi_ip'
@@ -32,6 +33,10 @@ export type ProfileTabId =
 
 export type ActionStyle = 'primary' | 'secondary' | 'ghost';
 
+// =============================
+// SCREEN META
+// =============================
+
 export interface DriverProfileScreenState {
   status: ScreenStatus;
   activeTab: ProfileTabId;
@@ -40,20 +45,18 @@ export interface DriverProfileScreenState {
   error: string | null;
 }
 
-export interface DriverProfileScreenLayout {
-  type: 'page';
-  sections: Array<'header' | 'quickStatuses' | 'tabs' | 'content' | 'stickyActions'>;
-}
-
 export interface DriverProfileScreenMeta {
   id: 'driverProfile';
   title: string;
   role: 'taxi_driver';
   businessType: 'ip';
   taxMode: 'usn_income';
-  layout: DriverProfileScreenLayout;
   state: DriverProfileScreenState;
 }
+
+// =============================
+// USER
+// =============================
 
 export interface AvatarData {
   url: string | null;
@@ -73,6 +76,10 @@ export interface DriverProfileUser {
   profileStatus: ProfileStatus;
   registeredAt: string;
 }
+
+// =============================
+// PROFESSIONAL (TAXI / IP)
+// =============================
 
 export interface TaxiLicense {
   number: string;
@@ -109,33 +116,33 @@ export interface ProfessionalInfo {
   vehicle: VehicleInfo;
 }
 
-export interface InsuranceItem {
-  status: 'valid' | 'expiring' | 'expired';
-  expiresAt: string;
-}
+// =============================
+// DOCUMENTS
+// =============================
 
-export interface InsuranceInfo {
-  osago: InsuranceItem;
-  diagnosticCard: InsuranceItem;
-}
+export type DocumentType =
+  | 'passport'
+  | 'inn'
+  | 'ogrnip'
+  | 'taxi_license'
+  | 'driver_license'
+  | 'sts'
+  | 'osago'
+  | 'diagnostic_card';
 
 export interface DriverDocument {
   id: string;
-  type:
-    | 'passport'
-    | 'inn'
-    | 'ogrnip'
-    | 'taxi_license'
-    | 'driver_license'
-    | 'sts'
-    | 'osago'
-    | 'diagnostic_card';
+  type: DocumentType;
   title: string;
   uploadedAt: string;
   expiresAt: string | null;
   status: DocumentStatus;
   fileUrl: string;
 }
+
+// =============================
+// PAYOUTS
+// =============================
 
 export interface PayoutHistoryItem {
   id: string;
@@ -157,6 +164,10 @@ export interface PayoutsInfo {
   history: PayoutHistoryItem[];
 }
 
+// =============================
+// SECURITY
+// =============================
+
 export interface ActiveDevice {
   id: string;
   name: string;
@@ -171,21 +182,25 @@ export interface SecurityInfo {
   activeDevices: ActiveDevice[];
 }
 
+// =============================
+// ROOT DATA
+// =============================
+
 export interface DriverProfileData {
   user: DriverProfileUser;
   professional: ProfessionalInfo;
-  insurance: InsuranceInfo;
   documents: DriverDocument[];
   payouts: PayoutsInfo;
   security: SecurityInfo;
 }
 
-export interface HeaderProps {
-  showAvatar: boolean;
-  showEditAvatar: boolean;
-  titleField: string;
-  subtitle: string[];
-  statusField: string;
+// =============================
+// UI TYPES (OPTIONAL)
+// =============================
+
+export interface TabItem {
+  id: ProfileTabId;
+  label: string;
 }
 
 export interface QuickStatusCard {
@@ -195,194 +210,15 @@ export interface QuickStatusCard {
   status: 'ok' | 'warning' | 'error';
 }
 
-export interface TabItem {
-  id: ProfileTabId;
-  label: string;
-}
-
-export interface InfoGridItem {
-  label: string;
-  value?: string | number;
-  valueField?: string;
-  suffix?: string;
-}
-
-export interface StatsCardItem {
-  label: string;
-  valueField: string;
-  format?: 'currency_rub' | 'number' | 'text';
-  emphasis?: 'highlight';
-}
-
-export interface DataCardBlock {
-  component: 'DataCard';
-  title: string;
-  items: InfoGridItem[];
-}
-
-export interface InfoGridBlock {
-  component: 'InfoGrid';
-  items: InfoGridItem[];
-}
-
-export interface StatsCardsBlock {
-  component: 'StatsCards';
-  items: StatsCardItem[];
-}
-
-export interface EmptyStateConfig {
-  title: string;
-  action: string;
-}
-
-export interface OverviewTabView {
-  component: 'OverviewTab';
-  blocks: Array<InfoGridBlock | StatsCardsBlock>;
-}
-
-export interface TaxiIpTabView {
-  component: 'TaxiIpTab';
-  blocks: DataCardBlock[];
-}
-
-export interface DocumentsTabView {
-  component: 'DocumentsTab';
-  listField: string;
-  itemComponent: 'DocumentItem';
-  emptyState: EmptyStateConfig;
-}
-
-export interface PayoutHistoryListBlock {
-  component: 'PayoutHistoryList';
-  listField: string;
-}
-
-export interface PayoutsTabView {
-  component: 'PayoutsTab';
-  blocks: Array<DataCardBlock | StatsCardsBlock | PayoutHistoryListBlock>;
-}
-
-export interface SettingsListItem {
-  id: string;
-  label: string;
-  valueField: string;
-  type: BooleanStatusType | ToggleType;
-}
-
-export interface SettingsListBlock {
-  component: 'SettingsList';
-  items: SettingsListItem[];
-}
-
-export interface DevicesListBlock {
-  component: 'DevicesList';
-  listField: string;
-}
-
-export interface SecurityTabView {
-  component: 'SecurityTab';
-  blocks: Array<SettingsListBlock | DevicesListBlock>;
-}
-
-export interface TabContentViews {
-  overview: OverviewTabView;
-  taxi_ip: TaxiIpTabView;
-  documents: DocumentsTabView;
-  payouts: PayoutsTabView;
-  security: SecurityTabView;
-}
-
-export interface TabContentRouter {
-  component: 'TabContentRouter';
-  views: TabContentViews;
-}
-
 export interface StickyAction {
   id: 'editProfile' | 'uploadDocument' | 'openPayouts' | 'openSecurity';
   label: string;
   style: ActionStyle;
 }
 
-export interface StickyActionsConfig {
-  component: 'StickyActionBar';
-  actions: StickyAction[];
-}
-
-export interface DriverProfileUI {
-  header: {
-    component: 'ProfileHeader';
-    props: HeaderProps;
-  };
-  quickStatuses: {
-    component: 'StatusCardsRow';
-    items: QuickStatusCard[];
-  };
-  tabs: {
-    component: 'ProfileTabs';
-    items: TabItem[];
-    activeTabField: string;
-  };
-  content: TabContentRouter;
-  stickyActions: StickyActionsConfig;
-}
-
-export interface NavigateAction {
-  type: 'navigate';
-  target: string;
-}
-
-export interface ModalAction {
-  type: 'modal';
-  target: string;
-}
-
-export interface SetActiveTabAction {
-  type: 'setActiveTab';
-  target: ProfileTabId;
-}
-
-export interface FileUploadAction {
-  type: 'fileUpload';
-  target: 'avatar';
-}
-
-export interface ApiAction {
-  type: 'api';
-  method: 'PATCH' | 'POST' | 'GET';
-  target: string;
-}
-
-export interface ConfirmThenApiAction {
-  type: 'confirmThenApi';
-  method: 'DELETE' | 'PATCH';
-  target: string;
-}
-
-export interface DriverProfileActions {
-  editProfile: NavigateAction;
-  uploadDocument: ModalAction;
-  openPayouts: SetActiveTabAction;
-  openSecurity: SetActiveTabAction;
-  changeAvatar: FileUploadAction;
-  toggle2FA: ApiAction;
-  deleteDocument: ConfirmThenApiAction;
-}
-
-export interface DriverProfileEnums {
-  screenStatus: ScreenStatus[];
-  profileStatus: ProfileStatus[];
-  documentStatus: DocumentStatus[];
-  licenseStatus: LicenseStatus[];
-  payoutStatus: PayoutStatus[];
-}
-
-export interface DriverProfileScreenSchema {
-  screen: DriverProfileScreenMeta;
-  data: DriverProfileData;
-  ui: DriverProfileUI;
-  actions: DriverProfileActions;
-  enums: DriverProfileEnums;
-}
+// =============================
+// COMPONENT PROPS (REACT READY)
+// =============================
 
 export interface ProfileHeaderProps {
   user: DriverProfileUser;
@@ -390,24 +226,10 @@ export interface ProfileHeaderProps {
   onEditAvatar?: () => void;
 }
 
-export interface StatusCardsRowProps {
-  items: QuickStatusCard[];
-}
-
 export interface ProfileTabsProps {
   items: TabItem[];
   activeTab: ProfileTabId;
   onChange: (tab: ProfileTabId) => void;
-}
-
-export interface OverviewTabProps {
-  user: DriverProfileUser;
-  professional: ProfessionalInfo;
-  payouts: PayoutsInfo;
-}
-
-export interface TaxiIpTabProps {
-  professional: ProfessionalInfo;
 }
 
 export interface DocumentsTabProps {
@@ -425,8 +247,6 @@ export interface PayoutsTabProps {
 export interface SecurityTabProps {
   security: SecurityInfo;
   onToggle2FA: (enabled: boolean) => void;
-  onChangePassword: () => void;
-  onLogoutAll: () => void;
 }
 
 export interface StickyActionBarProps {
