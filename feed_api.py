@@ -16,9 +16,11 @@ from db import (
     MAX_GUEST_FEED_IMAGE_URL_LENGTH,
     count_guest_feed_posts,
     create_guest_feed_post,
+    get_guest_profile,
     init_db,
     list_approved_posts,
     list_guest_feed_posts,
+    upsert_guest_profile,
     update_guest_feed_post,
 )
 
@@ -288,6 +290,13 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
     def _normalize_author(author: str) -> str:
         return " ".join(author.casefold().split())
 
+    @staticmethod
+    def _extract_profile_payload(payload: dict[str, object]) -> dict[str, object]:
+        profile_raw = payload.get("guest_profile")
+        if not isinstance(profile_raw, dict):
+            return {}
+        return profile_raw
+
     @classmethod
     def _cleanup_rate_limit_locked(cls, now: float) -> None:
         if now - cls._rate_limit_last_cleanup_at < cls.RATE_LIMIT_CLEANUP_INTERVAL_SECONDS:
@@ -399,6 +408,21 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             )
             return
 
+        profile_prefix = "/api/feed/profiles/"
+        if path.startswith(profile_prefix):
+            profile_id = path[len(profile_prefix) :].strip()
+            if not profile_id:
+                self._send_json(400, {"error": "Некорректный id профиля"})
+                return
+
+            profile = get_guest_profile(profile_id)
+            if not profile:
+                self._send_json(404, {"error": "Профиль не найден"})
+                return
+
+            self._send_json(200, profile)
+            return
+
         if path == "/api/feed/approved":
             posts = list_approved_posts(limit=50, offset=0, include_ads=True)
             self._send_json(200, {"items": posts})
@@ -408,6 +432,42 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         path = urlparse(self.path).path
+        if path == "/api/feed/profiles":
+            payload, error = self._parse_feed_request_payload()
+            if error:
+                self._send_json(400, {"error": error})
+                return
+            if payload is None:
+                self._send_json(400, {"error": "Некорректный payload"})
+                return
+
+            profile_id = str(payload.get("id", "")).strip()
+            display_name = str(payload.get("display_name", "")).strip()
+            email = str(payload.get("email", "")).strip() or None
+            phone = str(payload.get("phone", "")).strip() or None
+            about = str(payload.get("about", "")).strip() or None
+            role = str(payload.get("role", "guest_author")).strip() or "guest_author"
+            status = str(payload.get("status", "active")).strip() or "active"
+            is_verified = bool(payload.get("is_verified", False))
+
+            try:
+                profile = upsert_guest_profile(
+                    profile_id=profile_id,
+                    display_name=display_name,
+                    email=email,
+                    phone=phone,
+                    about=about,
+                    role=role,
+                    status=status,
+                    is_verified=is_verified,
+                )
+            except ValueError as error:
+                self._send_json(400, {"error": str(error)})
+                return
+
+            self._send_json(201, profile)
+            return
+
         if path != "/api/feed/posts":
             self._send_json(404, {"error": "Not found"})
             return
@@ -423,6 +483,8 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
         author = str(payload.get("author", "")).strip()
         text = str(payload.get("text", "")).strip()
         image_url = str(payload.get("image_url", "")).strip() or None
+        guest_profile = self._extract_profile_payload(payload)
+        guest_profile_id = str(guest_profile.get("id", "")).strip() if guest_profile else None
 
         if not author or not text:
             self._send_json(400, {"error": "Поля author и text обязательны"})
@@ -453,8 +515,30 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             )
             return
 
+        if guest_profile:
+            try:
+                profile = upsert_guest_profile(
+                    profile_id=str(guest_profile.get("id", "")).strip(),
+                    display_name=str(guest_profile.get("display_name", author)).strip() or author,
+                    email=str(guest_profile.get("email", "")).strip() or None,
+                    phone=str(guest_profile.get("phone", "")).strip() or None,
+                    about=str(guest_profile.get("about", "")).strip() or None,
+                    role=str(guest_profile.get("role", "guest_author")).strip() or "guest_author",
+                    status=str(guest_profile.get("status", "active")).strip() or "active",
+                    is_verified=bool(guest_profile.get("is_verified", False)),
+                )
+                guest_profile_id = str(profile.get("id", "")).strip() or guest_profile_id
+            except ValueError as error:
+                self._send_json(400, {"error": str(error)})
+                return
+
         try:
-            item = create_guest_feed_post(author, text, image_url=image_url)
+            item = create_guest_feed_post(
+                author,
+                text,
+                image_url=image_url,
+                guest_profile_id=guest_profile_id,
+            )
         except ValueError as error:
             self._send_json(400, {"error": str(error)})
             return
@@ -488,6 +572,7 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
         author = str(payload.get("author", "")).strip()
         text = str(payload.get("text", "")).strip()
         image_url = str(payload.get("image_url", "")).strip() or None
+        guest_profile_id = str(payload.get("guest_profile_id", "")).strip() or None
 
         if not author or not text:
             self._send_json(400, {"error": "Поля author и text обязательны"})
@@ -502,7 +587,13 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             return
 
         try:
-            updated = update_guest_feed_post(post_id=post_id, author=author, text=text, image_url=image_url)
+            updated = update_guest_feed_post(
+                post_id=post_id,
+                author=author,
+                text=text,
+                image_url=image_url,
+                guest_profile_id=guest_profile_id,
+            )
         except ValueError as error:
             self._send_json(400, {"error": str(error)})
             return

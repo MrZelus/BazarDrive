@@ -108,9 +108,28 @@ def init_db() -> None:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 author TEXT NOT NULL,
                 text TEXT NOT NULL,
+                guest_profile_id TEXT,
                 likes INTEGER DEFAULT 0,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME
+            )
+            """
+        )
+
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS guest_profiles (
+                id TEXT PRIMARY KEY,
+                role TEXT NOT NULL DEFAULT 'guest_author',
+                display_name TEXT NOT NULL,
+                email TEXT,
+                phone TEXT,
+                about TEXT,
+                is_verified INTEGER NOT NULL DEFAULT 0,
+                status TEXT NOT NULL DEFAULT 'active',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                last_seen_at DATETIME
             )
             """
         )
@@ -121,6 +140,8 @@ def init_db() -> None:
             cur.execute("ALTER TABLE guest_feed_posts ADD COLUMN updated_at DATETIME")
         if "image_url" not in guest_feed_columns:
             cur.execute("ALTER TABLE guest_feed_posts ADD COLUMN image_url TEXT")
+        if "guest_profile_id" not in guest_feed_columns:
+            cur.execute("ALTER TABLE guest_feed_posts ADD COLUMN guest_profile_id TEXT")
 
         conn.commit()
 
@@ -282,7 +303,7 @@ def list_guest_feed_posts(limit: int = 20, offset: int = 0) -> list[dict[str, An
         cur = conn.cursor()
         cur.execute(
             """
-            SELECT id, author, text, likes, image_url, created_at, updated_at
+            SELECT id, author, text, guest_profile_id, likes, image_url, created_at, updated_at
             FROM guest_feed_posts
             ORDER BY datetime(created_at) DESC, id DESC
             LIMIT ? OFFSET ?
@@ -300,7 +321,12 @@ def count_guest_feed_posts() -> int:
         return int(row[0]) if row else 0
 
 
-def create_guest_feed_post(author: str, text: str, image_url: Optional[str] = None) -> dict[str, Any]:
+def create_guest_feed_post(
+    author: str,
+    text: str,
+    image_url: Optional[str] = None,
+    guest_profile_id: Optional[str] = None,
+) -> dict[str, Any]:
     author_clean = author.strip()
     text_clean = text.strip()
     image_url_clean = _validate_guest_feed_image_url(image_url)
@@ -317,17 +343,17 @@ def create_guest_feed_post(author: str, text: str, image_url: Optional[str] = No
         cur = conn.cursor()
         cur.execute(
             """
-            INSERT INTO guest_feed_posts (author, text, image_url)
-            VALUES (?, ?, ?)
+            INSERT INTO guest_feed_posts (author, text, image_url, guest_profile_id)
+            VALUES (?, ?, ?, ?)
             """,
-            (author_clean, text_clean, image_url_clean),
+            (author_clean, text_clean, image_url_clean, (guest_profile_id or "").strip() or None),
         )
         conn.commit()
         new_id = cur.lastrowid
 
         cur.execute(
             """
-            SELECT id, author, text, likes, image_url, created_at, updated_at
+            SELECT id, author, text, guest_profile_id, likes, image_url, created_at, updated_at
             FROM guest_feed_posts
             WHERE id = ?
             """,
@@ -338,7 +364,11 @@ def create_guest_feed_post(author: str, text: str, image_url: Optional[str] = No
 
 
 def update_guest_feed_post(
-    post_id: int, author: str, text: str, image_url: Optional[str] = None
+    post_id: int,
+    author: str,
+    text: str,
+    image_url: Optional[str] = None,
+    guest_profile_id: Optional[str] = None,
 ) -> Optional[dict[str, Any]]:
     author_clean = author.strip()
     text_clean = text.strip()
@@ -357,10 +387,14 @@ def update_guest_feed_post(
         cur.execute(
             """
             UPDATE guest_feed_posts
-            SET author = ?, text = ?, image_url = ?, updated_at = CURRENT_TIMESTAMP
+            SET author = ?,
+                text = ?,
+                image_url = ?,
+                guest_profile_id = COALESCE(?, guest_profile_id),
+                updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
             """,
-            (author_clean, text_clean, image_url_clean, post_id),
+            (author_clean, text_clean, image_url_clean, (guest_profile_id or "").strip() or None, post_id),
         )
         if cur.rowcount == 0:
             conn.rollback()
@@ -369,11 +403,123 @@ def update_guest_feed_post(
         conn.commit()
         cur.execute(
             """
-            SELECT id, author, text, likes, image_url, created_at, updated_at
+            SELECT id, author, text, guest_profile_id, likes, image_url, created_at, updated_at
             FROM guest_feed_posts
             WHERE id = ?
             """,
             (post_id,),
+        )
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+
+def upsert_guest_profile(
+    profile_id: str,
+    display_name: str,
+    email: Optional[str] = None,
+    phone: Optional[str] = None,
+    about: Optional[str] = None,
+    role: str = "guest_author",
+    status: str = "active",
+    is_verified: bool = False,
+) -> dict[str, Any]:
+    profile_id_clean = profile_id.strip()
+    display_name_clean = display_name.strip()
+    email_clean = (email or "").strip() or None
+    phone_clean = (phone or "").strip() or None
+    about_clean = (about or "").strip() or None
+    role_clean = role.strip() or "guest_author"
+    status_clean = status.strip() or "active"
+
+    if len(profile_id_clean) < 8:
+        raise ValueError("Некорректный id профиля")
+    if len(display_name_clean) < 2:
+        raise ValueError("display_name должен содержать минимум 2 символа")
+    if len(display_name_clean) > 60:
+        raise ValueError("display_name слишком длинный (максимум 60 символов)")
+    if not email_clean and not phone_clean:
+        raise ValueError("Укажите email или phone")
+    if email_clean and len(email_clean) > 254:
+        raise ValueError("email слишком длинный")
+    if phone_clean and len(phone_clean) > 32:
+        raise ValueError("phone слишком длинный")
+    if about_clean and len(about_clean) > 400:
+        raise ValueError("about слишком длинный (максимум 400 символов)")
+    if role_clean not in {"guest_author", "guest_reader"}:
+        raise ValueError("Некорректное значение role")
+    if status_clean not in {"active", "blocked", "pending_moderation"}:
+        raise ValueError("Некорректное значение status")
+
+    with closing(sqlite3.connect(DB_PATH)) as conn:
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO guest_profiles (
+                id,
+                role,
+                display_name,
+                email,
+                phone,
+                about,
+                is_verified,
+                status,
+                created_at,
+                updated_at,
+                last_seen_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            ON CONFLICT(id) DO UPDATE SET
+                role = excluded.role,
+                display_name = excluded.display_name,
+                email = excluded.email,
+                phone = excluded.phone,
+                about = excluded.about,
+                is_verified = excluded.is_verified,
+                status = excluded.status,
+                updated_at = CURRENT_TIMESTAMP,
+                last_seen_at = CURRENT_TIMESTAMP
+            """,
+            (
+                profile_id_clean,
+                role_clean,
+                display_name_clean,
+                email_clean,
+                phone_clean,
+                about_clean,
+                1 if is_verified else 0,
+                status_clean,
+            ),
+        )
+        conn.commit()
+
+        cur.execute(
+            """
+            SELECT id, role, display_name, email, phone, about, is_verified, status, created_at, updated_at, last_seen_at
+            FROM guest_profiles
+            WHERE id = ?
+            """,
+            (profile_id_clean,),
+        )
+        row = cur.fetchone()
+        return dict(row) if row else {}
+
+
+def get_guest_profile(profile_id: str) -> Optional[dict[str, Any]]:
+    profile_id_clean = profile_id.strip()
+    if not profile_id_clean:
+        return None
+
+    with closing(sqlite3.connect(DB_PATH)) as conn:
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT id, role, display_name, email, phone, about, is_verified, status, created_at, updated_at, last_seen_at
+            FROM guest_profiles
+            WHERE id = ?
+            """,
+            (profile_id_clean,),
         )
         row = cur.fetchone()
         return dict(row) if row else None
