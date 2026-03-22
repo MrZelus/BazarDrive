@@ -8,12 +8,17 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
         self.assertIn('id="addDocumentBtn"', html)
         self.assertIn('id="addDocumentForm"', html)
         self.assertIn('Добавить документ', html)
+        self.assertIn('id="driverOverviewDocuments"', html)
+        self.assertIn('Профиль водителя', html)
+        self.assertNotIn('Добавить поездку', html)
 
     def test_documents_flow_functions_exist_in_script(self) -> None:
         script = Path('web/js/feed.js').read_text(encoding='utf-8')
         self.assertIn('loadDriverDocuments', script)
         self.assertIn('submitDriverDocument', script)
         self.assertIn('/api/driver/documents', script)
+        self.assertIn('renderDriverOverviewDocuments', script)
+        self.assertIn('mapDocumentStatus', script)
 
 
 if __name__ == '__main__':

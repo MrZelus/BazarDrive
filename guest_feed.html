@@ -121,19 +121,24 @@
 
           <div id="role-driver" class="role-screen space-y-3">
             <div class="bg-panel rounded-2xl p-4 border border-white/10">
-              <p class="text-sm text-textSoft">Доход за месяц</p>
-              <p class="text-2xl font-bold mt-1">₽128 400</p>
+              <p class="text-sm text-textSoft">Профиль водителя</p>
+              <p class="text-lg font-semibold mt-1">Алексей Смирнов</p>
+              <p class="mt-1 text-sm text-textSoft">Роль: водитель такси • ИП • УСН «Доходы»</p>
             </div>
             <div class="bg-panel rounded-2xl p-4 border border-white/10">
-              <p class="text-sm text-textSoft">Налог (УСН 6%)</p>
-              <p class="text-xl font-semibold mt-1 text-warning">₽7 704</p>
+              <p class="text-sm text-textSoft">Статус профиля</p>
+              <p class="mt-1 inline-flex rounded-full border border-success/40 bg-success/10 px-2.5 py-1 text-xs text-success">Профиль подтвержден</p>
+              <p class="mt-2 text-xs text-textSoft">Документы проверяются автоматически после загрузки.</p>
             </div>
             <div class="bg-panel rounded-2xl p-4 border border-white/10">
-              <p class="text-sm text-textSoft">Баланс к выводу</p>
-              <p class="text-xl font-semibold mt-1 text-success">₽120 696</p>
+              <div class="flex items-center justify-between gap-2">
+                <p class="text-sm font-medium">Документы водителя</p>
+                <button id="openDriverDocumentsTabBtn" type="button" class="text-xs text-accent">Открыть список</button>
+              </div>
+              <div id="driverOverviewDocuments" class="mt-2 space-y-2"></div>
             </div>
-            <button class="w-full h-14 rounded-2xl bg-accent text-white font-semibold text-base active:scale-[0.99] transition">
-              Добавить поездку
+            <button id="driverAddDocumentBtn" type="button" class="w-full h-14 rounded-2xl bg-accent text-white font-semibold text-base active:scale-[0.99] transition">
+              Добавить/обновить документы
             </button>
           </div>
 
