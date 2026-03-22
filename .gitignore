@@ -1,0 +1,7 @@
+
+# local/dev artifacts
+.env
+.envy
+__pycache__/
+bot.db
+storage/
