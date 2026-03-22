@@ -143,6 +143,21 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertEqual(duplicate_payload.get("error"), "duplicate_document")
         self.assertIn("fields", duplicate_payload)
 
+    def test_driver_document_duplicate_check_ignores_case_and_spaces(self) -> None:
+        first_status, first_payload, _ = self._post(
+            "/api/driver/documents",
+            {"profile_id": "driver-main", "type": "passport", "number": "AB 123 45"},
+        )
+        self.assertEqual(first_status, 201)
+        self.assertIn("id", first_payload)
+
+        duplicate_status, duplicate_payload, _ = self._post(
+            "/api/driver/documents",
+            {"profile_id": "driver-main", "type": "passport", "number": "ab12345"},
+        )
+        self.assertEqual(duplicate_status, 409)
+        self.assertEqual(duplicate_payload.get("error"), "duplicate_document")
+
     def test_health_endpoint_returns_ok(self) -> None:
         conn = HTTPConnection(self.host, self.port, timeout=5)
         conn.request("GET", "/health")

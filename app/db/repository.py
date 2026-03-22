@@ -383,7 +383,9 @@ def find_driver_document_duplicate(profile_id: str, type: str, number: str) -> O
             """
             SELECT id, profile_id, type, number, valid_until, file_url, status, created_at, updated_at
             FROM driver_documents
-            WHERE profile_id = ? AND type = ? AND number = ?
+            WHERE profile_id = ?
+              AND type = ?
+              AND lower(replace(number, ' ', '')) = lower(replace(?, ' ', ''))
             ORDER BY datetime(created_at) DESC, id DESC
             LIMIT 1
             """,
