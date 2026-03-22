@@ -1,0 +1,47 @@
+name: Driver Tab Smoke
+description: Проверка вкладки "Водитель" (UI + API + файлы)
+title: "[Driver Tab] Smoke check: "
+labels: ["qa", "driver-tab", "smoke"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Заполните чек-лист и приложите логи/скриншоты при необходимости.
+
+  - type: input
+    id: env
+    attributes:
+      label: Окружение
+      description: Например, Termux / Linux / CI
+      placeholder: "Termux Android"
+    validations:
+      required: true
+
+  - type: textarea
+    id: checklist
+    attributes:
+      label: Чек-лист
+      value: |
+        - [ ] 1. Страница открывается без ошибок (guest_feed.html, css/js 200/304)
+        - [ ] 2. GET /api/driver/documents?profile_id=driver-main -> 200
+        - [ ] 3. OPTIONS /api/driver/documents -> 204
+        - [ ] 4. POST /api/driver/documents -> 201
+        - [ ] 5. После POST список документов обновляется
+        - [ ] 6. Файлы по /uploads/feed/* не дают 404
+        - [ ] 7. Нет 500 в логах при штатном сценарии
+        - [ ] 8. Данные сохраняются после перезапуска
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Логи/ошибки
+      description: Вставьте ключевые строки логов
+      placeholder: "GET /api/driver/documents ... 200"
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Примечания
+      description: Доп. комментарии
