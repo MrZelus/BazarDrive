@@ -1,5 +1,6 @@
 import unittest
 from pathlib import Path
+import re
 
 
 class DriverDocumentsUISmokeTests(unittest.TestCase):
@@ -19,6 +20,10 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
         self.assertIn('/api/driver/documents', script)
         self.assertIn('renderDriverOverviewDocuments', script)
         self.assertIn('mapDocumentStatus', script)
+        self.assertRegex(
+            script,
+            re.compile(r"function setActiveProfileTab\(tab\)[\s\S]+if \(tab === 'documents'\)\s*\{\s*loadDriverDocuments\(\);", re.MULTILINE),
+        )
 
 
 if __name__ == '__main__':
