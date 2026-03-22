@@ -128,7 +128,9 @@
     function mapDocumentStatus(status) {
       const labels = {
         uploaded: 'Загружен',
+        checking: 'На проверке',
         pending_verification: 'На проверке',
+        approved: 'Подтверждён',
         verified: 'Подтверждён',
         rejected: 'Отклонён',
         expired: 'Истёк',
@@ -228,15 +230,29 @@
       }));
 
       driverDocumentsList.innerHTML = normalizedItems.map((item) => `
-        <article class="rounded-xl border border-white/10 bg-panelSoft px-3 py-2">
-          <div class="flex items-center justify-between gap-2">
-            <div>
-              <p class="text-sm font-medium">${item.title}</p>
-              <p class="text-xs text-textSoft">№ ${item.number}${item.valid_until ? ` • действует до ${item.validUntilLabel}` : ''}</p>
-              <p class="text-xs text-textSoft">Статус: ${item.statusLabel} • Обновлён: ${item.updatedAtLabel}</p>
-            </div>
-            <button type="button" data-doc-delete="${item.id}" class="text-xs text-warning">Удалить</button>
+        <article class="rounded-xl border border-white/10 bg-panelSoft px-3 py-3 space-y-2">
+          <div class="flex items-start justify-between gap-3">
+            <p class="text-sm font-medium">${item.title}</p>
+            <button type="button" data-doc-delete="${item.id}" class="text-xs text-warning hover:underline">Удалить</button>
           </div>
+          <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 text-xs">
+            <div>
+              <dt class="text-textSoft">Номер</dt>
+              <dd>${item.number || '—'}</dd>
+            </div>
+            <div>
+              <dt class="text-textSoft">Статус</dt>
+              <dd>${item.statusLabel}</dd>
+            </div>
+            <div>
+              <dt class="text-textSoft">Срок действия</dt>
+              <dd>${item.validUntilLabel}</dd>
+            </div>
+            <div>
+              <dt class="text-textSoft">Обновлён</dt>
+              <dd>${item.updatedAtLabel}</dd>
+            </div>
+          </dl>
         </article>
       `).join('');
       renderDriverOverviewDocuments(normalizedItems);
