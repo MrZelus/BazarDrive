@@ -135,6 +135,14 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertEqual(list_payload.get("total"), 1)
         self.assertEqual(list_payload["items"][0]["id"], ok_payload["id"])
 
+        duplicate_status, duplicate_payload, _ = self._post(
+            "/api/driver/documents",
+            {"profile_id": "driver-main", "type": "passport", "number": "4010 123456", "valid_until": "2030-12-31"},
+        )
+        self.assertEqual(duplicate_status, 409)
+        self.assertEqual(duplicate_payload.get("error"), "duplicate_document")
+        self.assertIn("fields", duplicate_payload)
+
     def test_health_endpoint_returns_ok(self) -> None:
         conn = HTTPConnection(self.host, self.port, timeout=5)
         conn.request("GET", "/health")

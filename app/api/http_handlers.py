@@ -230,6 +230,21 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             if errors:
                 self._send_json(400, {"error": "validation_error", "fields": errors})
                 return
+            duplicate = repository.find_driver_document_duplicate(
+                profile_id=str(cleaned["profile_id"]),
+                type=str(cleaned["type"]),
+                number=str(cleaned["number"]),
+            )
+            if duplicate:
+                self._send_json(
+                    409,
+                    {
+                        "error": "duplicate_document",
+                        "message": "Документ с таким типом и номером уже существует",
+                        "fields": {"number": "Документ с таким номером уже добавлен"},
+                    },
+                )
+                return
             created = repository.create_driver_document(**cleaned)
             self._send_json(201, created)
             return

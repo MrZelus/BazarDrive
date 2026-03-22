@@ -375,6 +375,24 @@ def create_driver_document(
         return dict(row) if row else {}
 
 
+def find_driver_document_duplicate(profile_id: str, type: str, number: str) -> Optional[dict[str, Any]]:
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT id, profile_id, type, number, valid_until, file_url, status, created_at, updated_at
+            FROM driver_documents
+            WHERE profile_id = ? AND type = ? AND number = ?
+            ORDER BY datetime(created_at) DESC, id DESC
+            LIMIT 1
+            """,
+            (profile_id, type, number),
+        )
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+
 def update_driver_document(
     doc_id: int,
     type: str,
