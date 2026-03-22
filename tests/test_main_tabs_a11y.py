@@ -31,6 +31,15 @@ class MainTabsA11yRegressionTests(unittest.TestCase):
             re.compile(r"function setActiveScreen\(tab\)[\s\S]+btn\.setAttribute\('aria-selected', String\(isActive\)\);[\s\S]+btn\.tabIndex = isActive \? 0 : -1;", re.MULTILINE),
         )
 
+    def test_rules_search_has_mobile_a11y_hint_and_live_status(self) -> None:
+        self.assertIn('id="docsSearchHint"', self.html)
+        self.assertIn('id="docsSearchStatus"', self.html)
+        self.assertIn('aria-describedby="docsSearchHint docsSearchStatus"', self.html)
+        self.assertIn('role="status" aria-live="polite"', self.html)
+        self.assertIn("const docsSearchStatus = document.getElementById('docsSearchStatus');", self.script)
+        self.assertIn("const shouldFilter = normalized.length >= 2;", self.script)
+        self.assertIn("docsSearchStatus.textContent = `Показаны все материалы: ${docs.length}.`;", self.script)
+
 
 if __name__ == '__main__':
     unittest.main()
