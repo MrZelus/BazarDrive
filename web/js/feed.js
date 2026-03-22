@@ -94,6 +94,9 @@
     const roleButtons = document.querySelectorAll('.role-btn');
     const roleDriver = document.getElementById('role-driver');
     const roleCommon = document.getElementById('role-common');
+    const driverOverviewDocuments = document.getElementById('driverOverviewDocuments');
+    const driverAddDocumentBtn = document.getElementById('driverAddDocumentBtn');
+    const openDriverDocumentsTabBtn = document.getElementById('openDriverDocumentsTabBtn');
     const profileNameInput = document.getElementById('profileName');
     const profileEmailInput = document.getElementById('profileEmail');
     const profilePhoneInput = document.getElementById('profilePhone');
@@ -113,6 +116,41 @@
     const documentNumberError = document.getElementById('documentNumberError');
     const documentValidUntilError = document.getElementById('documentValidUntilError');
     let isSubmittingDocument = false;
+
+    function formatDocumentDate(dateValue) {
+      const value = String(dateValue || '').trim();
+      if (!value) return '—';
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return value;
+      return date.toLocaleDateString('ru-RU');
+    }
+
+    function mapDocumentStatus(status) {
+      const labels = {
+        uploaded: 'Загружен',
+        pending_verification: 'На проверке',
+        verified: 'Подтверждён',
+        rejected: 'Отклонён',
+        expired: 'Истёк',
+      };
+      return labels[String(status || '').trim()] || 'Неизвестно';
+    }
+
+    function renderDriverOverviewDocuments(items = []) {
+      if (!driverOverviewDocuments) return;
+      if (!Array.isArray(items) || items.length === 0) {
+        driverOverviewDocuments.innerHTML = '<div class="rounded-xl border border-white/10 bg-panelSoft px-3 py-2 text-sm text-textSoft">Добавьте документы для верификации профиля.</div>';
+        return;
+      }
+
+      const previewItems = items.slice(0, 3);
+      driverOverviewDocuments.innerHTML = previewItems.map((item) => `
+        <div class="rounded-xl border border-white/10 bg-panelSoft px-3 py-2">
+          <p class="text-sm font-medium">${item.title || item.type}</p>
+          <p class="text-xs text-textSoft">Статус: ${item.statusLabel} • Обновлён: ${item.updatedAtLabel}</p>
+        </div>
+      `).join('');
+    }
 
 
     function clearDocumentErrors() {
@@ -171,6 +209,7 @@
       if (!driverDocumentsList) return;
       if (!Array.isArray(items) || items.length === 0) {
         driverDocumentsList.innerHTML = '<div class="rounded-xl border border-white/10 bg-panelSoft px-3 py-2 text-sm text-textSoft">Документы пока не добавлены.</div>';
+        renderDriverOverviewDocuments([]);
         return;
       }
 
@@ -180,17 +219,27 @@
         diagnostic_card: 'Диагностическая карта', self_employed_certificate: 'Справка самозанятого'
       };
 
-      driverDocumentsList.innerHTML = items.map((item) => `
+      const normalizedItems = items.map((item) => ({
+        ...item,
+        title: labels[item.type] || item.type,
+        statusLabel: mapDocumentStatus(item.status),
+        updatedAtLabel: formatDocumentDate(item.updated_at),
+        validUntilLabel: formatDocumentDate(item.valid_until),
+      }));
+
+      driverDocumentsList.innerHTML = normalizedItems.map((item) => `
         <article class="rounded-xl border border-white/10 bg-panelSoft px-3 py-2">
           <div class="flex items-center justify-between gap-2">
             <div>
-              <p class="text-sm font-medium">${labels[item.type] || item.type}</p>
-              <p class="text-xs text-textSoft">№ ${item.number}${item.valid_until ? ` • до ${item.valid_until}` : ''}</p>
+              <p class="text-sm font-medium">${item.title}</p>
+              <p class="text-xs text-textSoft">№ ${item.number}${item.valid_until ? ` • действует до ${item.validUntilLabel}` : ''}</p>
+              <p class="text-xs text-textSoft">Статус: ${item.statusLabel} • Обновлён: ${item.updatedAtLabel}</p>
             </div>
             <button type="button" data-doc-delete="${item.id}" class="text-xs text-warning">Удалить</button>
           </div>
         </article>
       `).join('');
+      renderDriverOverviewDocuments(normalizedItems);
 
       driverDocumentsList.querySelectorAll('[data-doc-delete]').forEach((button) => {
         button.addEventListener('click', async () => {
@@ -220,6 +269,7 @@
         renderDriverDocuments(payload.items || []);
       } catch (error) {
         console.error(error);
+        renderDriverOverviewDocuments([]);
         setDocumentAlert(error.message || 'Не удалось загрузить список документов');
       }
     }
@@ -566,6 +616,7 @@
       if (role === 'driver') {
         roleDriver.classList.remove('hidden');
         roleCommon.classList.add('hidden');
+        loadDriverDocuments();
       } else {
         roleDriver.classList.add('hidden');
         roleCommon.classList.remove('hidden');
@@ -672,6 +723,13 @@
     });
     saveProfileBtn.addEventListener('click', saveGuestProfile);
     addDocumentBtn?.addEventListener('click', () => toggleDocumentForm(true));
+    driverAddDocumentBtn?.addEventListener('click', () => {
+      setActiveProfileTab('documents');
+      toggleDocumentForm(true);
+    });
+    openDriverDocumentsTabBtn?.addEventListener('click', () => {
+      setActiveProfileTab('documents');
+    });
     cancelDocumentBtn?.addEventListener('click', () => toggleDocumentForm(false));
     addDocumentForm?.addEventListener('submit', submitDriverDocument);
     addDocumentForm?.addEventListener('keydown', (event) => {
