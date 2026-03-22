@@ -209,6 +209,10 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             self._send_json(200, {"items": repository.list_approved_posts(limit=50, offset=0, include_ads=True)})
             return
 
+        if path == "/api/feed/publication-rules":
+            self._send_json(200, FeedService.get_publication_rules())
+            return
+
         self._send_json(404, {"error": "Not found"})
 
     def do_POST(self) -> None:  # noqa: N802

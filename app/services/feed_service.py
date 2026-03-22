@@ -44,6 +44,14 @@ class FeedService:
     STORAGE_DIR = os.path.abspath(get_feed_upload_dir())
     STORAGE_URL_PREFIX = "/uploads/feed/"
     SUPPORTED_IMAGE_MIME_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
+    MAX_URLS_PER_POST = 2
+    MAX_DUPLICATE_TOKEN_OCCURRENCES = 4
+    FORBIDDEN_PATTERNS = (
+        ("казино", "Контент с упоминанием азартных игр запрещён правилами публикации."),
+        ("наркот", "Контент с упоминанием запрещённых веществ не допускается."),
+        ("ставк", "Публикации с рекламой ставок и букмекерских услуг запрещены."),
+        ("18+", "Контент 18+ запрещён в гостевой ленте."),
+    )
 
     _rate_limit_lock = Lock()
     _rate_limit_timestamps: dict[str, list[float]] = {}
@@ -267,7 +275,43 @@ class FeedService:
             raise ValueError("Сообщение должно содержать минимум 5 символов")
         if len(author_clean) > AUTHOR_MAX_LEN or len(text_clean) > TEXT_MAX_LEN:
             raise ValueError("Превышена максимальная длина полей")
+        FeedService.validate_publication_rules(text_clean)
         return author_clean, text_clean
+
+    @classmethod
+    def get_publication_rules(cls) -> dict[str, object]:
+        return {
+            "title": "Правила публикации в гостевой ленте",
+            "version": 1,
+            "rules": [
+                {"id": "no-spam", "text": "Не публикуйте однотипные повторяющиеся сообщения и флуд."},
+                {"id": "no-prohibited", "text": "Запрещены наркотики, ставки/казино и контент 18+."},
+                {"id": "links-limit", "text": f"Допускается не более {cls.MAX_URLS_PER_POST} ссылок в одном посте."},
+                {
+                    "id": "meaningful-text",
+                    "text": "Текст должен быть осмысленным: избегайте длинных цепочек из одинаковых слов/символов.",
+                },
+            ],
+        }
+
+    @classmethod
+    def validate_publication_rules(cls, text: str) -> None:
+        lowered = text.casefold()
+        for marker, message in cls.FORBIDDEN_PATTERNS:
+            if marker in lowered:
+                raise ValueError(message)
+
+        links_count = lowered.count("http://") + lowered.count("https://")
+        if links_count > cls.MAX_URLS_PER_POST:
+            raise ValueError(f"Слишком много ссылок в одном посте (максимум {cls.MAX_URLS_PER_POST}).")
+
+        tokens = [token for token in lowered.split() if len(token) >= 3]
+        if tokens:
+            frequencies: dict[str, int] = {}
+            for token in tokens:
+                frequencies[token] = frequencies.get(token, 0) + 1
+            if max(frequencies.values()) > cls.MAX_DUPLICATE_TOKEN_OCCURRENCES:
+                raise ValueError("Пост выглядит как спам: слишком много повторяющихся слов.")
 
     @staticmethod
     def validate_profile_fields(payload: dict[str, object]) -> dict[str, object]:
