@@ -36,6 +36,7 @@ paths:
   /api/feed/posts:
     get:
       tags: [Feed]
+      operationId: listFeedPosts
       summary: Получить список постов гостевой ленты
       parameters:
         - in: query
@@ -56,6 +57,7 @@ paths:
 
     post:
       tags: [Feed]
+      operationId: createFeedPost
       summary: Создать пост в ленте
       requestBody:
         required: true
@@ -125,6 +127,7 @@ paths:
   /api/feed/profiles:
     post:
       tags: [Profiles]
+      operationId: upsertFeedProfile
       summary: Создать или обновить профиль гостя
       requestBody:
         required: true
@@ -178,7 +181,11 @@ paths:
   /api/feed/approved:
     get:
       tags: [Feed]
+      operationId: listApprovedFeed
       summary: Получить объединённую модерируемую ленту одобренных постов/объявлений
+      description: |
+        Возвращает публикации со статусом `approved`.
+        Текущая реализация отдаёт до 50 записей и включает рекламные объявления.
       responses:
         '200':
           description: Одобренные публикации
@@ -186,6 +193,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApprovedFeedResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
 
   /api/feed/publication-rules:
     get:
