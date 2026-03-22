@@ -2,9 +2,9 @@ name: CI Driver Tab
 
 on:
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   workflow_dispatch:
 
 jobs:
@@ -27,6 +27,8 @@ jobs:
           pip install pytest
 
       - name: Run driver/feed related tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}
         run: |
           pytest -q \
             tests/test_driver_documents_contract_sync.py \
