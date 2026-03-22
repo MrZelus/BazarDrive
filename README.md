@@ -223,3 +223,15 @@ BAZAR_DB_PATH=/tmp/bazardrive-test.db python -m unittest tests.test_db_guest_fee
   }
 }
 ```
+
+При попытке добавить дубликат документа (`profile_id + type + number`) API возвращает `409`:
+
+```json
+{
+  "error": "duplicate_document",
+  "message": "Документ с таким типом и номером уже существует",
+  "fields": {
+    "number": "Документ с таким номером уже добавлен"
+  }
+}
+```

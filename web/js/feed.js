@@ -112,6 +112,7 @@
     const documentTypeError = document.getElementById('documentTypeError');
     const documentNumberError = document.getElementById('documentNumberError');
     const documentValidUntilError = document.getElementById('documentValidUntilError');
+    let isSubmittingDocument = false;
 
 
     function clearDocumentErrors() {
@@ -146,6 +147,24 @@
       }
       documentsApiAlert.textContent = normalized;
       documentsApiAlert.classList.remove('hidden');
+    }
+
+    function applyDocumentLoadingState(isLoading) {
+      isSubmittingDocument = Boolean(isLoading);
+      if (submitDocumentBtn) {
+        submitDocumentBtn.disabled = isSubmittingDocument;
+        submitDocumentBtn.textContent = isSubmittingDocument ? 'Сохранение...' : 'Сохранить';
+      }
+      if (cancelDocumentBtn) {
+        cancelDocumentBtn.disabled = isSubmittingDocument;
+      }
+      if (addDocumentBtn) {
+        addDocumentBtn.disabled = isSubmittingDocument;
+      }
+      [documentTypeInput, documentNumberInput, documentValidUntilInput].forEach((field) => {
+        if (!field) return;
+        field.disabled = isSubmittingDocument;
+      });
     }
 
     function renderDriverDocuments(items = []) {
@@ -207,6 +226,7 @@
 
     function toggleDocumentForm(forceOpen) {
       if (!addDocumentForm) return;
+      if (isSubmittingDocument) return;
       const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : addDocumentForm.classList.contains('hidden');
       addDocumentForm.classList.toggle('hidden', !shouldOpen);
       if (!shouldOpen) {
@@ -251,10 +271,7 @@
         return;
       }
 
-      if (submitDocumentBtn) {
-        submitDocumentBtn.disabled = true;
-        submitDocumentBtn.textContent = 'Сохранение...';
-      }
+      applyDocumentLoadingState(true);
 
       try {
         const response = await fetch(`${FEED_API_BASE}/api/driver/documents`, {
@@ -264,8 +281,13 @@
         });
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
-          if (data.error === 'validation_error') {
+          if (data.error === 'validation_error' || response.status === 422) {
             showDocumentErrors(data.fields || {});
+            return;
+          }
+          if (data.error === 'duplicate_document' || response.status === 409) {
+            showDocumentErrors(data.fields || { number: 'Документ с таким номером уже существует' });
+            setDocumentAlert(data.message || 'Документ с такими данными уже добавлен');
             return;
           }
           throw new Error(data.error || `Не удалось добавить документ (HTTP ${response.status})`);
@@ -277,10 +299,7 @@
         console.error(error);
         setDocumentAlert(error.message || 'Не удалось добавить документ');
       } finally {
-        if (submitDocumentBtn) {
-          submitDocumentBtn.disabled = false;
-          submitDocumentBtn.textContent = 'Сохранить';
-        }
+        applyDocumentLoadingState(false);
       }
     }
 
@@ -655,6 +674,11 @@
     addDocumentBtn?.addEventListener('click', () => toggleDocumentForm(true));
     cancelDocumentBtn?.addEventListener('click', () => toggleDocumentForm(false));
     addDocumentForm?.addEventListener('submit', submitDriverDocument);
+    addDocumentForm?.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && isSubmittingDocument) {
+        event.preventDefault();
+      }
+    });
     [profileNameInput, profileEmailInput, profilePhoneInput, profileAboutInput].forEach((field) => {
       field.addEventListener('input', updateGuestProfileStatus);
     });
