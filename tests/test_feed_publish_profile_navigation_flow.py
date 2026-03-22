@@ -5,6 +5,7 @@ from pathlib import Path
 class FeedPublishProfileNavigationFlowTests(unittest.TestCase):
     def setUp(self) -> None:
         self.script = Path("web/js/feed.js").read_text(encoding="utf-8")
+        self.page = Path("guest_feed.html").read_text(encoding="utf-8")
         self.readme = Path("README.md").read_text(encoding="utf-8")
         self.flow_doc = Path("docs/feed_navigation_publish_flow.md").read_text(encoding="utf-8")
 
@@ -30,6 +31,12 @@ class FeedPublishProfileNavigationFlowTests(unittest.TestCase):
         self.assertIn("## 1) Карта переходов между разделами", self.flow_doc)
         self.assertIn("### Rate limit (`429 Too Many Requests`)", self.flow_doc)
         self.assertIn("### Навигация между разделами", self.flow_doc)
+
+    def test_unified_notifications_are_used_instead_of_alert(self) -> None:
+        self.assertIn("const appNotification = document.getElementById('appNotification');", self.script)
+        self.assertIn("function showAppNotification(message = '', type = 'info') {", self.script)
+        self.assertNotIn("alert(", self.script)
+        self.assertIn('id="appNotification"', self.page)
 
 
 if __name__ == "__main__":

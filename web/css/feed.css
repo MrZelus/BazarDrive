@@ -26,3 +26,44 @@
   color: #e8edff;
   border-color: rgba(79, 140, 255, 0.7);
 }
+
+.app-notification {
+  position: sticky;
+  top: 74px;
+  z-index: 20;
+  margin: 0 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.35;
+  color: #e8edff;
+  backdrop-filter: blur(6px);
+  animation: fade-in-notification 180ms ease-out;
+}
+
+.app-notification--info {
+  background-color: rgba(79, 140, 255, 0.2);
+  border-color: rgba(79, 140, 255, 0.45);
+}
+
+.app-notification--success {
+  background-color: rgba(52, 211, 153, 0.16);
+  border-color: rgba(52, 211, 153, 0.45);
+}
+
+.app-notification--error {
+  background-color: rgba(251, 191, 36, 0.16);
+  border-color: rgba(251, 191, 36, 0.45);
+}
+
+@keyframes fade-in-notification {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
