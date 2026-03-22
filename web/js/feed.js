@@ -43,6 +43,7 @@
     const ACTIVE_TAB_STORAGE_KEY = 'bazardrive_active_tab';
     const PROFILE_STORAGE_KEY = 'bazardrive_profile';
     const FEED_API_BASE_STORAGE_KEY = 'bazardrive_feed_api_base';
+    const PENDING_POST_DRAFT_STORAGE_KEY = 'bazardrive_pending_post_draft';
 
     function normalizeApiBase(url) {
       return String(url || '').trim().replace(/\/+$/, '');
@@ -119,6 +120,25 @@
     const documentNumberError = document.getElementById('documentNumberError');
     const documentValidUntilError = document.getElementById('documentValidUntilError');
     let isSubmittingDocument = false;
+
+    function storePendingPostDraft(text = '') {
+      const normalized = String(text || '').trim();
+      if (!normalized) {
+        localStorage.removeItem(PENDING_POST_DRAFT_STORAGE_KEY);
+        return;
+      }
+      localStorage.setItem(PENDING_POST_DRAFT_STORAGE_KEY, normalized);
+    }
+
+    function readPendingPostDraft() {
+      return String(localStorage.getItem(PENDING_POST_DRAFT_STORAGE_KEY) || '').trim();
+    }
+
+    function consumePendingPostDraft() {
+      const draft = readPendingPostDraft();
+      localStorage.removeItem(PENDING_POST_DRAFT_STORAGE_KEY);
+      return draft;
+    }
 
     function formatDocumentDate(dateValue) {
       const value = String(dateValue || '').trim();
@@ -403,6 +423,13 @@
         is_verified: false
       };
     }
+
+    function isGuestProfileReady(profile) {
+      const normalizedProfile = profile || {};
+      const hasName = String(normalizedProfile.display_name || '').trim().length >= 2;
+      const hasContact = Boolean(String(normalizedProfile.email || '').trim() || String(normalizedProfile.phone || '').trim());
+      return hasName && hasContact;
+    }
     
     function formatPostDate(createdAt) {
       const date = createdAt ? new Date(createdAt) : new Date();
@@ -526,17 +553,20 @@
     }
 
     async function addNewPost() {
-      const text = newPostInput.value.trim();
+      const text = String(newPostInput?.value || '').trim();
       if (!text) return;
       
       const author = resolveAuthorName();
       const guestProfile = makeGuestProfilePayload();
-      if (author === 'Гость' || guestProfile.display_name.length < 2 || (!guestProfile.email && !guestProfile.phone)) {
+      if (author === 'Гость' || !isGuestProfileReady(guestProfile)) {
+        storePendingPostDraft(text);
         setActiveScreen('profile');
         setActiveProfileTab('documents');
-        alert('Для публикации заполните профиль гостя: имя и хотя бы email или телефон.');
+        alert('Для публикации заполните профиль гостя: имя и хотя бы email или телефон. После сохранения публикация продолжится автоматически.');
         return;
       }
+
+      storePendingPostDraft('');
       publishBtn.disabled = true;
       publishBtn.textContent = 'Публикация...';
       try {
@@ -547,9 +577,18 @@
         });
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) {
+          if (response.status === 429) {
+            const retryAfterRaw = payload.retry_after ?? response.headers.get('Retry-After');
+            const retryAfterSeconds = Number(retryAfterRaw) || 0;
+            const retryAfterMessage = retryAfterSeconds > 0
+              ? `Повторите через ${retryAfterSeconds} сек.`
+              : 'Повторите попытку позже.';
+            throw new Error(`Слишком много публикаций за короткое время. ${retryAfterMessage}`);
+          }
           throw new Error(payload.error || `Ошибка публикации (HTTP ${response.status})`);
         }
         newPostInput.value = '';
+        storePendingPostDraft('');
         await loadPosts();
       } catch (error) {
         console.error(error);
@@ -721,6 +760,15 @@
         };
         localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(localProfile));
         updateGuestProfileStatus();
+        const pendingDraft = consumePendingPostDraft();
+        if (pendingDraft) {
+          if (newPostInput) {
+            newPostInput.value = pendingDraft;
+          }
+          setActiveScreen('feed');
+          await addNewPost();
+          return;
+        }
         alert('Профиль гостя сохранён.');
       } catch (error) {
         console.error(error);
