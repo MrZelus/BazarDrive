@@ -1,0 +1,503 @@
+openapi: 3.0.3
+info:
+  title: BazarDrive Feed API
+  version: 1.0.0
+  description: |
+    Контракт API для сценариев ленты, профиля гостя, правил публикации и документов водителя.
+servers:
+  - url: http://localhost:8001
+    description: Local development
+
+tags:
+  - name: Health
+  - name: Feed
+  - name: Profiles
+  - name: Driver documents
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Проверка здоровья API и БД
+      responses:
+        '200':
+          description: API и БД доступны
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthOk'
+        '503':
+          description: API жив, но БД недоступна
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthDegraded'
+
+  /api/feed/posts:
+    get:
+      tags: [Feed]
+      summary: Получить список постов гостевой ленты
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+          description: Размер страницы
+        - in: query
+          name: offset
+          schema: { type: integer, minimum: 0, default: 0 }
+          description: Смещение
+      responses:
+        '200':
+          description: Список постов
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedPostsListResponse'
+
+    post:
+      tags: [Feed]
+      summary: Создать пост в ленте
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFeedPostRequest'
+      responses:
+        '201':
+          description: Пост успешно создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedPost'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        '429':
+          description: Слишком частые публикации
+          headers:
+            Retry-After:
+              schema: { type: string }
+              description: Количество секунд до следующей попытки
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RateLimitError'
+
+  /api/feed/posts/{id}:
+    patch:
+      tags: [Feed]
+      summary: Обновить существующий пост
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateFeedPostRequest'
+      responses:
+        '200':
+          description: Пост обновлён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedPost'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        '404':
+          description: Пост не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+
+  /api/feed/profiles:
+    post:
+      tags: [Profiles]
+      summary: Создать или обновить профиль гостя
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertGuestProfileRequest'
+      responses:
+        '201':
+          description: Профиль сохранён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GuestProfile'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+
+  /api/feed/profiles/{id}:
+    get:
+      tags: [Profiles]
+      summary: Получить профиль гостя по ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, minLength: 1 }
+      responses:
+        '200':
+          description: Профиль найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GuestProfile'
+        '400':
+          description: Некорректный ID профиля
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        '404':
+          description: Профиль не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+
+  /api/feed/approved:
+    get:
+      tags: [Feed]
+      summary: Получить объединённую модерируемую ленту одобренных постов/объявлений
+      responses:
+        '200':
+          description: Одобренные публикации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApprovedFeedResponse'
+
+  /api/feed/publication-rules:
+    get:
+      tags: [Feed]
+      summary: Получить структурированные правила публикации для UI
+      responses:
+        '200':
+          description: Правила публикации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicationRules'
+
+  /api/driver/documents:
+    get:
+      tags: [Driver documents]
+      summary: Получить список документов водителя
+      parameters:
+        - in: query
+          name: profile_id
+          required: false
+          schema: { type: string, default: driver-main }
+      responses:
+        '200':
+          description: Список документов
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverDocumentListResponse'
+
+    post:
+      tags: [Driver documents]
+      summary: Создать документ водителя
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverDocumentWriteRequest'
+      responses:
+        '201':
+          description: Документ создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverDocument'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '409':
+          description: Дубликат документа
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DuplicateDocumentError'
+
+  /api/driver/documents/{id}:
+    patch:
+      tags: [Driver documents]
+      summary: Обновить документ водителя
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DriverDocumentWriteRequest'
+      responses:
+        '200':
+          description: Документ обновлён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverDocument'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '404':
+          description: Документ не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+
+    delete:
+      tags: [Driver documents]
+      summary: Удалить документ водителя
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        '200':
+          description: Документ удалён
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+                required: [ok]
+        '400':
+          description: Некорректный ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        '404':
+          description: Документ не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+
+components:
+  schemas:
+    ErrorMessage:
+      type: object
+      properties:
+        error:
+          oneOf:
+            - type: string
+            - type: object
+      required: [error]
+
+    ValidationError:
+      type: object
+      properties:
+        error:
+          type: string
+          example: validation_error
+        fields:
+          type: object
+          additionalProperties:
+            type: string
+      required: [error, fields]
+
+    DuplicateDocumentError:
+      type: object
+      properties:
+        error:
+          type: string
+          example: duplicate_document
+        message:
+          type: string
+        fields:
+          type: object
+          additionalProperties:
+            type: string
+      required: [error, message, fields]
+
+    RateLimitError:
+      type: object
+      properties:
+        error:
+          type: string
+        retry_after:
+          type: integer
+          minimum: 1
+      required: [error, retry_after]
+
+    HealthOk:
+      type: object
+      properties:
+        status: { type: string, example: ok }
+        process: { type: string, example: ok }
+        database: { type: string, example: ok }
+      required: [status, process, database]
+
+    HealthDegraded:
+      type: object
+      properties:
+        status: { type: string, example: degraded }
+        process: { type: string, example: ok }
+        database: { type: string, example: unavailable }
+      required: [status, process, database]
+
+    FeedPost:
+      type: object
+      properties:
+        id: { type: integer }
+        text: { type: string }
+        status: { type: string }
+        likes_count: { type: integer }
+        author_profile_id: { type: string, nullable: true }
+        image_url: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, nullable: true }
+      required: [id, text, status, likes_count, created_at]
+
+    FeedPostsListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/FeedPost' }
+        limit: { type: integer }
+        offset: { type: integer }
+        total: { type: integer }
+      required: [items, limit, offset, total]
+
+    CreateFeedPostRequest:
+      type: object
+      properties:
+        text: { type: string }
+        image_url:
+          type: string
+          nullable: true
+          description: URL или data URL base64 в зависимости от UI-клиента
+        author_profile_id:
+          type: string
+          nullable: true
+      required: [text]
+
+    UpdateFeedPostRequest:
+      type: object
+      properties:
+        text: { type: string }
+        image_url:
+          type: string
+          nullable: true
+      required: [text]
+
+    GuestProfile:
+      type: object
+      properties:
+        id: { type: string }
+        role: { type: string, example: guest_author }
+        name: { type: string }
+        email: { type: string, nullable: true }
+        phone: { type: string, nullable: true }
+        avatar_url: { type: string, nullable: true }
+        about: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+      required: [id, role, name, created_at, updated_at]
+
+    UpsertGuestProfileRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Если не передан, генерируется автоматически на backend
+        role:
+          type: string
+          default: guest_author
+        name: { type: string }
+        email: { type: string, nullable: true }
+        phone: { type: string, nullable: true }
+        avatar_url: { type: string, nullable: true }
+        about: { type: string, nullable: true }
+      required: [name]
+
+    ApprovedFeedResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+      required: [items]
+
+    PublicationRules:
+      type: object
+      additionalProperties: true
+
+    DriverDocument:
+      type: object
+      properties:
+        id: { type: integer }
+        profile_id: { type: string }
+        type: { type: string }
+        number: { type: string }
+        issue_date: { type: string, nullable: true }
+        expiry_date: { type: string, nullable: true }
+        issuer: { type: string, nullable: true }
+        notes: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+      required: [id, profile_id, type, number, created_at, updated_at]
+
+    DriverDocumentWriteRequest:
+      type: object
+      properties:
+        profile_id: { type: string }
+        type: { type: string }
+        number: { type: string }
+        issue_date: { type: string, nullable: true }
+        expiry_date: { type: string, nullable: true }
+        issuer: { type: string, nullable: true }
+        notes: { type: string, nullable: true }
+      required: [profile_id, type, number]
+
+    DriverDocumentListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/DriverDocument' }
+        profile_id: { type: string }
+        total: { type: integer }
+      required: [items, profile_id, total]
