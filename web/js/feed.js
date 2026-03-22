@@ -74,6 +74,8 @@
     const feedEl = document.getElementById('feed');
     const newPostInput = document.getElementById('newPostInput');
     const publishBtn = document.getElementById('publishBtn');
+    const appNotification = document.getElementById('appNotification');
+    let notificationTimer = null;
 
     const docsList = document.getElementById('docsList');
     const docsSearch = document.getElementById('docsSearch');
@@ -138,6 +140,30 @@
       const draft = readPendingPostDraft();
       localStorage.removeItem(PENDING_POST_DRAFT_STORAGE_KEY);
       return draft;
+    }
+
+    function showAppNotification(message = '', type = 'info') {
+      if (!appNotification) return;
+      const normalizedMessage = String(message || '').trim();
+      if (!normalizedMessage) {
+        appNotification.textContent = '';
+        appNotification.classList.add('hidden');
+        appNotification.classList.remove('app-notification--info', 'app-notification--success', 'app-notification--error');
+        return;
+      }
+
+      const normalizedType = ['info', 'success', 'error'].includes(type) ? type : 'info';
+      appNotification.textContent = normalizedMessage;
+      appNotification.classList.remove('hidden');
+      appNotification.classList.remove('app-notification--info', 'app-notification--success', 'app-notification--error');
+      appNotification.classList.add(`app-notification--${normalizedType}`);
+
+      if (notificationTimer) {
+        window.clearTimeout(notificationTimer);
+      }
+      notificationTimer = window.setTimeout(() => {
+        appNotification.classList.add('hidden');
+      }, 4500);
     }
 
     function formatDocumentDate(dateValue) {
@@ -562,7 +588,7 @@
         storePendingPostDraft(text);
         setActiveScreen('profile');
         setActiveProfileTab('documents');
-        alert('Для публикации заполните профиль гостя: имя и хотя бы email или телефон. После сохранения публикация продолжится автоматически.');
+        showAppNotification('Для публикации заполните профиль гостя: имя и хотя бы email или телефон. После сохранения публикация продолжится автоматически.', 'info');
         return;
       }
 
@@ -592,7 +618,7 @@
         await loadPosts();
       } catch (error) {
         console.error(error);
-        alert(error.message || 'Не удалось опубликовать пост');
+        showAppNotification(error.message || 'Не удалось опубликовать пост', 'error');
       } finally {
         publishBtn.disabled = false;
         publishBtn.textContent = 'Опубликовать';
@@ -730,11 +756,11 @@
     async function saveGuestProfile() {
       const profile = makeGuestProfilePayload();
       if (profile.display_name.length < 2) {
-        alert('Имя должно содержать минимум 2 символа.');
+        showAppNotification('Имя должно содержать минимум 2 символа.', 'error');
         return;
       }
       if (!profile.email && !profile.phone) {
-        alert('Укажите email или телефон.');
+        showAppNotification('Укажите email или телефон.', 'error');
         return;
       }
 
@@ -769,10 +795,10 @@
           await addNewPost();
           return;
         }
-        alert('Профиль гостя сохранён.');
+        showAppNotification('Профиль гостя сохранён.', 'success');
       } catch (error) {
         console.error(error);
-        alert(error.message || 'Не удалось сохранить профиль гостя');
+        showAppNotification(error.message || 'Не удалось сохранить профиль гостя', 'error');
       } finally {
         saveProfileBtn.disabled = false;
         saveProfileBtn.textContent = 'Сохранить профиль гостя';
