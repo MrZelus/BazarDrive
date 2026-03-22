@@ -40,6 +40,7 @@
     ];
 
     const ROLE_STORAGE_KEY = 'bazardrive_selected_role';
+    const ACTIVE_TAB_STORAGE_KEY = 'bazardrive_active_tab';
     const PROFILE_STORAGE_KEY = 'bazardrive_profile';
     const FEED_API_BASE_STORAGE_KEY = 'bazardrive_feed_api_base';
 
@@ -90,6 +91,7 @@
       rules: document.getElementById('screen-rules'),
       profile: document.getElementById('screen-profile')
     };
+    const VALID_MAIN_TABS = Object.keys(screens);
 
     const roleButtons = document.querySelectorAll('.role-btn');
     const roleDriver = document.getElementById('role-driver');
@@ -584,8 +586,10 @@
     }
 
     function setActiveScreen(tab) {
+      const normalizedTab = VALID_MAIN_TABS.includes(tab) ? tab : 'feed';
+
       tabButtons.forEach((btn) => {
-        const isActive = btn.dataset.tab === tab;
+        const isActive = btn.dataset.tab === normalizedTab;
         btn.classList.toggle('active', isActive);
         if (isActive) {
           btn.setAttribute('aria-current', 'page');
@@ -595,7 +599,7 @@
       });
 
       Object.entries(screens).forEach(([name, screen]) => {
-        const isActive = name === tab;
+        const isActive = name === normalizedTab;
         screen.classList.toggle('active', isActive);
         screen.classList.toggle('animate-fadeInUp', isActive);
         screen.toggleAttribute('hidden', !isActive);
@@ -603,7 +607,9 @@
         screen.toggleAttribute('inert', !isActive);
       });
 
-      if (tab === 'profile') {
+      localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, normalizedTab);
+
+      if (normalizedTab === 'profile') {
         updateGuestProfileStatus();
       }
     }
@@ -761,7 +767,9 @@
     });
 
     const savedRole = localStorage.getItem(ROLE_STORAGE_KEY);
+    const savedActiveTab = localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
     const initialRole = ['driver', 'passenger', 'guest'].includes(savedRole) ? savedRole : 'driver';
+    const initialTab = VALID_MAIN_TABS.includes(savedActiveTab) ? savedActiveTab : 'feed';
 
     loadPosts();
     renderDocs();
@@ -769,5 +777,5 @@
     hydrateProfileForm();
     setRole(initialRole);
     setActiveProfileTab('overview');
-    setActiveScreen('feed');
+    setActiveScreen(initialTab);
     updateGuestProfileStatus();
