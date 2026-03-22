@@ -591,11 +591,8 @@
       tabButtons.forEach((btn) => {
         const isActive = btn.dataset.tab === normalizedTab;
         btn.classList.toggle('active', isActive);
-        if (isActive) {
-          btn.setAttribute('aria-current', 'page');
-        } else {
-          btn.removeAttribute('aria-current');
-        }
+        btn.setAttribute('aria-selected', String(isActive));
+        btn.tabIndex = isActive ? 0 : -1;
       });
 
       Object.entries(screens).forEach(([name, screen]) => {
@@ -612,6 +609,33 @@
       if (normalizedTab === 'profile') {
         updateGuestProfileStatus();
       }
+    }
+
+    function handleMainTabsKeydown(event) {
+      const navigationKeys = ['ArrowLeft', 'ArrowRight', 'Home', 'End'];
+      if (!navigationKeys.includes(event.key)) {
+        return;
+      }
+
+      const currentIndex = Array.from(tabButtons).findIndex((btn) => btn === event.currentTarget);
+      if (currentIndex === -1) return;
+
+      event.preventDefault();
+
+      let nextIndex = currentIndex;
+      if (event.key === 'ArrowRight') {
+        nextIndex = (currentIndex + 1) % tabButtons.length;
+      } else if (event.key === 'ArrowLeft') {
+        nextIndex = (currentIndex - 1 + tabButtons.length) % tabButtons.length;
+      } else if (event.key === 'Home') {
+        nextIndex = 0;
+      } else if (event.key === 'End') {
+        nextIndex = tabButtons.length - 1;
+      }
+
+      const nextButton = tabButtons[nextIndex];
+      nextButton.focus();
+      setActiveScreen(nextButton.dataset.tab);
     }
 
     function setActiveProfileTab(tab) {
@@ -722,6 +746,7 @@
       btn.addEventListener('click', () => {
         setActiveScreen(btn.dataset.tab);
       });
+      btn.addEventListener('keydown', handleMainTabsKeydown);
     });
     profileMenuButtons.forEach((btn) => {
       btn.addEventListener('click', () => {

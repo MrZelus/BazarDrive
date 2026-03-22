@@ -42,7 +42,7 @@
     </header>
 
     <main class="px-4 py-4 space-y-4">
-      <section id="screen-feed" class="screen active animate-fadeInUp">
+      <section id="screen-feed" class="screen active animate-fadeInUp" role="tabpanel" aria-labelledby="main-tab-btn-feed">
         <div class="rounded-2xl bg-panel p-4 border border-white/10">
           <p class="text-base font-semibold">Как публиковать посты (пошагово)</p>
           <ol class="mt-2 text-sm text-textSoft space-y-1 list-decimal pl-5">
@@ -72,7 +72,7 @@
         <section id="feed" class="space-y-3"></section>
       </section>
 
-      <section id="screen-rules" class="screen">
+      <section id="screen-rules" class="screen" role="tabpanel" aria-labelledby="main-tab-btn-rules" hidden aria-hidden="true" inert>
         <div class="mb-4 rounded-2xl bg-panel p-4 border border-white/10">
           <h2 class="text-lg font-semibold">Правила и документы</h2>
           <p class="mt-2 text-sm text-textSoft">Единый раздел: правила платформы, публикации и шаблоны документов.</p>
@@ -97,7 +97,7 @@
         <section id="docsList" class="space-y-3"></section>
       </section>
 
-      <section id="screen-profile" class="screen">
+      <section id="screen-profile" class="screen" role="tabpanel" aria-labelledby="main-tab-btn-profile" hidden aria-hidden="true" inert>
         <h2 class="text-lg font-semibold px-1 mb-3">Профиль</h2>
 
         <div class="bg-panel rounded-2xl p-2 border border-white/10 mb-4">
@@ -269,22 +269,22 @@
     </main>
   </div>
 
-  <nav class="fixed bottom-0 left-0 right-0 bg-panel/95 backdrop-blur border-t border-white/10">
+  <nav class="fixed bottom-0 left-0 right-0 bg-panel/95 backdrop-blur border-t border-white/10" role="tablist" aria-label="Основное меню">
     <div class="mx-auto max-w-[520px] grid grid-cols-3 gap-2 p-2">
-      <button data-tab="feed" aria-current="page" class="tab-btn active h-14 rounded-xl flex flex-col items-center justify-center text-textSoft transition">
+      <button id="main-tab-btn-feed" data-tab="feed" role="tab" aria-selected="true" aria-controls="screen-feed" class="tab-btn active h-14 rounded-xl flex flex-col items-center justify-center text-textSoft transition">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
           <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l9-8 9 8M5 10v10h14V10" />
         </svg>
         <span class="text-xs">Лента</span>
       </button>
-      <button data-tab="rules" aria-current="false" class="tab-btn h-14 rounded-xl flex flex-col items-center justify-center text-textSoft transition">
+      <button id="main-tab-btn-rules" data-tab="rules" role="tab" aria-selected="false" aria-controls="screen-rules" tabindex="-1" class="tab-btn h-14 rounded-xl flex flex-col items-center justify-center text-textSoft transition">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
           <path stroke-linecap="round" stroke-linejoin="round" d="M7 3h7l5 5v13H7z" />
           <path stroke-linecap="round" stroke-linejoin="round" d="M14 3v5h5M10 13h6M10 17h6" />
         </svg>
         <span class="text-xs">Правила</span>
       </button>
-      <button data-tab="profile" aria-current="false" class="tab-btn h-14 rounded-xl flex flex-col items-center justify-center text-textSoft transition">
+      <button id="main-tab-btn-profile" data-tab="profile" role="tab" aria-selected="false" aria-controls="screen-profile" tabindex="-1" class="tab-btn h-14 rounded-xl flex flex-col items-center justify-center text-textSoft transition">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
           <path stroke-linecap="round" stroke-linejoin="round" d="M20 21a8 8 0 10-16 0" />
           <circle cx="12" cy="8" r="4" />
