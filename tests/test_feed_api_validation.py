@@ -172,6 +172,35 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertEqual(payload.get("database"), "ok")
         self.assertIn("x-request-id", headers)
 
+    def test_publication_rules_endpoint_returns_structured_rules(self) -> None:
+        status, payload, _ = self._get("/api/feed/publication-rules")
+        self.assertEqual(status, 200)
+        self.assertEqual(payload.get("version"), 1)
+        self.assertIsInstance(payload.get("rules"), list)
+        self.assertGreaterEqual(len(payload["rules"]), 3)
+
+    def test_post_rejected_by_content_moderation_rules(self) -> None:
+        status, payload, _ = self._post(
+            "/api/feed/posts",
+            {
+                "author": "Valid Author",
+                "text": "Казино и ставки здесь запрещены, но текст содержит стоп-слово",
+            },
+        )
+        self.assertEqual(status, 400)
+        self.assertIn("правилами публикации", payload.get("error", ""))
+
+    def test_post_rejected_by_spam_like_repeated_tokens(self) -> None:
+        status, payload, _ = self._post(
+            "/api/feed/posts",
+            {
+                "author": "Valid Author",
+                "text": "скидка скидка скидка скидка скидка очень выгодно",
+            },
+        )
+        self.assertEqual(status, 400)
+        self.assertEqual(payload.get("error"), "Пост выглядит как спам: слишком много повторяющихся слов.")
+
     def test_unexpected_error_returns_unified_json(self) -> None:
         original = repository.list_guest_feed_posts
 
