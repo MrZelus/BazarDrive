@@ -79,12 +79,15 @@
         </div>
         <div class="mb-4 rounded-2xl bg-panel p-4 border border-white/10">
           <label for="docsSearch" class="mb-2 block text-sm font-medium text-textSoft">Поиск по правилам и документам</label>
+          <p id="docsSearchHint" class="mb-2 text-xs text-textSoft">Введите минимум 2 символа, чтобы сузить список документов.</p>
           <input
             id="docsSearch"
             type="search"
             placeholder="Например: УСН 6%, ПДД, тарифы"
+            aria-describedby="docsSearchHint docsSearchStatus"
             class="h-12 w-full rounded-xl border border-white/10 bg-panelSoft px-4 text-sm outline-none transition focus:border-accent"
           />
+          <p id="docsSearchStatus" class="mt-2 text-xs text-textSoft" role="status" aria-live="polite"></p>
         </div>
         <div class="mb-4 rounded-2xl bg-panel p-4 border border-white/10">
           <p class="text-base font-semibold">Краткие правила публикации</p>

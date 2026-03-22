@@ -76,6 +76,7 @@
 
     const docsList = document.getElementById('docsList');
     const docsSearch = document.getElementById('docsSearch');
+    const docsSearchStatus = document.getElementById('docsSearchStatus');
 
     const tabButtons = document.querySelectorAll('.tab-btn');
     const profileMenuButtons = document.querySelectorAll('.profile-menu-btn');
@@ -561,8 +562,9 @@
 
     function renderDocs(query = '') {
       const normalized = query.trim().toLowerCase();
+      const shouldFilter = normalized.length >= 2;
       const filteredDocs = docs.filter((doc) => {
-        if (!normalized) return true;
+        if (!shouldFilter) return true;
         const haystack = `${doc.title} ${doc.description} ${doc.tags.join(' ')}`.toLowerCase();
         return haystack.includes(normalized);
       });
@@ -583,6 +585,18 @@
             </article>
           `).join('')
         : '<div class="rounded-2xl bg-panel p-4 border border-white/10 text-sm text-textSoft">Ничего не найдено. Попробуйте другой запрос.</div>';
+
+      if (docsSearchStatus) {
+        if (!normalized) {
+          docsSearchStatus.textContent = `Показаны все материалы: ${docs.length}.`;
+        } else if (!shouldFilter) {
+          docsSearchStatus.textContent = `Введите ещё ${2 - normalized.length} символ(а), сейчас показаны все материалы: ${docs.length}.`;
+        } else if (!filteredDocs.length) {
+          docsSearchStatus.textContent = 'По вашему запросу ничего не найдено.';
+        } else {
+          docsSearchStatus.textContent = `Найдено материалов: ${filteredDocs.length}.`;
+        }
+      }
     }
 
     function setActiveScreen(tab) {
