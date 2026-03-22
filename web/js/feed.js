@@ -74,6 +74,7 @@
     const feedEl = document.getElementById('feed');
     const newPostInput = document.getElementById('newPostInput');
     const publishBtn = document.getElementById('publishBtn');
+    const publishPrecheckHint = document.getElementById('publishPrecheckHint');
     const appNotification = document.getElementById('appNotification');
     let notificationTimer = null;
 
@@ -122,6 +123,13 @@
     const documentNumberError = document.getElementById('documentNumberError');
     const documentValidUntilError = document.getElementById('documentValidUntilError');
     let isSubmittingDocument = false;
+    const MODERATION_ERROR_COPY = {
+      prohibited: 'Публикация отклонена модерацией: обнаружена запрещённая тема.',
+      links: 'Публикация отклонена: в одном посте можно указать не более 2 ссылок.',
+      spam: 'Публикация отклонена: текст похож на спам из повторяющихся слов.',
+      too_short: 'Текст слишком короткий: напишите минимум 5 символов.',
+      generic: 'Публикация отклонена правилами модерации. Исправьте текст и попробуйте снова.',
+    };
 
     function storePendingPostDraft(text = '') {
       const normalized = String(text || '').trim();
@@ -164,6 +172,67 @@
       notificationTimer = window.setTimeout(() => {
         appNotification.classList.add('hidden');
       }, 4500);
+    }
+
+    function resolveModerationErrorMessage(rawMessage = '') {
+      const source = String(rawMessage || '').trim();
+      if (!source) return MODERATION_ERROR_COPY.generic;
+      const normalized = source.toLowerCase();
+      if (
+        normalized.includes('азарт') ||
+        normalized.includes('наркот') ||
+        normalized.includes('ставк') ||
+        normalized.includes('18+')
+      ) {
+        return MODERATION_ERROR_COPY.prohibited;
+      }
+      if (normalized.includes('слишком много ссылок')) return MODERATION_ERROR_COPY.links;
+      if (normalized.includes('спам')) return MODERATION_ERROR_COPY.spam;
+      if (normalized.includes('минимум 5 символ')) return MODERATION_ERROR_COPY.too_short;
+      if (normalized.includes('правила')) return MODERATION_ERROR_COPY.generic;
+      return source;
+    }
+
+    function getPublishPrecheckState(textValue = '') {
+      const text = String(textValue || '').trim();
+      if (!text) {
+        return { type: 'neutral', message: 'Пре‑проверка: минимум 5 символов, без спама и запрещённых тем.' };
+      }
+      if (text.length < 5) return { type: 'warning', message: MODERATION_ERROR_COPY.too_short };
+
+      const lowered = text.toLowerCase();
+      const linksCount = (lowered.match(/https?:\/\//g) || []).length;
+      if (linksCount > 2) return { type: 'warning', message: MODERATION_ERROR_COPY.links };
+
+      if (lowered.includes('казино') || lowered.includes('наркот') || lowered.includes('ставк') || lowered.includes('18+')) {
+        return { type: 'warning', message: MODERATION_ERROR_COPY.prohibited };
+      }
+
+      const tokens = lowered.split(/\s+/).filter((token) => token.length >= 3);
+      if (tokens.length) {
+        const frequencies = {};
+        tokens.forEach((token) => {
+          frequencies[token] = (frequencies[token] || 0) + 1;
+        });
+        if (Math.max(...Object.values(frequencies)) > 4) {
+          return { type: 'warning', message: MODERATION_ERROR_COPY.spam };
+        }
+      }
+      return { type: 'ok', message: 'Пре‑проверка пройдена: можно отправлять публикацию.' };
+    }
+
+    function applyPublishPrecheckHint(state) {
+      if (!publishPrecheckHint) return;
+      const normalized = state || getPublishPrecheckState(String(newPostInput?.value || ''));
+      publishPrecheckHint.textContent = normalized.message;
+      publishPrecheckHint.classList.remove('text-textSoft', 'text-warning', 'text-accent');
+      if (normalized.type === 'warning') {
+        publishPrecheckHint.classList.add('text-warning');
+      } else if (normalized.type === 'ok') {
+        publishPrecheckHint.classList.add('text-accent');
+      } else {
+        publishPrecheckHint.classList.add('text-textSoft');
+      }
     }
 
     function formatDocumentDate(dateValue) {
@@ -581,6 +650,12 @@
     async function addNewPost() {
       const text = String(newPostInput?.value || '').trim();
       if (!text) return;
+      const precheckState = getPublishPrecheckState(text);
+      applyPublishPrecheckHint(precheckState);
+      if (precheckState.type === 'warning') {
+        showAppNotification(precheckState.message, 'error');
+        return;
+      }
       
       const author = resolveAuthorName();
       const guestProfile = makeGuestProfilePayload();
@@ -611,9 +686,10 @@
               : 'Повторите попытку позже.';
             throw new Error(`Слишком много публикаций за короткое время. ${retryAfterMessage}`);
           }
-          throw new Error(payload.error || `Ошибка публикации (HTTP ${response.status})`);
+          throw new Error(resolveModerationErrorMessage(payload.error || `Ошибка публикации (HTTP ${response.status})`));
         }
         newPostInput.value = '';
+        applyPublishPrecheckHint();
         storePendingPostDraft('');
         await loadPosts();
       } catch (error) {
@@ -849,6 +925,9 @@
     });
 
     publishBtn.addEventListener('click', addNewPost);
+    newPostInput.addEventListener('input', () => {
+      applyPublishPrecheckHint(getPublishPrecheckState(newPostInput.value));
+    });
     newPostInput.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         event.preventDefault();
@@ -892,3 +971,4 @@
     setActiveProfileTab('overview');
     setActiveScreen(initialTab);
     updateGuestProfileStatus();
+    applyPublishPrecheckHint();

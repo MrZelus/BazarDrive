@@ -54,11 +54,15 @@
         </div>
         <div class="mb-4 rounded-2xl bg-panel p-4 border border-white/10">
           <label for="newPostInput" class="mb-2 block text-sm font-medium text-textSoft">Что нового?</label>
+          <p id="publishPrecheckHint" class="mb-2 text-xs text-textSoft" role="status" aria-live="polite">
+            Пре‑проверка: минимум 5 символов, без спама и запрещённых тем.
+          </p>
           <div class="flex items-center gap-3">
             <input
               id="newPostInput"
               type="text"
               placeholder="Поделитесь мыслью..."
+              aria-describedby="publishPrecheckHint"
               class="h-12 w-full rounded-xl border border-white/10 bg-panelSoft px-4 text-sm outline-none transition focus:border-accent"
             />
             <button

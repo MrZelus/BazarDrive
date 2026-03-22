@@ -26,6 +26,18 @@ class FeedPublishProfileNavigationFlowTests(unittest.TestCase):
         self.assertIn("payload.retry_after ?? response.headers.get('Retry-After')", self.script)
         self.assertIn("Слишком много публикаций за короткое время.", self.script)
 
+    def test_publish_precheck_hint_and_local_moderation_guard_are_present(self) -> None:
+        self.assertIn('id="publishPrecheckHint"', self.page)
+        self.assertIn("aria-describedby=\"publishPrecheckHint\"", self.page)
+        self.assertIn("function getPublishPrecheckState(textValue = '') {", self.script)
+        self.assertIn("applyPublishPrecheckHint(getPublishPrecheckState(newPostInput.value));", self.script)
+        self.assertIn("if (precheckState.type === 'warning') {", self.script)
+
+    def test_moderation_error_messages_are_unified_for_ui(self) -> None:
+        self.assertIn("const MODERATION_ERROR_COPY = {", self.script)
+        self.assertIn("function resolveModerationErrorMessage(rawMessage = '') {", self.script)
+        self.assertIn("throw new Error(resolveModerationErrorMessage(", self.script)
+
     def test_docs_and_readme_describe_navigation_map_and_test_cases(self) -> None:
         self.assertIn("docs/feed_navigation_publish_flow.md", self.readme)
         self.assertIn("## 1) Карта переходов между разделами", self.flow_doc)
