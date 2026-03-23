@@ -3,6 +3,7 @@ import logging
 import os
 import traceback
 import uuid
+from dataclasses import dataclass
 from typing import Callable
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
@@ -16,6 +17,14 @@ from app.services.feed_service import FeedService
 logger = logging.getLogger(__name__)
 
 
+@dataclass(frozen=True)
+class SecuritySettings:
+    app_env: str
+    allowed_origins: tuple[str, ...]
+    api_keys: tuple[str, ...]
+    bearer_tokens: tuple[str, ...]
+
+
 class FeedAPIHandler(BaseHTTPRequestHandler):
     request_id: str
     DEFAULT_MAX_REQUEST_BYTES = 5 * 1024 * 1024
@@ -26,14 +35,103 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
     def _request_log_extra(self) -> dict[str, str]:
         return {"request_id": getattr(self, "request_id", "-"), "client_ip": self._get_client_ip()}
 
+    def _get_security_settings(self) -> SecuritySettings:
+        app_env = os.getenv("APP_ENV", "dev").strip().lower() or "dev"
+        if app_env not in {"dev", "prod"}:
+            app_env = "dev"
+
+        raw_origins = os.getenv("CORS_ALLOWED_ORIGINS", "")
+        allowed_origins = tuple(
+            item.strip() for item in raw_origins.split(",") if item.strip()
+        )
+
+        if app_env == "prod" and any(origin == "*" for origin in allowed_origins):
+            raise ValueError("CORS_ALLOWED_ORIGINS must not contain wildcard '*' in prod")
+
+        raw_api_keys = os.getenv("API_AUTH_KEYS", "")
+        api_keys = tuple(item.strip() for item in raw_api_keys.split(",") if item.strip())
+
+        raw_bearer_tokens = os.getenv("API_AUTH_BEARER_TOKENS", "")
+        bearer_tokens = tuple(item.strip() for item in raw_bearer_tokens.split(",") if item.strip())
+
+        return SecuritySettings(
+            app_env=app_env,
+            allowed_origins=allowed_origins,
+            api_keys=api_keys,
+            bearer_tokens=bearer_tokens,
+        )
+
+    def _resolve_access_control_origin(self, settings: SecuritySettings) -> str | None:
+        origin = str(self.headers.get("Origin", "")).strip()
+        if settings.app_env != "prod":
+            return "*"
+        if not origin:
+            return None
+        return origin if origin in settings.allowed_origins else None
+
+    def _is_origin_allowed(self, settings: SecuritySettings) -> bool:
+        origin = str(self.headers.get("Origin", "")).strip()
+        if settings.app_env != "prod":
+            return True
+        if not origin:
+            return True
+        return origin in settings.allowed_origins
+
+    def _is_write_method(self) -> bool:
+        return self.command in {"POST", "PATCH", "DELETE"}
+
+    def _is_authorized_write_request(self, settings: SecuritySettings) -> bool:
+        if settings.app_env != "prod" or not self._is_write_method():
+            return True
+
+        has_configured_credentials = bool(settings.api_keys or settings.bearer_tokens)
+        if not has_configured_credentials:
+            return False
+
+        api_key = str(self.headers.get("X-API-Key", "")).strip()
+        if api_key and api_key in settings.api_keys:
+            return True
+
+        auth_header = str(self.headers.get("Authorization", "")).strip()
+        if auth_header.lower().startswith("bearer "):
+            token = auth_header[7:].strip()
+            if token and token in settings.bearer_tokens:
+                return True
+
+        return False
+
+    def _build_cors_headers(self, settings: SecuritySettings) -> dict[str, str]:
+        headers: dict[str, str] = {
+            "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, X-Request-ID, X-API-Key, Authorization",
+        }
+        origin = self._resolve_access_control_origin(settings)
+        if origin:
+            headers["Access-Control-Allow-Origin"] = origin
+            if settings.app_env == "prod":
+                headers["Vary"] = "Origin"
+        return headers
+
+    def _send_auth_error(self, status: int, code: str, message: str) -> None:
+        self._send_json(
+            status,
+            {
+                "error": {
+                    "code": code,
+                    "message": message,
+                    "request_id": getattr(self, "request_id", "-"),
+                }
+            },
+        )
+
     def _send_json(self, status: int, payload: dict, extra_headers: dict[str, str] | None = None) -> None:
         body = json.dumps(FeedService.serialize_payload(payload), ensure_ascii=False).encode("utf-8")
+        settings = self._get_security_settings()
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Request-ID")
+        for name, value in self._build_cors_headers(settings).items():
+            self.send_header(name, value)
         self.send_header("X-Request-ID", getattr(self, "request_id", "-"))
         if extra_headers:
             for name, value in extra_headers.items():
@@ -142,7 +240,9 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", mime_type)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "public, max-age=86400")
-        self.send_header("Access-Control-Allow-Origin", "*")
+        settings = self._get_security_settings()
+        for name, value in self._build_cors_headers(settings).items():
+            self.send_header(name, value)
         self.send_header("X-Request-ID", getattr(self, "request_id", "-"))
         self.end_headers()
         self.wfile.write(body)
@@ -151,6 +251,22 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
     def _with_error_handling(self, handler: Callable[[], None]) -> None:
         self.request_id = self.headers.get("X-Request-ID", "") or str(uuid.uuid4())
         try:
+            settings = self._get_security_settings()
+            if not self._is_origin_allowed(settings):
+                logger.warning(
+                    "Blocked request due to origin policy: %s",
+                    self.headers.get("Origin", ""),
+                    extra=self._request_log_extra(),
+                )
+                self._send_auth_error(403, "forbidden_origin", "Origin is not allowed")
+                return
+            if not self._is_authorized_write_request(settings):
+                logger.warning(
+                    "Blocked write request due to missing/invalid credentials",
+                    extra=self._request_log_extra(),
+                )
+                self._send_auth_error(401, "unauthorized", "Write operations require authentication")
+                return
             handler()
             logger.info("%s %s -> completed", self.command, self.path, extra=self._request_log_extra())
         except Exception:
@@ -165,10 +281,10 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
 
     def do_OPTIONS(self) -> None:  # noqa: N802
         def _impl() -> None:
+            settings = self._get_security_settings()
             self.send_response(204)
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.send_header("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
-            self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Request-ID")
+            for name, value in self._build_cors_headers(settings).items():
+                self.send_header(name, value)
             self.send_header("X-Request-ID", getattr(self, "request_id", "-"))
             self.end_headers()
 
