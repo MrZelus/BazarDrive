@@ -53,6 +53,16 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             },
         )
 
+    def _payload_too_large_error(self, max_request_bytes: int) -> dict[str, object]:
+        return {
+            "error": {
+                "code": "payload_too_large",
+                "message": "Payload Too Large",
+                "max_request_bytes": max_request_bytes,
+                "request_id": getattr(self, "request_id", "-"),
+            }
+        }
+
     def _get_max_request_bytes(self) -> int:
         raw = os.getenv("MAX_REQUEST_BYTES", str(self.DEFAULT_MAX_REQUEST_BYTES))
         try:
@@ -71,11 +81,11 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             raw_len = 0
 
         if raw_len > max_request_bytes:
-            return None, {"error": "payload_too_large", "max_request_bytes": max_request_bytes}, 413
+            return None, self._payload_too_large_error(max_request_bytes), 413
 
         raw = self.rfile.read(raw_len) if raw_len > 0 else b""
         if len(raw) > max_request_bytes:
-            return None, {"error": "payload_too_large", "max_request_bytes": max_request_bytes}, 413
+            return None, self._payload_too_large_error(max_request_bytes), 413
         content_type_header = str(self.headers.get("Content-Type", ""))
         content_type = content_type_header.lower()
 

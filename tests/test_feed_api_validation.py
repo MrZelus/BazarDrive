@@ -139,8 +139,10 @@ class FeedAPIValidationTests(unittest.TestCase):
                 headers={"Content-Type": "application/json", "Content-Length": str(len(body))},
             )
             self.assertEqual(status, 413)
-            self.assertEqual(payload.get("error"), "payload_too_large")
-            self.assertEqual(payload.get("max_request_bytes"), 64)
+            self.assertIn("error", payload)
+            self.assertEqual(payload["error"].get("code"), "payload_too_large")
+            self.assertEqual(payload["error"].get("max_request_bytes"), 64)
+            self.assertIn("request_id", payload["error"])
         finally:
             if previous_limit is None:
                 os.environ.pop("MAX_REQUEST_BYTES", None)
@@ -192,6 +194,34 @@ class FeedAPIValidationTests(unittest.TestCase):
         )
         self.assertEqual(duplicate_status, 409)
         self.assertEqual(duplicate_payload.get("error"), "duplicate_document")
+
+    def test_driver_documents_payload_too_large_returns_413(self) -> None:
+        previous_limit = os.environ.get("MAX_REQUEST_BYTES")
+        os.environ["MAX_REQUEST_BYTES"] = "96"
+        try:
+            body = json.dumps(
+                {
+                    "profile_id": "driver-main",
+                    "type": "passport",
+                    "number": "4010 123456",
+                    "valid_until": "2030-12-31",
+                    "issued_by": "X" * 500,
+                },
+                ensure_ascii=False,
+            ).encode("utf-8")
+            status, payload, _ = self._post_raw(
+                "/api/driver/documents",
+                body=body,
+                headers={"Content-Type": "application/json", "Content-Length": str(len(body))},
+            )
+            self.assertEqual(status, 413)
+            self.assertEqual(payload.get("error", {}).get("code"), "payload_too_large")
+            self.assertEqual(payload.get("error", {}).get("max_request_bytes"), 96)
+        finally:
+            if previous_limit is None:
+                os.environ.pop("MAX_REQUEST_BYTES", None)
+            else:
+                os.environ["MAX_REQUEST_BYTES"] = previous_limit
 
     def test_health_endpoint_returns_ok(self) -> None:
         conn = HTTPConnection(self.host, self.port, timeout=5)
