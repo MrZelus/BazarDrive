@@ -40,6 +40,8 @@ class GuestFeedRepositoryTests(unittest.TestCase):
         )
         self.assertEqual(created["author"], "Ivan Guest")
         self.assertEqual(created["guest_profile_id"], "guest-0001")
+        self.assertEqual(len(created["media"]), 1)
+        self.assertEqual(created["media"][0]["url"], "https://example.com/image.jpg")
 
         updated = repository.update_guest_feed_post(
             post_id=created["id"],
@@ -70,6 +72,7 @@ class GuestFeedRepositoryTests(unittest.TestCase):
         items = repository.list_guest_feed_posts(limit=10, offset=0)
         self.assertEqual(len(items), 1)
         self.assertEqual(items[0]["id"], created["id"])
+        self.assertEqual(len(items[0]["media"]), 1)
 
         total = repository.count_guest_feed_posts()
         self.assertEqual(total, 1)
@@ -166,6 +169,33 @@ class GuestFeedRepositoryTests(unittest.TestCase):
         self.assertTrue(deleted)
         after_delete = repository.aggregate_guest_feed_reactions([post_id])
         self.assertEqual(after_delete[post_id].get("like", 0), 0)
+
+    def test_guest_feed_post_media_crud_and_ordering(self) -> None:
+        created = repository.create_guest_feed_post(
+            author="Media Author",
+            text="Пост с несколькими вложениями",
+            image_url="https://example.com/legacy.jpg",
+            guest_profile_id="guest-media",
+            media=[
+                {"media_type": "image", "url": "https://example.com/2.jpg", "position": 1},
+                {"media_type": "video", "url": "https://example.com/1.mp4", "position": 0},
+            ],
+        )
+        self.assertEqual([item["media_type"] for item in created["media"]], ["video", "image"])
+        self.assertEqual([item["position"] for item in created["media"]], [0, 1])
+
+        updated = repository.update_guest_feed_post(
+            post_id=created["id"],
+            author="Media Author",
+            text="Пост с обновлёнными вложениями",
+            image_url="https://example.com/fallback.jpg",
+            media=[
+                {"media_type": "image", "url": "https://example.com/new.jpg", "position": 0},
+            ],
+        )
+        self.assertIsNotNone(updated)
+        self.assertEqual(len(updated["media"]), 1)
+        self.assertEqual(updated["media"][0]["url"], "https://example.com/new.jpg")
 
 
 

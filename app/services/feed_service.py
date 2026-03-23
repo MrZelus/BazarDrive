@@ -35,15 +35,22 @@ from app.models.feed import (
 )
 
 
+class FeedPayloadTooLargeError(ValueError):
+    pass
+
+
 class FeedService:
     RATE_LIMIT_WINDOW_SECONDS = 60
     RATE_LIMIT_MAX_POSTS_PER_IP = 8
     RATE_LIMIT_MAX_POSTS_PER_AUTHOR = 5
     RATE_LIMIT_CLEANUP_INTERVAL_SECONDS = 30
     MAX_IMAGE_BYTES = 3 * 1024 * 1024
+    MAX_MEDIA_ITEMS_PER_POST = 8
     STORAGE_DIR = os.path.abspath(get_feed_upload_dir())
     STORAGE_URL_PREFIX = "/uploads/feed/"
     SUPPORTED_IMAGE_MIME_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
+    SUPPORTED_VIDEO_MIME_TYPES = {"video/mp4"}
+    MAX_VIDEO_BYTES = 20 * 1024 * 1024
     MAX_URLS_PER_POST = 2
     MAX_DUPLICATE_TOKEN_OCCURRENCES = 4
     COMMENT_AUTHOR_MIN_LEN = AUTHOR_MIN_LEN
@@ -105,7 +112,7 @@ class FeedService:
         if extension is None:
             raise ValueError("Неподдерживаемый MIME-тип изображения. Допустимые значения: image/jpeg, image/png, image/webp")
         if len(image_bytes) > cls.MAX_IMAGE_BYTES:
-            raise ValueError(f"Изображение слишком большое (максимум {cls.MAX_IMAGE_BYTES} байт)")
+            raise FeedPayloadTooLargeError(f"Изображение слишком большое (максимум {cls.MAX_IMAGE_BYTES} байт)")
 
         cls.ensure_storage_dir()
         filename = f"{uuid.uuid4().hex}{extension}"
@@ -144,6 +151,68 @@ class FeedService:
             raise ValueError("Некорректный формат image_base64: неверная base64-строка") from error
 
         return cls.image_bytes_to_stored_url(image_bytes=image_bytes, mime_type=mime_type)
+
+    @classmethod
+    def validate_post_media_payload(cls, payload: dict[str, object]) -> tuple[list[dict[str, object]], str | None]:
+        media_payload = payload.get("media")
+        legacy_image_url = str(payload.get("image_url", "")).strip() or None
+
+        if media_payload is None:
+            if legacy_image_url:
+                return ([{"media_type": "image", "url": legacy_image_url, "position": 0}], legacy_image_url)
+            return ([], None)
+
+        if not isinstance(media_payload, list):
+            raise ValueError("Поле media должно быть массивом")
+        if len(media_payload) > cls.MAX_MEDIA_ITEMS_PER_POST:
+            raise FeedPayloadTooLargeError(
+                f"Слишком много вложений в посте (максимум {cls.MAX_MEDIA_ITEMS_PER_POST})"
+            )
+
+        normalized: list[dict[str, object]] = []
+        fallback_image_url: str | None = None
+        for index, raw_item in enumerate(media_payload):
+            if not isinstance(raw_item, dict):
+                raise ValueError("Каждый элемент media должен быть объектом")
+            media_type = str(raw_item.get("media_type", "image")).strip().lower() or "image"
+            url = str(raw_item.get("url", "")).strip()
+            if not url:
+                raise ValueError("Поле media[].url обязательно")
+            position_raw = raw_item.get("position", index)
+            try:
+                position = int(position_raw)
+            except (TypeError, ValueError) as error:
+                raise ValueError("Поле media[].position должно быть числом") from error
+            if position < 0:
+                raise ValueError("Поле media[].position не может быть отрицательным")
+
+            if media_type == "image":
+                url = cls.validate_image_url_metadata({"image_url": url}) or ""
+                if not fallback_image_url:
+                    fallback_image_url = url
+            elif media_type == "video":
+                cls.validate_video_url_metadata(url)
+            else:
+                raise ValueError("Некорректный media_type. Допустимые значения: image, video")
+
+            normalized.append({"media_type": media_type, "url": url, "position": position})
+
+        normalized.sort(key=lambda item: (int(item["position"]), str(item["url"])))
+        for idx, item in enumerate(normalized):
+            item["position"] = idx
+        return normalized, (legacy_image_url or fallback_image_url)
+
+    @staticmethod
+    def validate_video_url_metadata(video_url: str) -> str:
+        normalized = str(video_url).strip()
+        if not normalized:
+            raise ValueError("Поле media[].url обязательно для видео")
+        if len(normalized) > MAX_GUEST_FEED_IMAGE_URL_LENGTH:
+            raise ValueError(f"Ссылка на видео слишком длинная (максимум {MAX_GUEST_FEED_IMAGE_URL_LENGTH} символов)")
+        parsed = urlparse(normalized)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            raise ValueError("Некорректный формат media[].url для видео: поддерживаются только http/https URL")
+        return normalized
 
     @classmethod
     def parse_multipart_form_data(cls, content_type: str, raw: bytes) -> dict[str, object]:
@@ -483,7 +552,7 @@ class FeedService:
     @classmethod
     def create_guest_post(cls, payload: dict[str, object], client_ip: str) -> dict[str, object]:
         author, text = cls.validate_post_fields(str(payload.get("author", "")), str(payload.get("text", "")))
-        image_url = str(payload.get("image_url", "")).strip() or None
+        media, image_url = cls.validate_post_media_payload(payload)
 
         retry_after = cls.check_rate_limit(client_ip, author)
         if retry_after > 0:
@@ -496,14 +565,27 @@ class FeedService:
             repository.upsert_guest_profile(**profile_data)
             guest_profile_id = profile_data["profile_id"]
 
-        return repository.create_guest_feed_post(author=author, text=text, image_url=image_url, guest_profile_id=guest_profile_id)
+        return repository.create_guest_feed_post(
+            author=author,
+            text=text,
+            image_url=image_url,
+            guest_profile_id=guest_profile_id,
+            media=media,
+        )
 
     @classmethod
     def update_guest_post(cls, post_id: int, payload: dict[str, object]) -> dict[str, object] | None:
         author, text = cls.validate_post_fields(str(payload.get("author", "")), str(payload.get("text", "")))
-        image_url = str(payload.get("image_url", "")).strip() or None
+        media, image_url = cls.validate_post_media_payload(payload)
         guest_profile_id = str(payload.get("guest_profile_id", "")).strip() or None
-        return repository.update_guest_feed_post(post_id=post_id, author=author, text=text, image_url=image_url, guest_profile_id=guest_profile_id)
+        return repository.update_guest_feed_post(
+            post_id=post_id,
+            author=author,
+            text=text,
+            image_url=image_url,
+            guest_profile_id=guest_profile_id,
+            media=media,
+        )
 
     @classmethod
     def validate_comment_fields(cls, author: str, text: str) -> tuple[str, str]:

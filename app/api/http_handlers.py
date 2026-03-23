@@ -11,7 +11,7 @@ from urllib.parse import parse_qs, urlparse
 from app.config import get_api_settings
 from app.db import repository
 from app.logging_setup import configure_logging
-from app.services.feed_service import FeedService
+from app.services.feed_service import FeedPayloadTooLargeError, FeedService
 
 
 logger = logging.getLogger(__name__)
@@ -207,9 +207,13 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
         try:
             image_url = FeedService.validate_image_url_metadata(payload)
             image_from_base64 = FeedService.extract_image_from_json_payload(payload)
+        except FeedPayloadTooLargeError as error:
+            return None, {"error": str(error)}, 413
         except ValueError as error:
             return None, {"error": str(error)}, 400
 
+        if payload.get("media") is not None and image_from_base64:
+            return None, {"error": "Поле image_base64 нельзя использовать вместе с media[]"}, 400
         if image_url and image_from_base64:
             return None, {"error": "Укажите только одно поле изображения: image_url или image_base64"}, 400
 
@@ -487,6 +491,9 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
                 extra_headers={"Retry-After": str(retry_after)},
             )
             return
+        except FeedPayloadTooLargeError as error:
+            self._send_json(413, {"error": str(error)})
+            return
         except ValueError as error:
             self._send_json(400, {"error": str(error)})
             return
@@ -585,6 +592,9 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
 
         try:
             updated = FeedService.update_guest_post(int(post_id_raw), payload)
+        except FeedPayloadTooLargeError as error:
+            self._send_json(413, {"error": str(error)})
+            return
         except ValueError as error:
             self._send_json(400, {"error": str(error)})
             return
