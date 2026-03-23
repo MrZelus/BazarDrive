@@ -51,6 +51,7 @@ class FeedService:
     COMMENT_TEXT_MIN_LEN = 1
     COMMENT_TEXT_MAX_LEN = 300
     MODERATOR_ROLES = {"moderator", "admin"}
+    ALLOWED_REACTION_TYPES = {"like", "dislike", "fire", "heart", "laugh", "wow"}
     FORBIDDEN_PATTERNS = (
         ("казино", "Контент с упоминанием азартных игр запрещён правилами публикации."),
         ("наркот", "Контент с упоминанием запрещённых веществ не допускается."),
@@ -360,6 +361,82 @@ class FeedService:
         }
 
 
+
+    @classmethod
+    def validate_reaction_type(cls, reaction_type: str) -> str:
+        normalized = reaction_type.strip().lower()
+        if normalized not in cls.ALLOWED_REACTION_TYPES:
+            allowed = ", ".join(sorted(cls.ALLOWED_REACTION_TYPES))
+            raise ValueError(f"Некорректный тип реакции. Допустимые значения: {allowed}")
+        return normalized
+
+    @classmethod
+    def enrich_posts_with_reactions(
+        cls,
+        posts: list[dict[str, object]],
+        guest_profile_id: str | None = None,
+    ) -> list[dict[str, object]]:
+        if not posts:
+            return posts
+
+        post_ids = [int(post.get("id", 0)) for post in posts if int(post.get("id", 0)) > 0]
+        aggregated = repository.aggregate_guest_feed_reactions(post_ids)
+        my_reactions = repository.get_guest_feed_my_reactions(post_ids, guest_profile_id or "")
+
+        for post in posts:
+            post_id = int(post.get("id", 0))
+            post_reactions = dict(aggregated.get(post_id, {}))
+            post["reactions"] = post_reactions
+            post["likes"] = int(post_reactions.get("like", 0))
+            post["my_reaction"] = my_reactions.get(post_id)
+
+        return posts
+
+    @classmethod
+    def get_post_reactions(cls, post_id: int, guest_profile_id: str | None = None) -> dict[str, object]:
+        post = repository.get_guest_feed_post(post_id)
+        if not post:
+            raise LookupError("Пост не найден")
+
+        reactions = repository.aggregate_guest_feed_reactions([post_id]).get(post_id, {})
+        my_reaction = repository.get_guest_feed_post_my_reaction(post_id, guest_profile_id or "")
+        return {
+            "post_id": post_id,
+            "reactions": reactions,
+            "likes": int(reactions.get("like", 0)),
+            "my_reaction": my_reaction,
+        }
+
+    @classmethod
+    def set_post_reaction(cls, post_id: int, payload: dict[str, object]) -> dict[str, object]:
+        post = repository.get_guest_feed_post(post_id)
+        if not post:
+            raise LookupError("Пост не найден")
+
+        guest_profile_id = str(payload.get("guest_profile_id", "")).strip()
+        if not guest_profile_id:
+            raise ValueError("Поле guest_profile_id обязательно")
+
+        reaction_type = cls.validate_reaction_type(str(payload.get("type", payload.get("reaction_type", ""))))
+        current = repository.get_guest_feed_post_my_reaction(post_id, guest_profile_id)
+
+        if current != reaction_type:
+            repository.set_guest_feed_reaction(post_id=post_id, guest_profile_id=guest_profile_id, reaction_type=reaction_type)
+
+        return cls.get_post_reactions(post_id=post_id, guest_profile_id=guest_profile_id)
+
+    @classmethod
+    def delete_post_reaction(cls, post_id: int, payload: dict[str, object]) -> dict[str, object]:
+        post = repository.get_guest_feed_post(post_id)
+        if not post:
+            raise LookupError("Пост не найден")
+
+        guest_profile_id = str(payload.get("guest_profile_id", "")).strip()
+        if not guest_profile_id:
+            raise ValueError("Поле guest_profile_id обязательно")
+
+        repository.delete_guest_feed_reaction(post_id=post_id, guest_profile_id=guest_profile_id)
+        return cls.get_post_reactions(post_id=post_id, guest_profile_id=guest_profile_id)
 
     @staticmethod
     def validate_driver_document_fields(payload: dict[str, object]) -> tuple[dict[str, object], dict[str, str]]:
