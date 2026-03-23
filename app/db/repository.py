@@ -279,6 +279,110 @@ def update_guest_feed_post(post_id: int, author: str, text: str, image_url: Opti
         return dict(row) if row else None
 
 
+
+
+def set_guest_feed_reaction(post_id: int, guest_profile_id: str, reaction_type: str) -> None:
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO guest_feed_reactions (post_id, guest_profile_id, reaction_type)
+            VALUES (?, ?, ?)
+            ON CONFLICT(post_id, guest_profile_id) DO UPDATE SET
+                reaction_type = excluded.reaction_type
+            """,
+            (post_id, guest_profile_id, reaction_type),
+        )
+        conn.commit()
+
+
+def delete_guest_feed_reaction(post_id: int, guest_profile_id: str) -> bool:
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            DELETE FROM guest_feed_reactions
+            WHERE post_id = ? AND guest_profile_id = ?
+            """,
+            (post_id, guest_profile_id),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+
+
+def aggregate_guest_feed_reactions(post_ids: list[int]) -> dict[int, dict[str, int]]:
+    normalized_ids = [int(post_id) for post_id in post_ids if int(post_id) > 0]
+    if not normalized_ids:
+        return {}
+
+    placeholders = ",".join(["?"] * len(normalized_ids))
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute(
+            f"""
+            SELECT post_id, reaction_type, COUNT(*) AS total
+            FROM guest_feed_reactions
+            WHERE post_id IN ({placeholders})
+            GROUP BY post_id, reaction_type
+            """,
+            tuple(normalized_ids),
+        )
+        rows = cur.fetchall()
+
+    result: dict[int, dict[str, int]] = {post_id: {} for post_id in normalized_ids}
+    for row in rows:
+        post_id = int(row["post_id"])
+        reaction_type = str(row["reaction_type"])
+        total = int(row["total"])
+        result.setdefault(post_id, {})[reaction_type] = total
+    return result
+
+
+def get_guest_feed_my_reactions(post_ids: list[int], guest_profile_id: str) -> dict[int, str]:
+    normalized_profile_id = guest_profile_id.strip()
+    normalized_ids = [int(post_id) for post_id in post_ids if int(post_id) > 0]
+    if not normalized_profile_id or not normalized_ids:
+        return {}
+
+    placeholders = ",".join(["?"] * len(normalized_ids))
+    params = (normalized_profile_id, *normalized_ids)
+
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute(
+            f"""
+            SELECT post_id, reaction_type
+            FROM guest_feed_reactions
+            WHERE guest_profile_id = ?
+              AND post_id IN ({placeholders})
+            """,
+            params,
+        )
+        rows = cur.fetchall()
+
+    return {int(row["post_id"]): str(row["reaction_type"]) for row in rows}
+
+
+def get_guest_feed_post_my_reaction(post_id: int, guest_profile_id: str) -> Optional[str]:
+    normalized_profile_id = guest_profile_id.strip()
+    if not normalized_profile_id:
+        return None
+
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT reaction_type
+            FROM guest_feed_reactions
+            WHERE post_id = ? AND guest_profile_id = ?
+            LIMIT 1
+            """,
+            (post_id, normalized_profile_id),
+        )
+        row = cur.fetchone()
+        return str(row[0]) if row else None
 def list_guest_feed_comments(post_id: int, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
     with closing(sqlite3.connect(get_db_path())) as conn:
         conn.row_factory = sqlite3.Row

@@ -323,9 +323,11 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
 
             limit = max(1, min(100, _parse_int("limit", 20)))
             offset = max(0, _parse_int("offset", 0))
+            guest_profile_id = str(params.get("guest_profile_id", [""])[0]).strip()
             posts = repository.list_guest_feed_posts(limit=limit, offset=offset)
+            enriched_posts = FeedService.enrich_posts_with_reactions(posts, guest_profile_id=guest_profile_id)
             total = repository.count_guest_feed_posts()
-            self._send_json(200, {"items": posts, "limit": limit, "offset": offset, "total": total})
+            self._send_json(200, {"items": enriched_posts, "limit": limit, "offset": offset, "total": total})
             return
 
         comments_prefix = "/api/feed/posts/"
@@ -430,6 +432,24 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
                 self._send_json(400, {"error": str(error)})
                 return
             self._send_json(201, profile)
+            return
+
+        react_prefix = "/api/feed/posts/"
+        if path.startswith(react_prefix) and path.endswith("/react"):
+            suffix = path[len(react_prefix) :]
+            post_id_raw = suffix[: -len("/react")]
+            if not post_id_raw.isdigit() or int(post_id_raw) <= 0:
+                self._send_json(400, {"error": "Некорректный id поста"})
+                return
+            try:
+                item = FeedService.set_post_reaction(post_id=int(post_id_raw), payload=payload)
+            except LookupError as error:
+                self._send_json(404, {"error": str(error)})
+                return
+            except ValueError as error:
+                self._send_json(400, {"error": str(error)})
+                return
+            self._send_json(200, item)
             return
 
         comments_prefix = "/api/feed/posts/"
@@ -583,6 +603,32 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
     def _handle_delete(self) -> None:
         path = urlparse(self.path).path
         posts_prefix = "/api/feed/posts/"
+        if path.startswith(posts_prefix) and path.endswith("/react"):
+            post_id_raw = path[len(posts_prefix) : -len("/react")]
+            if not post_id_raw.isdigit() or int(post_id_raw) <= 0:
+                self._send_json(400, {"error": "Некорректный id поста"})
+                return
+
+            payload, error_payload, error_status = self._parse_feed_request_payload()
+            if error_payload is not None:
+                self._send_json(error_status, error_payload)
+                return
+            if payload is None:
+                self._send_json(400, {"error": "Некорректный payload"})
+                return
+
+            try:
+                item = FeedService.delete_post_reaction(post_id=int(post_id_raw), payload=payload)
+            except LookupError as error:
+                self._send_json(404, {"error": str(error)})
+                return
+            except ValueError as error:
+                self._send_json(400, {"error": str(error)})
+                return
+
+            self._send_json(200, item)
+            return
+
         if path.startswith(posts_prefix) and "/comments/" in path:
             suffix = path[len(posts_prefix) :]
             post_id_raw, separator, comment_id_raw = suffix.partition("/comments/")

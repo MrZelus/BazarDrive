@@ -586,6 +586,8 @@
     }
 
     function mapApiPost(item) {
+      const reactions = (item && typeof item.reactions === 'object' && item.reactions !== null) ? item.reactions : {};
+      const myReaction = String(item.my_reaction || '').trim() || null;
       return {
         id: item.id,
         author: item.author || 'Гость',
@@ -594,10 +596,12 @@
         publishedAt: formatPostDate(item.created_at),
         text: item.text || '',
         image: item.image_url || '',
-        likes: Number(item.likes) || 0,
+        reactions,
+        myReaction,
+        likes: Number(item.likes ?? reactions.like) || 0,
         comments: [],
         reposts: 0,
-        likedByMe: false,
+        likedByMe: myReaction === 'like',
       };
     }
 
@@ -634,6 +638,42 @@
       if (!response.ok) {
         throw new Error(payload.error || `Не удалось удалить пост (HTTP ${response.status})`);
       }
+    }
+
+
+    function applyReactionPayload(post, payload) {
+      if (!post || !payload || typeof payload !== 'object') return;
+      const reactions = (typeof payload.reactions === 'object' && payload.reactions !== null) ? payload.reactions : {};
+      post.reactions = reactions;
+      post.myReaction = String(payload.my_reaction || '').trim() || null;
+      post.likes = Number(payload.likes ?? reactions.like) || 0;
+      post.likedByMe = post.myReaction === 'like';
+    }
+
+    async function setPostReaction(postId, actorId, reactionType) {
+      const response = await fetch(`${FEED_API_BASE}/api/feed/posts/${postId}/react`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ guest_profile_id: actorId, type: reactionType }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || `Не удалось установить реакцию (HTTP ${response.status})`);
+      }
+      return payload;
+    }
+
+    async function deletePostReaction(postId, actorId) {
+      const response = await fetch(`${FEED_API_BASE}/api/feed/posts/${postId}/react`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ guest_profile_id: actorId }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || `Не удалось снять реакцию (HTTP ${response.status})`);
+      }
+      return payload;
     }
 
     function createInteractionButton(iconText, value, label, extraClasses = '') {
@@ -723,13 +763,27 @@
 
         const likeButton = createInteractionButton('♡', post.likes, 'Лайк', `js-like-btn ${post.likedByMe ? 'text-accent' : ''}`);
         likeButton.dataset.postId = String(post.id || '');
-        likeButton.addEventListener('click', () => {
+        likeButton.addEventListener('click', async () => {
           const postId = Number(likeButton.dataset.postId);
           const target = posts.find((currentPost) => currentPost.id === postId);
           if (!target) return;
-          target.likedByMe = !target.likedByMe;
-          target.likes += target.likedByMe ? 1 : -1;
-          renderFeed();
+          if (!actor.id) {
+            showAppNotification('Сначала заполните и сохраните профиль гостя.', 'error');
+            return;
+          }
+          likeButton.disabled = true;
+          try {
+            const payload = target.myReaction === 'like'
+              ? await deletePostReaction(postId, actor.id)
+              : await setPostReaction(postId, actor.id, 'like');
+            applyReactionPayload(target, payload);
+            renderFeed();
+          } catch (error) {
+            console.error(error);
+            showAppNotification(error.message || 'Не удалось обновить реакцию.', 'error');
+          } finally {
+            likeButton.disabled = false;
+          }
         });
 
         footer.append(
@@ -884,7 +938,9 @@
 
     async function loadPosts() {
       try {
-        const response = await fetch(`${FEED_API_BASE}/api/feed/posts?limit=50&offset=0`);
+        const actor = getCurrentGuestActor();
+        const query = actor.id ? `?limit=50&offset=0&guest_profile_id=${encodeURIComponent(actor.id)}` : '?limit=50&offset=0';
+        const response = await fetch(`${FEED_API_BASE}/api/feed/posts${query}`);
         if (!response.ok) {
           throw new Error(`Не удалось загрузить ленту (HTTP ${response.status})`);
         }

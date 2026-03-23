@@ -531,6 +531,97 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertEqual(status, 401)
         self.assertEqual(payload.get("error", {}).get("code"), "unauthorized")
 
+
+    def test_reactions_happy_path_and_idempotency(self) -> None:
+        post_status, post_payload, _ = self._post(
+            "/api/feed/posts",
+            {"author": "Valid Author", "text": "Пост для реакций"},
+        )
+        self.assertEqual(post_status, 201)
+        post_id = post_payload["id"]
+
+        first_status, first_payload, _ = self._post(
+            f"/api/feed/posts/{post_id}/react",
+            {"guest_profile_id": "guest-react-1", "type": "like"},
+        )
+        self.assertEqual(first_status, 200)
+        self.assertEqual(first_payload["my_reaction"], "like")
+        self.assertEqual(first_payload["likes"], 1)
+
+        second_status, second_payload, _ = self._post(
+            f"/api/feed/posts/{post_id}/react",
+            {"guest_profile_id": "guest-react-1", "type": "like"},
+        )
+        self.assertEqual(second_status, 200)
+        self.assertEqual(second_payload["likes"], 1)
+
+        replace_status, replace_payload, _ = self._post(
+            f"/api/feed/posts/{post_id}/react",
+            {"guest_profile_id": "guest-react-1", "type": "dislike"},
+        )
+        self.assertEqual(replace_status, 200)
+        self.assertEqual(replace_payload["my_reaction"], "dislike")
+        self.assertEqual(replace_payload["likes"], 0)
+        self.assertEqual(replace_payload["reactions"].get("dislike"), 1)
+
+        list_status, list_payload, _ = self._get(f"/api/feed/posts?guest_profile_id=guest-react-1")
+        self.assertEqual(list_status, 200)
+        self.assertEqual(list_payload["items"][0]["my_reaction"], "dislike")
+        self.assertEqual(list_payload["items"][0]["likes"], 0)
+
+        delete_status, delete_payload, _ = self._delete(
+            f"/api/feed/posts/{post_id}/react",
+            {"guest_profile_id": "guest-react-1"},
+        )
+        self.assertEqual(delete_status, 200)
+        self.assertIsNone(delete_payload["my_reaction"])
+        self.assertEqual(delete_payload["reactions"], {})
+
+    def test_reactions_negative_invalid_and_not_found(self) -> None:
+        post_status, post_payload, _ = self._post(
+            "/api/feed/posts",
+            {"author": "Valid Author", "text": "Пост для негативных реакций"},
+        )
+        self.assertEqual(post_status, 201)
+        post_id = post_payload["id"]
+
+        bad_status, bad_payload, _ = self._post(
+            f"/api/feed/posts/{post_id}/react",
+            {"guest_profile_id": "guest-react-2", "type": "invalid"},
+        )
+        self.assertEqual(bad_status, 400)
+        self.assertIn("Некорректный тип реакции", bad_payload.get("error", ""))
+
+        not_found_status, _, _ = self._post(
+            "/api/feed/posts/999999/react",
+            {"guest_profile_id": "guest-react-2", "type": "like"},
+        )
+        self.assertEqual(not_found_status, 404)
+
+    def test_reactions_concurrency_is_idempotent(self) -> None:
+        post = repository.create_guest_feed_post(author="Owner", text="Concurrent post", guest_profile_id="owner-1")
+        post_id = post["id"]
+
+        statuses: list[int] = []
+
+        def _send() -> None:
+            status, _, _ = self._post(
+                f"/api/feed/posts/{post_id}/react",
+                {"guest_profile_id": "guest-react-3", "type": "like"},
+            )
+            statuses.append(status)
+
+        threads = [threading.Thread(target=_send) for _ in range(8)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=2)
+
+        self.assertEqual(statuses.count(200), 8)
+        payload = FeedService.get_post_reactions(post_id=post_id, guest_profile_id="guest-react-3")
+        self.assertEqual(payload["likes"], 1)
+        self.assertEqual(payload["my_reaction"], "like")
+
     def test_unexpected_error_returns_unified_json(self) -> None:
         original = repository.list_guest_feed_posts
 

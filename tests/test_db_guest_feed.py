@@ -147,6 +147,27 @@ class GuestFeedRepositoryTests(unittest.TestCase):
             conn.commit()
         self.assertIsNone(repository.get_guest_feed_comment(cascade_comment_id))
 
+    def test_guest_feed_reactions_upsert_aggregate_and_delete(self) -> None:
+        post = repository.create_guest_feed_post(author="Ivan", text="Пост с реакциями", guest_profile_id="guest-1")
+        post_id = post["id"]
+
+        repository.set_guest_feed_reaction(post_id=post_id, guest_profile_id="guest-a", reaction_type="like")
+        repository.set_guest_feed_reaction(post_id=post_id, guest_profile_id="guest-a", reaction_type="like")
+        repository.set_guest_feed_reaction(post_id=post_id, guest_profile_id="guest-b", reaction_type="dislike")
+
+        aggregated = repository.aggregate_guest_feed_reactions([post_id])
+        self.assertEqual(aggregated[post_id].get("like"), 1)
+        self.assertEqual(aggregated[post_id].get("dislike"), 1)
+
+        my_reactions = repository.get_guest_feed_my_reactions([post_id], guest_profile_id="guest-a")
+        self.assertEqual(my_reactions.get(post_id), "like")
+
+        deleted = repository.delete_guest_feed_reaction(post_id=post_id, guest_profile_id="guest-a")
+        self.assertTrue(deleted)
+        after_delete = repository.aggregate_guest_feed_reactions([post_id])
+        self.assertEqual(after_delete[post_id].get("like", 0), 0)
+
+
 
 if __name__ == "__main__":
     unittest.main()
