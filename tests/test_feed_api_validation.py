@@ -51,10 +51,14 @@ class FeedAPIValidationTests(unittest.TestCase):
             os.environ["BAZAR_DB_PATH"] = self.previous_db_path
         if os.path.exists(self.temp_db.name):
             os.unlink(self.temp_db.name)
+        os.environ.pop("APP_ENV", None)
+        os.environ.pop("CORS_ALLOWED_ORIGINS", None)
+        os.environ.pop("API_AUTH_KEYS", None)
+        os.environ.pop("API_AUTH_BEARER_TOKENS", None)
 
-    def _get(self, path: str) -> tuple[int, dict, dict]:
+    def _get(self, path: str, headers: dict[str, str] | None = None) -> tuple[int, dict, dict]:
         conn = HTTPConnection(self.host, self.port, timeout=5)
-        conn.request("GET", path)
+        conn.request("GET", path, headers=headers or {})
         response = conn.getresponse()
         data = response.read().decode("utf-8")
         parsed = json.loads(data) if data else {}
@@ -62,10 +66,13 @@ class FeedAPIValidationTests(unittest.TestCase):
         conn.close()
         return response.status, parsed, headers
 
-    def _post(self, path: str, payload: dict) -> tuple[int, dict, dict]:
+    def _post(self, path: str, payload: dict, headers: dict[str, str] | None = None) -> tuple[int, dict, dict]:
         conn = HTTPConnection(self.host, self.port, timeout=5)
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-        conn.request("POST", path, body=body, headers={"Content-Type": "application/json"})
+        request_headers = {"Content-Type": "application/json"}
+        if headers:
+            request_headers.update(headers)
+        conn.request("POST", path, body=body, headers=request_headers)
         response = conn.getresponse()
         data = response.read().decode("utf-8")
         parsed = json.loads(data) if data else {}
@@ -243,6 +250,57 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertEqual(payload.get("version"), 1)
         self.assertIsInstance(payload.get("rules"), list)
         self.assertGreaterEqual(len(payload["rules"]), 3)
+
+    def test_prod_requires_auth_for_write_endpoints(self) -> None:
+        os.environ["APP_ENV"] = "prod"
+        os.environ["API_AUTH_KEYS"] = "secret-key"
+        os.environ["CORS_ALLOWED_ORIGINS"] = "https://app.example.com"
+
+        status, payload, _ = self._post(
+            "/api/feed/posts",
+            {"author": "Valid Author", "text": "Текст без авторизации должен быть отклонён"},
+        )
+        self.assertEqual(status, 401)
+        self.assertEqual(payload.get("error", {}).get("code"), "unauthorized")
+        self.assertIn("request_id", payload.get("error", {}))
+
+        authed_status, _, _ = self._post(
+            "/api/feed/posts",
+            {"author": "Valid Author", "text": "Текст с авторизацией должен быть принят"},
+            headers={"X-API-Key": "secret-key"},
+        )
+        self.assertEqual(authed_status, 201)
+
+    def test_prod_supports_bearer_auth_for_write_endpoints(self) -> None:
+        os.environ["APP_ENV"] = "prod"
+        os.environ["API_AUTH_BEARER_TOKENS"] = "prod-token"
+
+        status, payload, _ = self._post(
+            "/api/feed/posts",
+            {"author": "Valid Author", "text": "Проверка bearer auth"},
+            headers={"Authorization": "Bearer prod-token"},
+        )
+        self.assertEqual(status, 201)
+        self.assertIn("id", payload)
+
+    def test_prod_blocks_non_whitelisted_origin(self) -> None:
+        os.environ["APP_ENV"] = "prod"
+        os.environ["API_AUTH_KEYS"] = "secret-key"
+        os.environ["CORS_ALLOWED_ORIGINS"] = "https://app.example.com"
+
+        status, payload, _ = self._get("/api/feed/posts", headers={"Origin": "https://evil.example.com"})
+        self.assertEqual(status, 403)
+        self.assertEqual(payload.get("error", {}).get("code"), "forbidden_origin")
+
+        allowed_status, _, headers = self._get("/api/feed/posts", headers={"Origin": "https://app.example.com"})
+        self.assertEqual(allowed_status, 200)
+        self.assertEqual(headers.get("access-control-allow-origin"), "https://app.example.com")
+
+    def test_dev_keeps_wildcard_cors(self) -> None:
+        os.environ["APP_ENV"] = "dev"
+        status, _, headers = self._get("/api/feed/posts", headers={"Origin": "https://any.example.com"})
+        self.assertEqual(status, 200)
+        self.assertEqual(headers.get("access-control-allow-origin"), "*")
 
     def test_post_rejected_by_content_moderation_rules(self) -> None:
         status, payload, _ = self._post(

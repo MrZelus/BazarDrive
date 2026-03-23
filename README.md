@@ -15,6 +15,10 @@
 | `FEED_API_PORT` | Нет | `8001` | Порт для запуска Feed API (целое число). |
 | `BAZAR_DB_PATH` | Нет | `bot.db` | Путь до SQLite-файла базы данных. |
 | `FEED_UPLOAD_DIR` | Нет | `storage/feed_images` | Директория для сохранения изображений гостевой ленты. |
+| `APP_ENV` | Нет | `dev` | Режим API: `dev` или `prod`. В `prod` включаются строгие CORS/auth-правила для write-методов. |
+| `CORS_ALLOWED_ORIGINS` | Нет | пусто | Список origin через запятую для `prod` (например, `https://app.example.com,https://admin.example.com`). `*` в `prod` запрещён. |
+| `API_AUTH_KEYS` | Нет | пусто | Список валидных API-ключей для write-endpoints в `prod` (`X-API-Key`). |
+| `API_AUTH_BEARER_TOKENS` | Нет | пусто | Список bearer-токенов для write-endpoints в `prod` (`Authorization: Bearer <token>`). |
 
 ## Хранение изображений в гостевой ленте
 
@@ -31,6 +35,22 @@
 - Файлы сохраняются только в выделенную директорию с правами `0700`.
 - Имена файлов генерируются сервером (`UUID` + расширение по MIME-типу), оригинальные имена клиента не используются.
 - Реализована защита от path traversal при чтении файлов: путь нормализуется и проверяется, что он остаётся внутри `FEED_UPLOAD_DIR`.
+
+## APP_ENV режимы для CORS и write-auth
+
+- `APP_ENV=dev` (по умолчанию):
+  - Поведение для локальной разработки остаётся гибким.
+  - CORS заголовок `Access-Control-Allow-Origin: *`.
+  - Write-endpoints (`POST/PATCH/DELETE`) доступны без обязательной авторизации.
+
+- `APP_ENV=prod`:
+  - Для запросов с `Origin` используется whitelist из `CORS_ALLOWED_ORIGINS`.
+  - `Origin`, отсутствующий в whitelist, отклоняется с `403`.
+  - Для всех write-endpoints требуется хотя бы один из вариантов:
+    - `X-API-Key` из `API_AUTH_KEYS`;
+    - `Authorization: Bearer <token>` из `API_AUTH_BEARER_TOKENS`.
+  - При отсутствии/невалидных учётных данных возвращается `401`.
+  - Все ошибки включают `request_id` для трассировки.
 
 ### Бэкап и очистка
 - **Бэкап:** включайте директорию `storage/feed_images` в регулярные бэкапы вместе с `bot.db`, иначе ссылки в БД станут «битые».
