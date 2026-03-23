@@ -623,6 +623,21 @@ def list_guest_feed_comments(post_id: int, limit: int = 100, offset: int = 0) ->
         return [dict(row) for row in cur.fetchall()]
 
 
+def count_guest_feed_comments(post_id: int) -> int:
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT COUNT(*)
+            FROM guest_feed_comments
+            WHERE post_id = ?
+            """,
+            (post_id,),
+        )
+        row = cur.fetchone()
+        return int(row[0]) if row else 0
+
+
 def create_guest_feed_comment(
     post_id: int,
     guest_profile_id: Optional[str],

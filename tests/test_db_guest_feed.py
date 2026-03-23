@@ -128,6 +128,7 @@ class GuestFeedRepositoryTests(unittest.TestCase):
         listed = repository.list_guest_feed_comments(post_id=post_id, limit=50, offset=0)
         self.assertEqual(len(listed), 1)
         self.assertEqual(listed[0]["id"], comment_id)
+        self.assertEqual(repository.count_guest_feed_comments(post_id=post_id), 1)
 
         updated = repository.update_guest_feed_comment(comment_id=comment_id, text="Обновлённый комментарий")
         self.assertIsNotNone(updated)
@@ -136,6 +137,7 @@ class GuestFeedRepositoryTests(unittest.TestCase):
         deleted = repository.delete_guest_feed_comment(comment_id)
         self.assertTrue(deleted)
         self.assertIsNone(repository.get_guest_feed_comment(comment_id))
+        self.assertEqual(repository.count_guest_feed_comments(post_id=post_id), 0)
 
         comment_for_cascade = repository.create_guest_feed_comment(
             post_id=post_id,

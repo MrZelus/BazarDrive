@@ -696,6 +696,12 @@ class FeedService:
             raise LookupError("Пост не найден")
         return repository.list_guest_feed_comments(post_id=post_id, limit=limit, offset=offset)
 
+    @staticmethod
+    def count_guest_comments(post_id: int) -> int:
+        if not repository.get_guest_feed_post(post_id):
+            raise LookupError("Пост не найден")
+        return repository.count_guest_feed_comments(post_id=post_id)
+
     @classmethod
     def update_guest_comment(cls, post_id: int, comment_id: int, payload: dict[str, object]) -> dict[str, object]:
         if not repository.get_guest_feed_post(post_id):
