@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 class FeedAPIHandler(BaseHTTPRequestHandler):
     request_id: str
+    DEFAULT_MAX_REQUEST_BYTES = 5 * 1024 * 1024
 
     def _get_client_ip(self) -> str:
         return self.client_address[0] if self.client_address else "unknown"
@@ -52,13 +53,29 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             },
         )
 
-    def _parse_feed_request_payload(self) -> tuple[dict[str, object] | None, str | None]:
+    def _get_max_request_bytes(self) -> int:
+        raw = os.getenv("MAX_REQUEST_BYTES", str(self.DEFAULT_MAX_REQUEST_BYTES))
+        try:
+            parsed = int(raw)
+        except ValueError:
+            return self.DEFAULT_MAX_REQUEST_BYTES
+        if parsed <= 0:
+            return self.DEFAULT_MAX_REQUEST_BYTES
+        return parsed
+
+    def _parse_feed_request_payload(self) -> tuple[dict[str, object] | None, dict[str, object] | None, int]:
+        max_request_bytes = self._get_max_request_bytes()
         try:
             raw_len = int(self.headers.get("Content-Length", "0"))
         except ValueError:
             raw_len = 0
 
+        if raw_len > max_request_bytes:
+            return None, {"error": "payload_too_large", "max_request_bytes": max_request_bytes}, 413
+
         raw = self.rfile.read(raw_len) if raw_len > 0 else b""
+        if len(raw) > max_request_bytes:
+            return None, {"error": "payload_too_large", "max_request_bytes": max_request_bytes}, 413
         content_type_header = str(self.headers.get("Content-Type", ""))
         content_type = content_type_header.lower()
 
@@ -66,34 +83,34 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             try:
                 payload = FeedService.parse_multipart_form_data(content_type=content_type_header, raw=raw)
             except ValueError as error:
-                return None, str(error)
-            return payload, None
+                return None, {"error": str(error)}, 400
+            return payload, None, 200
 
         try:
             payload = json.loads(raw.decode("utf-8") if raw else "{}")
         except UnicodeDecodeError:
-            return None, "Тело запроса должно быть в UTF-8"
+            return None, {"error": "Тело запроса должно быть в UTF-8"}, 400
         except json.JSONDecodeError:
-            return None, "Некорректный JSON"
+            return None, {"error": "Некорректный JSON"}, 400
 
         if not isinstance(payload, dict):
-            return None, "Некорректный формат payload: ожидается JSON-объект"
+            return None, {"error": "Некорректный формат payload: ожидается JSON-объект"}, 400
 
         try:
             image_url = FeedService.validate_image_url_metadata(payload)
             image_from_base64 = FeedService.extract_image_from_json_payload(payload)
         except ValueError as error:
-            return None, str(error)
+            return None, {"error": str(error)}, 400
 
         if image_url and image_from_base64:
-            return None, "Укажите только одно поле изображения: image_url или image_base64"
+            return None, {"error": "Укажите только одно поле изображения: image_url или image_base64"}, 400
 
         if image_from_base64:
             payload["image_url"] = image_from_base64
         elif image_url is not None:
             payload["image_url"] = image_url
 
-        return payload, None
+        return payload, None, 200
 
     def _serve_stored_file(self, request_path: str) -> bool:
         file_path = FeedService.resolve_storage_path(request_path)
@@ -220,9 +237,9 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
 
     def _handle_post(self) -> None:
         path = urlparse(self.path).path
-        payload, error = self._parse_feed_request_payload()
-        if error:
-            self._send_json(400, {"error": error})
+        payload, error_payload, error_status = self._parse_feed_request_payload()
+        if error_payload is not None:
+            self._send_json(error_status, error_payload)
             return
         if payload is None:
             self._send_json(400, {"error": "Некорректный payload"})
@@ -298,9 +315,9 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
                 self._send_json(400, {"error": "Некорректный id документа"})
                 return
 
-            payload, error = self._parse_feed_request_payload()
-            if error:
-                self._send_json(400, {"error": error})
+            payload, error_payload, error_status = self._parse_feed_request_payload()
+            if error_payload is not None:
+                self._send_json(error_status, error_payload)
                 return
             if payload is None:
                 self._send_json(400, {"error": "Некорректный payload"})
@@ -327,9 +344,9 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             self._send_json(400, {"error": "Некорректный id поста"})
             return
 
-        payload, error = self._parse_feed_request_payload()
-        if error:
-            self._send_json(400, {"error": error})
+        payload, error_payload, error_status = self._parse_feed_request_payload()
+        if error_payload is not None:
+            self._send_json(error_status, error_payload)
             return
         if payload is None:
             self._send_json(400, {"error": "Некорректный payload"})
