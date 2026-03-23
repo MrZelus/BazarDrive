@@ -1,5 +1,11 @@
 
     const posts = [];
+    const postIds = new Set();
+    const FEED_PAGE_SIZE = 20;
+    let feedNextCursor = null;
+    let feedHasMore = true;
+    let feedIsLoading = false;
+    let feedObserver = null;
 
     const docs = [
       {
@@ -72,6 +78,15 @@
     const FEED_API_BASE = resolveFeedApiBase();
 
     const feedEl = document.getElementById('feed');
+    const feedLoadStateEl = document.createElement('div');
+    feedLoadStateEl.id = 'feedLoadState';
+    feedLoadStateEl.className = 'space-y-2';
+    const feedSentinelEl = document.createElement('div');
+    feedSentinelEl.id = 'feedLoadSentinel';
+    feedSentinelEl.className = 'h-1 w-full';
+    if (feedEl && feedEl.parentElement) {
+      feedEl.parentElement.append(feedLoadStateEl, feedSentinelEl);
+    }
     const newPostInput = document.getElementById('newPostInput');
     const publishBtn = document.getElementById('publishBtn');
     const publishPrecheckHint = document.getElementById('publishPrecheckHint');
@@ -745,7 +760,7 @@
             deletePostBtn.disabled = true;
             try {
               await deletePost(post.id, actor.id);
-              await loadPosts();
+              await loadPosts({ reset: true });
               showAppNotification('Пост удалён.', 'success');
             } catch (error) {
               console.error(error);
@@ -973,10 +988,75 @@
       post.comments = items.map(mapApiComment);
     }
 
-    async function loadPosts() {
+    function setFeedLoadingSkeleton(isVisible) {
+      if (!feedLoadStateEl) return;
+      clearChildren(feedLoadStateEl);
+      if (!isVisible) return;
+      for (let idx = 0; idx < 2; idx += 1) {
+        const skeleton = document.createElement('div');
+        skeleton.className = 'rounded-2xl border border-white/10 bg-panel p-4 animate-pulse';
+        const line1 = document.createElement('div');
+        line1.className = 'mb-2 h-3 w-1/3 rounded bg-panelSoft';
+        const line2 = document.createElement('div');
+        line2.className = 'h-3 w-2/3 rounded bg-panelSoft';
+        skeleton.append(line1, line2);
+        feedLoadStateEl.appendChild(skeleton);
+      }
+    }
+
+    function setFeedError(message = '') {
+      if (!feedLoadStateEl) return;
+      clearChildren(feedLoadStateEl);
+      const normalized = String(message || '').trim();
+      if (!normalized) return;
+      const warning = document.createElement('div');
+      warning.className = 'rounded-2xl bg-panel p-4 border border-white/10 text-sm text-warning';
+      warning.textContent = normalized;
+      feedLoadStateEl.appendChild(warning);
+    }
+
+    function stopFeedInfiniteScroll() {
+      if (feedObserver) {
+        feedObserver.disconnect();
+      }
+    }
+
+    function ensureFeedInfiniteScroll() {
+      if (!feedSentinelEl || feedObserver || !window.IntersectionObserver) return;
+      feedObserver = new IntersectionObserver((entries) => {
+        const [entry] = entries;
+        if (!entry?.isIntersecting || !feedHasMore || feedIsLoading) return;
+        loadPosts();
+      }, { rootMargin: '0px 0px 320px 0px' });
+      feedObserver.observe(feedSentinelEl);
+    }
+
+    async function loadPosts({ reset = false } = {}) {
+      if (feedIsLoading) return;
+      if (!reset && !feedHasMore) return;
+      feedIsLoading = true;
+      if (reset) {
+        feedNextCursor = null;
+        feedHasMore = true;
+        postIds.clear();
+        posts.splice(0, posts.length);
+        renderFeed();
+      }
+      setFeedError('');
+      setFeedLoadingSkeleton(true);
       try {
         const actor = getCurrentGuestActor();
-        const query = actor.id ? `?limit=50&offset=0&guest_profile_id=${encodeURIComponent(actor.id)}` : '?limit=50&offset=0';
+        const params = new URLSearchParams();
+        params.set('limit', String(FEED_PAGE_SIZE));
+        if (feedNextCursor) {
+          params.set('cursor', feedNextCursor);
+        } else {
+          params.set('offset', '0');
+        }
+        if (actor.id) {
+          params.set('guest_profile_id', actor.id);
+        }
+        const query = `?${params.toString()}`;
         const response = await fetch(`${FEED_API_BASE}/api/feed/posts${query}`);
         if (!response.ok) {
           throw new Error(`Не удалось загрузить ленту (HTTP ${response.status})`);
@@ -984,18 +1064,31 @@
 
         const payload = await response.json();
         const items = Array.isArray(payload.items) ? payload.items : [];
-        posts.splice(0, posts.length, ...items.map(mapApiPost));
-        await Promise.all(posts.map((post) => loadCommentsForPost(post).catch(() => {
+        const mapped = items.map(mapApiPost);
+        const freshPosts = mapped.filter((post) => {
+          const postId = Number(post.id) || 0;
+          if (postIds.has(postId)) return false;
+          postIds.add(postId);
+          return true;
+        });
+        posts.push(...freshPosts);
+        feedNextCursor = String(payload.next_cursor || '').trim() || null;
+        feedHasMore = Boolean(payload.has_more) && Boolean(feedNextCursor);
+
+        await Promise.all(freshPosts.map((post) => loadCommentsForPost(post).catch(() => {
           post.comments = [];
         })));
         renderFeed();
+        if (!feedHasMore) {
+          stopFeedInfiniteScroll();
+        }
       } catch (error) {
         console.error(error);
-        clearChildren(feedEl);
-        const warning = document.createElement('div');
-        warning.className = 'rounded-2xl bg-panel p-4 border border-white/10 text-sm text-warning';
-        warning.textContent = `Не удалось загрузить посты. Проверьте доступность API: ${FEED_API_BASE}.`;
-        feedEl.appendChild(warning);
+        setFeedError(`Не удалось загрузить посты. Проверьте доступность API: ${FEED_API_BASE}.`);
+        showAppNotification(error.message || 'Ошибка загрузки ленты.', 'error');
+      } finally {
+        setFeedLoadingSkeleton(false);
+        feedIsLoading = false;
       }
     }
 
@@ -1054,7 +1147,7 @@
         newPostInput.value = '';
         applyPublishPrecheckHint();
         storePendingPostDraft('');
-        await loadPosts();
+        await loadPosts({ reset: true });
       } catch (error) {
         console.error(error);
         showAppNotification(error.message || 'Не удалось опубликовать пост', 'error');
@@ -1350,7 +1443,8 @@
     const initialRole = ['driver', 'passenger', 'guest'].includes(savedRole) ? savedRole : 'driver';
     const initialTab = VALID_MAIN_TABS.includes(savedActiveTab) ? savedActiveTab : 'feed';
 
-    loadPosts();
+    ensureFeedInfiniteScroll();
+    loadPosts({ reset: true });
     renderDocs();
     loadDriverDocuments();
     hydrateProfileForm();

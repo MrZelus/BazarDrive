@@ -3,6 +3,7 @@ import os
 import tempfile
 import threading
 import unittest
+from base64 import urlsafe_b64encode
 from http.client import HTTPConnection
 from http.server import ThreadingHTTPServer
 
@@ -678,6 +679,69 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertEqual(len(target["media"]), 1)
         self.assertEqual(target["media"][0]["url"], "https://example.com/legacy-only.jpg")
         self.assertEqual(target.get("image_url"), "https://example.com/legacy-only.jpg")
+
+    def test_feed_cursor_pagination_first_and_next_page(self) -> None:
+        for idx in range(5):
+            repository.create_guest_feed_post(author=f"Author {idx}", text=f"Post {idx}", guest_profile_id="guest-cursor")
+
+        first_status, first_payload, _ = self._get("/api/feed/posts?limit=2")
+        self.assertEqual(first_status, 200)
+        self.assertEqual(len(first_payload.get("items", [])), 2)
+        self.assertTrue(first_payload.get("has_more"))
+        self.assertTrue(first_payload.get("next_cursor"))
+
+        next_cursor = first_payload["next_cursor"]
+        second_status, second_payload, _ = self._get(f"/api/feed/posts?limit=2&cursor={next_cursor}")
+        self.assertEqual(second_status, 200)
+        self.assertEqual(len(second_payload.get("items", [])), 2)
+
+        first_ids = {int(item["id"]) for item in first_payload["items"]}
+        second_ids = {int(item["id"]) for item in second_payload["items"]}
+        self.assertEqual(len(first_ids.intersection(second_ids)), 0)
+
+    def test_feed_cursor_pagination_invalid_cursor_returns_400(self) -> None:
+        repository.create_guest_feed_post(author="Author", text="Post", guest_profile_id="guest-cursor")
+        status, payload, _ = self._get("/api/feed/posts?limit=2&cursor=not-valid")
+        self.assertEqual(status, 400)
+        self.assertIn("error", payload)
+
+    def test_feed_cursor_pagination_empty_tail(self) -> None:
+        repository.create_guest_feed_post(author="Author 1", text="Post 1", guest_profile_id="guest-cursor")
+        repository.create_guest_feed_post(author="Author 2", text="Post 2", guest_profile_id="guest-cursor")
+        first_status, first_payload, _ = self._get("/api/feed/posts?limit=1")
+        self.assertEqual(first_status, 200)
+        cursor = str(first_payload.get("next_cursor", "")).strip()
+        self.assertTrue(cursor)
+
+        second_status, second_payload, _ = self._get(f"/api/feed/posts?limit=1&cursor={cursor}")
+        self.assertEqual(second_status, 200)
+        last_item = second_payload["items"][-1]
+        encoded_tail_cursor = urlsafe_b64encode(
+            f"{last_item['created_at']}|{last_item['id']}".encode("utf-8")
+        ).decode("ascii")
+
+        tail_status, tail_payload, _ = self._get(f"/api/feed/posts?limit=1&cursor={encoded_tail_cursor}")
+        self.assertEqual(tail_status, 200)
+        self.assertEqual(tail_payload.get("items"), [])
+        self.assertFalse(tail_payload.get("has_more"))
+        self.assertIsNone(tail_payload.get("next_cursor"))
+
+    def test_feed_cursor_pagination_single_page_returns_no_next_cursor(self) -> None:
+        repository.create_guest_feed_post(author="Author", text="Post", guest_profile_id="guest-cursor")
+        status, payload, _ = self._get("/api/feed/posts?limit=5")
+        self.assertEqual(status, 200)
+        self.assertFalse(payload.get("has_more"))
+        self.assertIsNone(payload.get("next_cursor"))
+        self.assertEqual(len(payload.get("items", [])), 1)
+
+    def test_feed_cursor_and_offset_together_returns_400(self) -> None:
+        repository.create_guest_feed_post(author="Author", text="Post", guest_profile_id="guest-cursor")
+        first_status, first_payload, _ = self._get("/api/feed/posts?limit=1")
+        self.assertEqual(first_status, 200)
+        cursor = str(first_payload.get("next_cursor", "")).strip()
+        status, payload, _ = self._get(f"/api/feed/posts?limit=1&offset=0&cursor={cursor}")
+        self.assertEqual(status, 400)
+        self.assertIn("error", payload)
 
     def test_unexpected_error_returns_unified_json(self) -> None:
         original = repository.list_guest_feed_posts

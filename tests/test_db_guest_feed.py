@@ -197,6 +197,31 @@ class GuestFeedRepositoryTests(unittest.TestCase):
         self.assertEqual(len(updated["media"]), 1)
         self.assertEqual(updated["media"][0]["url"], "https://example.com/new.jpg")
 
+    def test_list_guest_feed_posts_by_cursor_without_duplicates(self) -> None:
+        created_ids: list[int] = []
+        for idx in range(5):
+            created = repository.create_guest_feed_post(
+                author=f"Author {idx}",
+                text=f"Post {idx}",
+                guest_profile_id="guest-cursor",
+            )
+            created_ids.append(int(created["id"]))
+
+        first_page = repository.list_guest_feed_posts_by_cursor(limit=2)
+        self.assertEqual(len(first_page), 2)
+        cursor_post = first_page[-1]
+
+        second_page = repository.list_guest_feed_posts_by_cursor(
+            limit=2,
+            cursor_created_at=str(cursor_post["created_at"]),
+            cursor_id=int(cursor_post["id"]),
+        )
+        self.assertEqual(len(second_page), 2)
+
+        first_ids = {int(item["id"]) for item in first_page}
+        second_ids = {int(item["id"]) for item in second_page}
+        self.assertEqual(len(first_ids.intersection(second_ids)), 0)
+
 
 
 if __name__ == "__main__":
