@@ -3,35 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' http://localhost:8001 http://127.0.0.1:8001; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none';" />
   <title>BazarDrive — мобильный кабинет</title>
+  <script src="web/js/tailwind-config.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            bg: '#0b1020',
-            panel: '#131a2b',
-            panelSoft: '#1b2338',
-            accent: '#4f8cff',
-            text: '#e8edff',
-            textSoft: '#9aa7c7',
-            success: '#34d399',
-            warning: '#fbbf24'
-          },
-          keyframes: {
-            fadeInUp: {
-              '0%': { opacity: '0', transform: 'translateY(12px)' },
-              '100%': { opacity: '1', transform: 'translateY(0)' }
-            }
-          },
-          animation: {
-            fadeInUp: 'fadeInUp 220ms ease-out'
-          }
-        }
-      }
-    };
-  </script>
   <link rel="stylesheet" href="web/css/feed.css" />
 </head>
 <body class="bg-bg text-text antialiased font-sans">

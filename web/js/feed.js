@@ -256,20 +256,44 @@
       return labels[String(status || '').trim()] || 'Неизвестно';
     }
 
+    function clearChildren(element) {
+      if (!element) return;
+      while (element.firstChild) {
+        element.removeChild(element.firstChild);
+      }
+    }
+
+    function buildInfoCard(message) {
+      const card = document.createElement('div');
+      card.className = 'rounded-xl border border-white/10 bg-panelSoft px-3 py-2 text-sm text-textSoft';
+      card.textContent = String(message || '').trim();
+      return card;
+    }
+
     function renderDriverOverviewDocuments(items = []) {
       if (!driverOverviewDocuments) return;
+      clearChildren(driverOverviewDocuments);
       if (!Array.isArray(items) || items.length === 0) {
-        driverOverviewDocuments.innerHTML = '<div class="rounded-xl border border-white/10 bg-panelSoft px-3 py-2 text-sm text-textSoft">Добавьте документы для верификации профиля.</div>';
+        driverOverviewDocuments.appendChild(buildInfoCard('Добавьте документы для верификации профиля.'));
         return;
       }
 
       const previewItems = items.slice(0, 3);
-      driverOverviewDocuments.innerHTML = previewItems.map((item) => `
-        <div class="rounded-xl border border-white/10 bg-panelSoft px-3 py-2">
-          <p class="text-sm font-medium">${item.title || item.type}</p>
-          <p class="text-xs text-textSoft">Статус: ${item.statusLabel} • Обновлён: ${item.updatedAtLabel}</p>
-        </div>
-      `).join('');
+      previewItems.forEach((item) => {
+        const card = document.createElement('div');
+        card.className = 'rounded-xl border border-white/10 bg-panelSoft px-3 py-2';
+
+        const title = document.createElement('p');
+        title.className = 'text-sm font-medium';
+        title.textContent = String(item.title || item.type || 'Документ');
+
+        const meta = document.createElement('p');
+        meta.className = 'text-xs text-textSoft';
+        meta.textContent = `Статус: ${item.statusLabel} • Обновлён: ${item.updatedAtLabel}`;
+
+        card.append(title, meta);
+        driverOverviewDocuments.appendChild(card);
+      });
     }
 
 
@@ -327,8 +351,9 @@
 
     function renderDriverDocuments(items = []) {
       if (!driverDocumentsList) return;
+      clearChildren(driverDocumentsList);
       if (!Array.isArray(items) || items.length === 0) {
-        driverDocumentsList.innerHTML = '<div class="rounded-xl border border-white/10 bg-panelSoft px-3 py-2 text-sm text-textSoft">Документы пока не добавлены.</div>';
+        driverDocumentsList.appendChild(buildInfoCard('Документы пока не добавлены.'));
         renderDriverOverviewDocuments([]);
         return;
       }
@@ -347,37 +372,24 @@
         validUntilLabel: formatDocumentDate(item.valid_until),
       }));
 
-      driverDocumentsList.innerHTML = normalizedItems.map((item) => `
-        <article class="rounded-xl border border-white/10 bg-panelSoft px-3 py-3 space-y-2">
-          <div class="flex items-start justify-between gap-3">
-            <p class="text-sm font-medium">${item.title}</p>
-            <button type="button" data-doc-delete="${item.id}" class="text-xs text-warning hover:underline">Удалить</button>
-          </div>
-          <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 text-xs">
-            <div>
-              <dt class="text-textSoft">Номер</dt>
-              <dd>${item.number || '—'}</dd>
-            </div>
-            <div>
-              <dt class="text-textSoft">Статус</dt>
-              <dd>${item.statusLabel}</dd>
-            </div>
-            <div>
-              <dt class="text-textSoft">Срок действия</dt>
-              <dd>${item.validUntilLabel}</dd>
-            </div>
-            <div>
-              <dt class="text-textSoft">Обновлён</dt>
-              <dd>${item.updatedAtLabel}</dd>
-            </div>
-          </dl>
-        </article>
-      `).join('');
-      renderDriverOverviewDocuments(normalizedItems);
+      normalizedItems.forEach((item) => {
+        const article = document.createElement('article');
+        article.className = 'rounded-xl border border-white/10 bg-panelSoft px-3 py-3 space-y-2';
 
-      driverDocumentsList.querySelectorAll('[data-doc-delete]').forEach((button) => {
-        button.addEventListener('click', async () => {
-          const id = Number(button.getAttribute('data-doc-delete'));
+        const header = document.createElement('div');
+        header.className = 'flex items-start justify-between gap-3';
+
+        const title = document.createElement('p');
+        title.className = 'text-sm font-medium';
+        title.textContent = String(item.title || 'Документ');
+
+        const deleteButton = document.createElement('button');
+        deleteButton.type = 'button';
+        deleteButton.className = 'text-xs text-warning hover:underline';
+        deleteButton.dataset.docDelete = String(item.id || '');
+        deleteButton.textContent = 'Удалить';
+        deleteButton.addEventListener('click', async () => {
+          const id = Number(deleteButton.dataset.docDelete);
           if (!id) return;
           try {
             const response = await fetch(`${FEED_API_BASE}/api/driver/documents/${id}`, { method: 'DELETE' });
@@ -390,7 +402,34 @@
             setDocumentAlert(error.message || 'Не удалось удалить документ');
           }
         });
+
+        header.append(title, deleteButton);
+
+        const metaGrid = document.createElement('dl');
+        metaGrid.className = 'grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 text-xs';
+
+        const entries = [
+          ['Номер', item.number || '—'],
+          ['Статус', item.statusLabel],
+          ['Срок действия', item.validUntilLabel],
+          ['Обновлён', item.updatedAtLabel],
+        ];
+
+        entries.forEach(([label, value]) => {
+          const wrapper = document.createElement('div');
+          const dt = document.createElement('dt');
+          dt.className = 'text-textSoft';
+          dt.textContent = label;
+          const dd = document.createElement('dd');
+          dd.textContent = String(value || '—');
+          wrapper.append(dt, dd);
+          metaGrid.appendChild(wrapper);
+        });
+
+        article.append(header, metaGrid);
+        driverDocumentsList.appendChild(article);
       });
+      renderDriverOverviewDocuments(normalizedItems);
     }
 
     async function loadDriverDocuments() {
@@ -561,61 +600,87 @@
       };
     }
 
-    function interactionButton(icon, value, label) {
-      return `
-        <button type="button" aria-label="${label}" class="group inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-textSoft transition hover:bg-panelSoft hover:text-text">
-          ${icon}
-          <span>${value}</span>
-        </button>
-      `;
+    function createInteractionButton(iconText, value, label, extraClasses = '') {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.setAttribute('aria-label', String(label || '').trim());
+      button.className = `group inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-textSoft transition hover:bg-panelSoft hover:text-text ${extraClasses}`.trim();
+
+      const icon = document.createElement('span');
+      icon.setAttribute('aria-hidden', 'true');
+      icon.textContent = iconText;
+
+      const counter = document.createElement('span');
+      counter.textContent = String(value || 0);
+
+      button.append(icon, counter);
+      return button;
     }
 
     function renderFeed() {
-      feedEl.innerHTML = posts.map((post) => `
-        <article class="rounded-2xl bg-panel p-4 border border-white/10 animate-fadeInUp">
-          <header class="mb-3 flex items-center justify-between">
-            <div class="flex items-center gap-3">
-              <img src="${post.avatar}" alt="${post.author}" class="h-10 w-10 rounded-full object-cover" loading="lazy" />
-              <div>
-                <p class="text-sm font-semibold text-text">${post.author}</p>
-                <p class="text-xs text-textSoft">${post.publishedAt}</p>
-              </div>
-            </div>
-          </header>
+      clearChildren(feedEl);
+      posts.forEach((post) => {
+        const article = document.createElement('article');
+        article.className = 'rounded-2xl bg-panel p-4 border border-white/10 animate-fadeInUp';
 
-          <p class="mb-3 text-[15px] leading-7 text-text">${post.text}</p>
+        const header = document.createElement('header');
+        header.className = 'mb-3 flex items-center justify-between';
+        const headerRow = document.createElement('div');
+        headerRow.className = 'flex items-center gap-3';
 
-          ${post.image ? `<img src="${post.image}" alt="Изображение поста" class="mb-3 max-h-[420px] w-full rounded-xl object-cover" loading="lazy" />` : ''}
+        const avatar = document.createElement('img');
+        avatar.src = String(post.avatar || '');
+        avatar.alt = String(post.author || 'Гость');
+        avatar.className = 'h-10 w-10 rounded-full object-cover';
+        avatar.loading = 'lazy';
 
-          <footer class="flex items-center gap-1 border-t border-white/10 pt-2">
-            ${interactionButton(
-              '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21s-7-4.35-7-10a4 4 0 0 1 7-2.65A4 4 0 0 1 19 11c0 5.65-7 10-7 10Z"/></svg>',
-              post.likes,
-              'Лайк'
-            ).replace('group inline-flex', `group inline-flex js-like-btn ${post.likedByMe ? 'text-accent' : ''}`).replace('aria-label="Лайк"', `aria-label="Лайк" data-post-id="${post.id}"`)}
-            ${interactionButton(
-              '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 10h8M8 14h5"/><path d="M21 12a8 8 0 0 1-8 8H5l2.1-2.8A8 8 0 1 1 21 12Z"/></svg>',
-              post.comments,
-              'Комментарий'
-            )}
-            ${interactionButton(
-              '<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m4 12 7-7v4h6a3 3 0 0 1 3 3v7"/><path d="m20 12-7 7v-4H7a3 3 0 0 1-3-3V5"/></svg>',
-              post.reposts,
-              'Репост'
-            )}
-          </footer>
-        </article>
-      `).join('');
+        const meta = document.createElement('div');
+        const author = document.createElement('p');
+        author.className = 'text-sm font-semibold text-text';
+        author.textContent = String(post.author || 'Гость');
+        const publishedAt = document.createElement('p');
+        publishedAt.className = 'text-xs text-textSoft';
+        publishedAt.textContent = String(post.publishedAt || 'только что');
+        meta.append(author, publishedAt);
+        headerRow.append(avatar, meta);
+        header.appendChild(headerRow);
 
-      feedEl.querySelectorAll('.js-like-btn').forEach((button) => {
-        button.addEventListener('click', () => {
-          const postId = Number(button.dataset.postId);
-          const target = posts.find((post) => post.id === postId);
+        const body = document.createElement('p');
+        body.className = 'mb-3 text-[15px] leading-7 text-text';
+        body.textContent = String(post.text || '');
+
+        article.append(header, body);
+
+        if (post.image) {
+          const image = document.createElement('img');
+          image.src = String(post.image);
+          image.alt = 'Изображение поста';
+          image.className = 'mb-3 max-h-[420px] w-full rounded-xl object-cover';
+          image.loading = 'lazy';
+          article.appendChild(image);
+        }
+
+        const footer = document.createElement('footer');
+        footer.className = 'flex items-center gap-1 border-t border-white/10 pt-2';
+
+        const likeButton = createInteractionButton('♡', post.likes, 'Лайк', `js-like-btn ${post.likedByMe ? 'text-accent' : ''}`);
+        likeButton.dataset.postId = String(post.id || '');
+        likeButton.addEventListener('click', () => {
+          const postId = Number(likeButton.dataset.postId);
+          const target = posts.find((currentPost) => currentPost.id === postId);
           if (!target) return;
           target.likedByMe = !target.likedByMe;
           target.likes += target.likedByMe ? 1 : -1;
           renderFeed();
         });
+
+        footer.append(
+          likeButton,
+          createInteractionButton('💬', post.comments, 'Комментарий'),
+          createInteractionButton('↻', post.reposts, 'Репост'),
+        );
+        article.appendChild(footer);
+        feedEl.appendChild(article);
       });
     }
 
@@ -632,7 +697,11 @@
         renderFeed();
       } catch (error) {
         console.error(error);
-        feedEl.innerHTML = `<div class="rounded-2xl bg-panel p-4 border border-white/10 text-sm text-warning">Не удалось загрузить посты. Проверьте доступность API: ${FEED_API_BASE}.</div>`;
+        clearChildren(feedEl);
+        const warning = document.createElement('div');
+        warning.className = 'rounded-2xl bg-panel p-4 border border-white/10 text-sm text-warning';
+        warning.textContent = `Не удалось загрузить посты. Проверьте доступность API: ${FEED_API_BASE}.`;
+        feedEl.appendChild(warning);
       }
     }
 
@@ -710,22 +779,46 @@
         return haystack.includes(normalized);
       });
 
-      docsList.innerHTML = filteredDocs.length
-        ? filteredDocs.map((doc) => `
-            <article class="rounded-2xl bg-panel p-4 border border-white/10 animate-fadeInUp">
-              <div class="flex items-start justify-between gap-3">
-                <div>
-                  <h3 class="text-base font-semibold">${doc.title}</h3>
-                  <p class="text-sm text-textSoft mt-1">${doc.description}</p>
-                </div>
-                <span class="text-[10px] uppercase tracking-wide rounded-full bg-panelSoft text-textSoft px-2 py-1">${doc.type || 'Документ'}</span>
-              </div>
-              <div class="mt-3 flex flex-wrap gap-2">
-                ${doc.tags.map((tag) => `<span class="rounded-full bg-panelSoft px-2.5 py-1 text-xs text-textSoft">#${tag}</span>`).join('')}
-              </div>
-            </article>
-          `).join('')
-        : '<div class="rounded-2xl bg-panel p-4 border border-white/10 text-sm text-textSoft">Ничего не найдено. Попробуйте другой запрос.</div>';
+      clearChildren(docsList);
+      if (filteredDocs.length) {
+        filteredDocs.forEach((doc) => {
+          const article = document.createElement('article');
+          article.className = 'rounded-2xl bg-panel p-4 border border-white/10 animate-fadeInUp';
+
+          const top = document.createElement('div');
+          top.className = 'flex items-start justify-between gap-3';
+          const content = document.createElement('div');
+          const title = document.createElement('h3');
+          title.className = 'text-base font-semibold';
+          title.textContent = String(doc.title || 'Документ');
+          const description = document.createElement('p');
+          description.className = 'text-sm text-textSoft mt-1';
+          description.textContent = String(doc.description || '');
+          content.append(title, description);
+
+          const typeBadge = document.createElement('span');
+          typeBadge.className = 'text-[10px] uppercase tracking-wide rounded-full bg-panelSoft text-textSoft px-2 py-1';
+          typeBadge.textContent = String(doc.type || 'Документ');
+          top.append(content, typeBadge);
+
+          const tags = document.createElement('div');
+          tags.className = 'mt-3 flex flex-wrap gap-2';
+          doc.tags.forEach((tag) => {
+            const tagElement = document.createElement('span');
+            tagElement.className = 'rounded-full bg-panelSoft px-2.5 py-1 text-xs text-textSoft';
+            tagElement.textContent = `#${tag}`;
+            tags.appendChild(tagElement);
+          });
+
+          article.append(top, tags);
+          docsList.appendChild(article);
+        });
+      } else {
+        const empty = document.createElement('div');
+        empty.className = 'rounded-2xl bg-panel p-4 border border-white/10 text-sm text-textSoft';
+        empty.textContent = 'Ничего не найдено. Попробуйте другой запрос.';
+        docsList.appendChild(empty);
+      }
 
       if (docsSearchStatus) {
         if (!normalized) {
