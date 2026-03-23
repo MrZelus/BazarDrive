@@ -56,6 +56,8 @@ class FeedAPIValidationTests(unittest.TestCase):
         os.environ.pop("CORS_ALLOWED_ORIGINS", None)
         os.environ.pop("API_AUTH_KEYS", None)
         os.environ.pop("API_AUTH_BEARER_TOKENS", None)
+        os.environ.pop("MODERATOR_API_KEYS", None)
+        os.environ.pop("MODERATOR_BEARER_TOKENS", None)
 
     def _get(self, path: str, headers: dict[str, str] | None = None) -> tuple[int, dict, dict]:
         conn = HTTPConnection(self.host, self.port, timeout=5)
@@ -531,6 +533,96 @@ class FeedAPIValidationTests(unittest.TestCase):
         )
         self.assertEqual(status, 401)
         self.assertEqual(payload.get("error", {}).get("code"), "unauthorized")
+
+    def test_patch_post_forbidden_for_foreign_author(self) -> None:
+        created_post = repository.create_guest_feed_post(
+            author="Owner",
+            text="Чужой пост для PATCH",
+            guest_profile_id="guest-owner-001",
+        )
+
+        status, payload, _ = self._patch(
+            f"/api/feed/posts/{created_post['id']}",
+            {
+                "guest_profile_id": "guest-other-001",
+                "author": "Intruder",
+                "text": "Попытка изменить чужой пост",
+            },
+        )
+        self.assertEqual(status, 403)
+        self.assertIn("error", payload)
+
+    def test_prod_moderator_api_key_can_update_and_delete_foreign_content(self) -> None:
+        os.environ["APP_ENV"] = "prod"
+        os.environ["CORS_ALLOWED_ORIGINS"] = "https://app.example.com"
+        os.environ["API_AUTH_KEYS"] = "author-key"
+        os.environ["MODERATOR_API_KEYS"] = "mod-key"
+
+        post = repository.create_guest_feed_post(
+            author="Owner",
+            text="Пост владельца",
+            guest_profile_id="guest-owner-001",
+        )
+        comment = repository.create_guest_feed_comment(
+            post_id=post["id"],
+            guest_profile_id="guest-owner-001",
+            author="Owner",
+            text="Комментарий владельца",
+        )
+
+        headers = {"Origin": "https://app.example.com", "X-API-Key": "mod-key"}
+        patch_post_status, patch_post_payload, _ = self._patch(
+            f"/api/feed/posts/{post['id']}",
+            {"author": "Moderator", "text": "Пост изменён модератором"},
+            headers=headers,
+        )
+        self.assertEqual(patch_post_status, 200)
+        self.assertEqual(patch_post_payload.get("text"), "Пост изменён модератором")
+
+        patch_comment_status, patch_comment_payload, _ = self._patch(
+            f"/api/feed/posts/{post['id']}/comments/{comment['id']}",
+            {"text": "Комментарий изменён модератором"},
+            headers=headers,
+        )
+        self.assertEqual(patch_comment_status, 200)
+        self.assertEqual(patch_comment_payload.get("text"), "Комментарий изменён модератором")
+
+        delete_comment_status, _, _ = self._delete(
+            f"/api/feed/posts/{post['id']}/comments/{comment['id']}",
+            {},
+            headers=headers,
+        )
+        self.assertEqual(delete_comment_status, 200)
+
+        delete_post_status, _, _ = self._delete(
+            f"/api/feed/posts/{post['id']}",
+            {},
+            headers=headers,
+        )
+        self.assertEqual(delete_post_status, 200)
+
+    def test_prod_author_key_cannot_update_foreign_post(self) -> None:
+        os.environ["APP_ENV"] = "prod"
+        os.environ["CORS_ALLOWED_ORIGINS"] = "https://app.example.com"
+        os.environ["API_AUTH_KEYS"] = "author-key"
+        os.environ["MODERATOR_API_KEYS"] = "mod-key"
+        post = repository.create_guest_feed_post(
+            author="Owner",
+            text="Пост владельца",
+            guest_profile_id="guest-owner-001",
+        )
+
+        status, payload, _ = self._patch(
+            f"/api/feed/posts/{post['id']}",
+            {
+                "guest_profile_id": "guest-other-001",
+                "author": "Other",
+                "text": "Попытка изменения чужого поста",
+            },
+            headers={"Origin": "https://app.example.com", "X-API-Key": "author-key"},
+        )
+        self.assertEqual(status, 403)
+        self.assertIn("error", payload)
 
 
     def test_reactions_happy_path_and_idempotency(self) -> None:

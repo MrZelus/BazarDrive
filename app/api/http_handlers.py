@@ -12,7 +12,7 @@ from urllib.parse import parse_qs, urlparse
 from app.config import get_api_settings
 from app.db import repository
 from app.logging_setup import configure_logging
-from app.services.feed_service import FeedPayloadTooLargeError, FeedService
+from app.services.feed_service import FeedAccessDeniedError, FeedPayloadTooLargeError, FeedService
 
 
 logger = logging.getLogger(__name__)
@@ -24,6 +24,19 @@ class SecuritySettings:
     allowed_origins: tuple[str, ...]
     api_keys: tuple[str, ...]
     bearer_tokens: tuple[str, ...]
+    moderator_api_keys: tuple[str, ...]
+    moderator_bearer_tokens: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class WriteAuthContext:
+    is_authorized: bool
+    subject: str
+    role: str
+
+    @property
+    def is_moderator(self) -> bool:
+        return self.role == "moderator"
 
 
 class FeedAPIHandler(BaseHTTPRequestHandler):
@@ -54,12 +67,18 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
 
         raw_bearer_tokens = os.getenv("API_AUTH_BEARER_TOKENS", "")
         bearer_tokens = tuple(item.strip() for item in raw_bearer_tokens.split(",") if item.strip())
+        raw_moderator_api_keys = os.getenv("MODERATOR_API_KEYS", "")
+        moderator_api_keys = tuple(item.strip() for item in raw_moderator_api_keys.split(",") if item.strip())
+        raw_moderator_bearer_tokens = os.getenv("MODERATOR_BEARER_TOKENS", "")
+        moderator_bearer_tokens = tuple(item.strip() for item in raw_moderator_bearer_tokens.split(",") if item.strip())
 
         return SecuritySettings(
             app_env=app_env,
             allowed_origins=allowed_origins,
             api_keys=api_keys,
             bearer_tokens=bearer_tokens,
+            moderator_api_keys=moderator_api_keys,
+            moderator_bearer_tokens=moderator_bearer_tokens,
         )
 
     def _resolve_access_control_origin(self, settings: SecuritySettings) -> str | None:
@@ -81,25 +100,35 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
     def _is_write_method(self) -> bool:
         return self.command in {"POST", "PATCH", "DELETE"}
 
-    def _is_authorized_write_request(self, settings: SecuritySettings) -> bool:
+    def _resolve_write_auth_context(self, settings: SecuritySettings) -> WriteAuthContext:
         if settings.app_env != "prod" or not self._is_write_method():
-            return True
+            return WriteAuthContext(is_authorized=True, subject="dev", role="author")
 
-        has_configured_credentials = bool(settings.api_keys or settings.bearer_tokens)
+        has_configured_credentials = bool(
+            settings.api_keys
+            or settings.bearer_tokens
+            or settings.moderator_api_keys
+            or settings.moderator_bearer_tokens
+        )
         if not has_configured_credentials:
-            return False
-
+            return WriteAuthContext(is_authorized=False, subject="anonymous", role="anonymous")
         api_key = str(self.headers.get("X-API-Key", "")).strip()
-        if api_key and api_key in settings.api_keys:
-            return True
+        if api_key:
+            if api_key in settings.moderator_api_keys:
+                return WriteAuthContext(is_authorized=True, subject=f"api_key:{api_key}", role="moderator")
+            if api_key in settings.api_keys:
+                return WriteAuthContext(is_authorized=True, subject=f"api_key:{api_key}", role="author")
 
         auth_header = str(self.headers.get("Authorization", "")).strip()
         if auth_header.lower().startswith("bearer "):
             token = auth_header[7:].strip()
-            if token and token in settings.bearer_tokens:
-                return True
+            if token:
+                if token in settings.moderator_bearer_tokens:
+                    return WriteAuthContext(is_authorized=True, subject=f"bearer:{token}", role="moderator")
+                if token in settings.bearer_tokens:
+                    return WriteAuthContext(is_authorized=True, subject=f"bearer:{token}", role="author")
 
-        return False
+        return WriteAuthContext(is_authorized=False, subject="anonymous", role="anonymous")
 
     def _build_cors_headers(self, settings: SecuritySettings) -> dict[str, str]:
         headers: dict[str, str] = {
@@ -301,7 +330,9 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
                 )
                 self._send_auth_error(403, "forbidden_origin", "Origin is not allowed")
                 return
-            if not self._is_authorized_write_request(settings):
+            write_auth_context = self._resolve_write_auth_context(settings)
+            self.write_auth_context = write_auth_context
+            if not write_auth_context.is_authorized:
                 logger.warning(
                     "Blocked write request due to missing/invalid credentials",
                     extra=self._request_log_extra(),
@@ -597,6 +628,7 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             if payload is None:
                 self._send_json(400, {"error": "Некорректный payload"})
                 return
+            payload["_actor_is_moderator"] = bool(getattr(self, "write_auth_context", None) and self.write_auth_context.is_moderator)
 
             try:
                 updated = FeedService.update_guest_comment(
@@ -607,7 +639,7 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             except LookupError as error:
                 self._send_json(404, {"error": str(error)})
                 return
-            except PermissionError as error:
+            except FeedAccessDeniedError as error:
                 self._send_json(403, {"error": str(error)})
                 return
             except ValueError as error:
@@ -660,6 +692,7 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
         if payload is None:
             self._send_json(400, {"error": "Некорректный payload"})
             return
+        payload["_actor_is_moderator"] = bool(getattr(self, "write_auth_context", None) and self.write_auth_context.is_moderator)
 
         try:
             updated = FeedService.update_guest_post(int(post_id_raw), payload)
@@ -669,9 +702,11 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
         except ValueError as error:
             self._send_json(400, {"error": str(error)})
             return
-
-        if not updated:
-            self._send_json(404, {"error": "Пост не найден"})
+        except LookupError as error:
+            self._send_json(404, {"error": str(error)})
+            return
+        except FeedAccessDeniedError as error:
+            self._send_json(403, {"error": str(error)})
             return
 
         self._send_json(200, updated)
@@ -730,13 +765,14 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             if payload is None:
                 self._send_json(400, {"error": "Некорректный payload"})
                 return
+            payload["_actor_is_moderator"] = bool(getattr(self, "write_auth_context", None) and self.write_auth_context.is_moderator)
 
             try:
                 FeedService.delete_guest_comment(post_id=int(post_id_raw), comment_id=int(comment_id_raw), payload=payload)
             except LookupError as error:
                 self._send_json(404, {"error": str(error)})
                 return
-            except PermissionError as error:
+            except FeedAccessDeniedError as error:
                 self._send_json(403, {"error": str(error)})
                 return
 
@@ -756,13 +792,14 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             if payload is None:
                 self._send_json(400, {"error": "Некорректный payload"})
                 return
+            payload["_actor_is_moderator"] = bool(getattr(self, "write_auth_context", None) and self.write_auth_context.is_moderator)
 
             try:
                 FeedService.delete_guest_post(post_id=int(post_id_raw), payload=payload)
             except LookupError as error:
                 self._send_json(404, {"error": str(error)})
                 return
-            except PermissionError as error:
+            except FeedAccessDeniedError as error:
                 self._send_json(403, {"error": str(error)})
                 return
 
