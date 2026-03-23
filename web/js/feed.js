@@ -594,9 +594,28 @@
         text: item.text || '',
         image: item.image_url || '',
         likes: Number(item.likes) || 0,
-        comments: 0,
+        comments: [],
         reposts: 0,
         likedByMe: false,
+      };
+    }
+
+    function mapApiComment(item) {
+      return {
+        id: Number(item.id) || 0,
+        postId: Number(item.post_id) || 0,
+        guestProfileId: String(item.guest_profile_id || '').trim(),
+        author: String(item.author || 'Гость'),
+        text: String(item.text || '').trim(),
+        createdAt: formatPostDate(item.created_at),
+      };
+    }
+
+    function getCurrentGuestActor() {
+      const profile = getStoredGuestProfile();
+      return {
+        id: String(profile?.id || '').trim(),
+        fullName: String(profile?.fullName || '').trim() || 'Гость',
       };
     }
 
@@ -676,12 +695,153 @@
 
         footer.append(
           likeButton,
-          createInteractionButton('💬', post.comments, 'Комментарий'),
+          createInteractionButton('💬', Array.isArray(post.comments) ? post.comments.length : 0, 'Комментарий'),
           createInteractionButton('↻', post.reposts, 'Репост'),
         );
         article.appendChild(footer);
+
+        const commentsWrap = document.createElement('section');
+        commentsWrap.className = 'mt-3 border-t border-white/10 pt-3 space-y-2';
+
+        const commentsTitle = document.createElement('p');
+        commentsTitle.className = 'text-xs uppercase tracking-wide text-textSoft';
+        commentsTitle.textContent = `Комментарии (${Array.isArray(post.comments) ? post.comments.length : 0})`;
+        commentsWrap.appendChild(commentsTitle);
+
+        const actor = getCurrentGuestActor();
+        const commentList = document.createElement('div');
+        commentList.className = 'space-y-2';
+        (post.comments || []).forEach((comment) => {
+          const row = document.createElement('div');
+          row.className = 'rounded-lg border border-white/10 bg-panelSoft px-3 py-2';
+
+          const top = document.createElement('div');
+          top.className = 'mb-1 flex items-center justify-between gap-2';
+
+          const meta = document.createElement('span');
+          meta.className = 'text-xs text-textSoft';
+          meta.textContent = `${comment.author} • ${comment.createdAt}`;
+          top.appendChild(meta);
+
+          if (actor.id && comment.guestProfileId === actor.id) {
+            const controls = document.createElement('div');
+            controls.className = 'inline-flex items-center gap-2';
+            const editBtn = document.createElement('button');
+            editBtn.type = 'button';
+            editBtn.className = 'text-xs text-accent hover:underline';
+            editBtn.textContent = 'Редактировать';
+            editBtn.addEventListener('click', async () => {
+              const nextText = window.prompt('Изменить комментарий', comment.text);
+              if (nextText === null) return;
+              const cleaned = String(nextText || '').trim();
+              if (!cleaned) {
+                showAppNotification('Текст комментария не должен быть пустым.', 'error');
+                return;
+              }
+              try {
+                const response = await fetch(`${FEED_API_BASE}/api/feed/posts/${post.id}/comments/${comment.id}`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ guest_profile_id: actor.id, text: cleaned }),
+                });
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(payload.error || `Не удалось обновить комментарий (HTTP ${response.status})`);
+                await loadCommentsForPost(post);
+                renderFeed();
+                showAppNotification('Комментарий обновлён.', 'success');
+              } catch (error) {
+                console.error(error);
+                showAppNotification(error.message || 'Не удалось обновить комментарий.', 'error');
+              }
+            });
+            const deleteBtn = document.createElement('button');
+            deleteBtn.type = 'button';
+            deleteBtn.className = 'text-xs text-warning hover:underline';
+            deleteBtn.textContent = 'Удалить';
+            deleteBtn.addEventListener('click', async () => {
+              try {
+                const response = await fetch(`${FEED_API_BASE}/api/feed/posts/${post.id}/comments/${comment.id}`, {
+                  method: 'DELETE',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ guest_profile_id: actor.id }),
+                });
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(payload.error || `Не удалось удалить комментарий (HTTP ${response.status})`);
+                await loadCommentsForPost(post);
+                renderFeed();
+                showAppNotification('Комментарий удалён.', 'success');
+              } catch (error) {
+                console.error(error);
+                showAppNotification(error.message || 'Не удалось удалить комментарий.', 'error');
+              }
+            });
+            controls.append(editBtn, deleteBtn);
+            top.appendChild(controls);
+          }
+
+          const text = document.createElement('p');
+          text.className = 'text-sm text-text';
+          text.textContent = comment.text;
+          row.append(top, text);
+          commentList.appendChild(row);
+        });
+        commentsWrap.appendChild(commentList);
+
+        const form = document.createElement('form');
+        form.className = 'flex gap-2 pt-1';
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.placeholder = 'Напишите комментарий...';
+        input.className = 'min-w-0 flex-1 rounded-lg border border-white/15 bg-panel px-3 py-2 text-sm text-text outline-none focus:border-accent';
+        const submit = document.createElement('button');
+        submit.type = 'submit';
+        submit.className = 'rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-black hover:opacity-90';
+        submit.textContent = 'Отправить';
+        form.append(input, submit);
+        form.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const text = String(input.value || '').trim();
+          if (!text) {
+            showAppNotification('Введите текст комментария.', 'error');
+            return;
+          }
+          if (!actor.id) {
+            showAppNotification('Сначала заполните и сохраните профиль гостя.', 'error');
+            return;
+          }
+          submit.disabled = true;
+          try {
+            const response = await fetch(`${FEED_API_BASE}/api/feed/posts/${post.id}/comments`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ guest_profile_id: actor.id, author: actor.fullName, text }),
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(payload.error || `Не удалось добавить комментарий (HTTP ${response.status})`);
+            input.value = '';
+            await loadCommentsForPost(post);
+            renderFeed();
+            showAppNotification('Комментарий добавлен.', 'success');
+          } catch (error) {
+            console.error(error);
+            showAppNotification(error.message || 'Не удалось добавить комментарий.', 'error');
+          } finally {
+            submit.disabled = false;
+          }
+        });
+        commentsWrap.appendChild(form);
+        article.appendChild(commentsWrap);
         feedEl.appendChild(article);
       });
+    }
+
+    async function loadCommentsForPost(post) {
+      if (!post || !post.id) return;
+      const response = await fetch(`${FEED_API_BASE}/api/feed/posts/${post.id}/comments?limit=100&offset=0`);
+      if (!response.ok) throw new Error(`Не удалось загрузить комментарии (HTTP ${response.status})`);
+      const payload = await response.json().catch(() => ({}));
+      const items = Array.isArray(payload.items) ? payload.items : [];
+      post.comments = items.map(mapApiComment);
     }
 
     async function loadPosts() {
@@ -694,6 +854,9 @@
         const payload = await response.json();
         const items = Array.isArray(payload.items) ? payload.items : [];
         posts.splice(0, posts.length, ...items.map(mapApiPost));
+        await Promise.all(posts.map((post) => loadCommentsForPost(post).catch(() => {
+          post.comments = [];
+        })));
         renderFeed();
       } catch (error) {
         console.error(error);

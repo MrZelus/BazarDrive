@@ -1,4 +1,5 @@
 import os
+import sqlite3
 import tempfile
 import unittest
 
@@ -99,6 +100,52 @@ class GuestFeedRepositoryTests(unittest.TestCase):
         deleted = repository.delete_driver_document(created_doc["id"])
         self.assertTrue(deleted)
         self.assertEqual(repository.list_driver_documents(profile_id="driver-main"), [])
+
+    def test_guest_feed_comments_repository_crud_and_cascade(self) -> None:
+        created_post = repository.create_guest_feed_post(
+            author="Ivan Guest",
+            text="Пост для проверки комментариев",
+            guest_profile_id="guest-0001",
+        )
+        post_id = created_post["id"]
+
+        created_comment = repository.create_guest_feed_comment(
+            post_id=post_id,
+            guest_profile_id="guest-0001",
+            author="Ivan Guest",
+            text="Первый комментарий",
+        )
+        self.assertEqual(created_comment["post_id"], post_id)
+        comment_id = created_comment["id"]
+
+        fetched = repository.get_guest_feed_comment(comment_id)
+        self.assertIsNotNone(fetched)
+        self.assertEqual(fetched["text"], "Первый комментарий")
+
+        listed = repository.list_guest_feed_comments(post_id=post_id, limit=50, offset=0)
+        self.assertEqual(len(listed), 1)
+        self.assertEqual(listed[0]["id"], comment_id)
+
+        updated = repository.update_guest_feed_comment(comment_id=comment_id, text="Обновлённый комментарий")
+        self.assertIsNotNone(updated)
+        self.assertEqual(updated["text"], "Обновлённый комментарий")
+
+        deleted = repository.delete_guest_feed_comment(comment_id)
+        self.assertTrue(deleted)
+        self.assertIsNone(repository.get_guest_feed_comment(comment_id))
+
+        comment_for_cascade = repository.create_guest_feed_comment(
+            post_id=post_id,
+            guest_profile_id="guest-0001",
+            author="Ivan Guest",
+            text="Будет удалён каскадом",
+        )
+        cascade_comment_id = comment_for_cascade["id"]
+        with sqlite3.connect(os.environ["BAZAR_DB_PATH"]) as conn:
+            conn.execute("PRAGMA foreign_keys=ON")
+            conn.execute("DELETE FROM guest_feed_posts WHERE id = ?", (post_id,))
+            conn.commit()
+        self.assertIsNone(repository.get_guest_feed_comment(cascade_comment_id))
 
 
 if __name__ == "__main__":

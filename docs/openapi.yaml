@@ -169,6 +169,206 @@ paths:
               schema:
                 $ref: '#/components/schemas/PayloadTooLargeError'
 
+  /api/feed/posts/{id}/comments:
+    get:
+      tags: [Feed]
+      summary: Получить комментарии к посту
+      description: |
+        Возвращает комментарии в порядке создания (ASC по `created_at`, затем `id`).
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 200, default: 100 }
+        - in: query
+          name: offset
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        '200':
+          description: Список комментариев
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentsListResponse'
+        '404':
+          description: Пост не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        '403':
+          description: Origin заблокирован CORS-политикой (актуально для prod)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+    post:
+      tags: [Feed]
+      summary: Создать комментарий к посту
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCommentRequest'
+      responses:
+        '201':
+          description: Комментарий создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        '404':
+          description: Пост не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        '401':
+          description: В prod для write-операций не переданы или невалидны auth credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+        '403':
+          description: Origin заблокирован CORS-политикой (актуально для prod)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+        '413':
+          description: Размер payload превышает лимит `MAX_REQUEST_BYTES`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayloadTooLargeError'
+
+  /api/feed/posts/{id}/comments/{cid}:
+    patch:
+      tags: [Feed]
+      summary: Изменить комментарий (автор или модератор)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - in: path
+          name: cid
+          required: true
+          schema: { type: integer, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCommentRequest'
+      responses:
+        '200':
+          description: Комментарий обновлён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        '404':
+          description: Пост или комментарий не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        '401':
+          description: В prod для write-операций не переданы или невалидны auth credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+        '413':
+          description: Размер payload превышает лимит `MAX_REQUEST_BYTES`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayloadTooLargeError'
+    delete:
+      tags: [Feed]
+      summary: Удалить комментарий (автор или модератор)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - in: path
+          name: cid
+          required: true
+          schema: { type: integer, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                guest_profile_id: { type: string }
+              required: [guest_profile_id]
+      responses:
+        '200':
+          description: Комментарий удалён
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean, example: true }
+                required: [ok]
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        '404':
+          description: Пост или комментарий не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        '401':
+          description: В prod для write-операций не переданы или невалидны auth credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+        '413':
+          description: Размер payload превышает лимит `MAX_REQUEST_BYTES`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayloadTooLargeError'
+
   /api/feed/profiles:
     post:
       tags: [Profiles]
@@ -577,6 +777,44 @@ components:
         offset: { type: integer }
         total: { type: integer }
       required: [items, limit, offset, total]
+
+    Comment:
+      type: object
+      properties:
+        id: { type: integer }
+        post_id: { type: integer }
+        guest_profile_id: { type: string, nullable: true }
+        author: { type: string }
+        text: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+      required: [id, post_id, author, text, created_at, updated_at]
+
+    CommentsListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Comment' }
+        limit: { type: integer }
+        offset: { type: integer }
+        total: { type: integer }
+      required: [items, limit, offset, total]
+
+    CreateCommentRequest:
+      type: object
+      properties:
+        guest_profile_id: { type: string, nullable: true }
+        author: { type: string, minLength: 2, maxLength: 40 }
+        text: { type: string, minLength: 1, maxLength: 300 }
+      required: [author, text]
+
+    UpdateCommentRequest:
+      type: object
+      properties:
+        guest_profile_id: { type: string }
+        text: { type: string, minLength: 1, maxLength: 300 }
+      required: [guest_profile_id, text]
 
     CreateFeedPostRequest:
       type: object

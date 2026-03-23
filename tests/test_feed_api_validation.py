@@ -90,6 +90,34 @@ class FeedAPIValidationTests(unittest.TestCase):
         conn.close()
         return response.status, parsed, response_headers
 
+    def _patch(self, path: str, payload: dict, headers: dict[str, str] | None = None) -> tuple[int, dict, dict]:
+        conn = HTTPConnection(self.host, self.port, timeout=5)
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        request_headers = {"Content-Type": "application/json"}
+        if headers:
+            request_headers.update(headers)
+        conn.request("PATCH", path, body=body, headers=request_headers)
+        response = conn.getresponse()
+        data = response.read().decode("utf-8")
+        parsed = json.loads(data) if data else {}
+        response_headers = {k.lower(): v for k, v in response.getheaders()}
+        conn.close()
+        return response.status, parsed, response_headers
+
+    def _delete(self, path: str, payload: dict, headers: dict[str, str] | None = None) -> tuple[int, dict, dict]:
+        conn = HTTPConnection(self.host, self.port, timeout=5)
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        request_headers = {"Content-Type": "application/json"}
+        if headers:
+            request_headers.update(headers)
+        conn.request("DELETE", path, body=body, headers=request_headers)
+        response = conn.getresponse()
+        data = response.read().decode("utf-8")
+        parsed = json.loads(data) if data else {}
+        response_headers = {k.lower(): v for k, v in response.getheaders()}
+        conn.close()
+        return response.status, parsed, response_headers
+
     def test_profile_validation_returns_400(self) -> None:
         status, payload, _ = self._post("/api/feed/profiles", {"id": "short", "display_name": "A"})
         self.assertEqual(status, 400)
@@ -323,6 +351,91 @@ class FeedAPIValidationTests(unittest.TestCase):
         )
         self.assertEqual(status, 400)
         self.assertEqual(payload.get("error"), "Пост выглядит как спам: слишком много повторяющихся слов.")
+
+    def test_comments_crud_happy_path(self) -> None:
+        post_status, post_payload, _ = self._post(
+            "/api/feed/posts",
+            {"author": "Valid Author", "text": "Текст публикации для комментариев"},
+        )
+        self.assertEqual(post_status, 201)
+        post_id = post_payload["id"]
+
+        create_status, create_payload, _ = self._post(
+            f"/api/feed/posts/{post_id}/comments",
+            {"guest_profile_id": "guest-0001", "author": "Комментатор", "text": "Первый комментарий"},
+        )
+        self.assertEqual(create_status, 201)
+        self.assertEqual(create_payload["post_id"], post_id)
+        comment_id = create_payload["id"]
+
+        list_status, list_payload, _ = self._get(f"/api/feed/posts/{post_id}/comments")
+        self.assertEqual(list_status, 200)
+        self.assertEqual(list_payload["total"], 1)
+        self.assertEqual(list_payload["items"][0]["id"], comment_id)
+
+        patch_status, patch_payload, _ = self._patch(
+            f"/api/feed/posts/{post_id}/comments/{comment_id}",
+            {"guest_profile_id": "guest-0001", "text": "Обновлённый комментарий"},
+        )
+        self.assertEqual(patch_status, 200)
+        self.assertEqual(patch_payload["text"], "Обновлённый комментарий")
+
+        delete_status, delete_payload, _ = self._delete(
+            f"/api/feed/posts/{post_id}/comments/{comment_id}",
+            {"guest_profile_id": "guest-0001"},
+        )
+        self.assertEqual(delete_status, 200)
+        self.assertTrue(delete_payload["ok"])
+
+        list_after_delete_status, list_after_delete_payload, _ = self._get(f"/api/feed/posts/{post_id}/comments")
+        self.assertEqual(list_after_delete_status, 200)
+        self.assertEqual(list_after_delete_payload["items"], [])
+
+    def test_comments_negative_400_403_404(self) -> None:
+        post_status, post_payload, _ = self._post(
+            "/api/feed/posts",
+            {"author": "Valid Author", "text": "Базовый пост для негативных сценариев комментариев"},
+        )
+        self.assertEqual(post_status, 201)
+        post_id = post_payload["id"]
+
+        not_found_post_status, _, _ = self._post(
+            "/api/feed/posts/999999/comments",
+            {"guest_profile_id": "guest-0001", "author": "Автор", "text": "text"},
+        )
+        self.assertEqual(not_found_post_status, 404)
+
+        bad_request_status, bad_request_payload, _ = self._post(
+            f"/api/feed/posts/{post_id}/comments",
+            {"guest_profile_id": "guest-0001", "author": "Автор", "text": "   "},
+        )
+        self.assertEqual(bad_request_status, 400)
+        self.assertIn("error", bad_request_payload)
+
+        create_status, create_payload, _ = self._post(
+            f"/api/feed/posts/{post_id}/comments",
+            {"guest_profile_id": "guest-0001", "author": "Комментатор", "text": "Комментарий автора"},
+        )
+        self.assertEqual(create_status, 201)
+        comment_id = create_payload["id"]
+
+        forbidden_patch_status, _, _ = self._patch(
+            f"/api/feed/posts/{post_id}/comments/{comment_id}",
+            {"guest_profile_id": "guest-9999", "text": "Попытка изменить чужой комментарий"},
+        )
+        self.assertEqual(forbidden_patch_status, 403)
+
+        forbidden_delete_status, _, _ = self._delete(
+            f"/api/feed/posts/{post_id}/comments/{comment_id}",
+            {"guest_profile_id": "guest-9999"},
+        )
+        self.assertEqual(forbidden_delete_status, 403)
+
+        not_found_comment_status, _, _ = self._patch(
+            f"/api/feed/posts/{post_id}/comments/999999",
+            {"guest_profile_id": "guest-0001", "text": "missing"},
+        )
+        self.assertEqual(not_found_comment_status, 404)
 
     def test_unexpected_error_returns_unified_json(self) -> None:
         original = repository.list_guest_feed_posts
