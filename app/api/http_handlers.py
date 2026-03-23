@@ -457,10 +457,11 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             offset = max(0, _parse_int("offset", 0))
             try:
                 items = FeedService.list_guest_comments(post_id=int(post_id_raw), limit=limit, offset=offset)
+                total = FeedService.count_guest_comments(post_id=int(post_id_raw))
             except LookupError as error:
                 self._send_json(404, {"error": str(error)})
                 return
-            self._send_json(200, {"items": items, "limit": limit, "offset": offset, "total": len(items)})
+            self._send_json(200, {"items": items, "limit": limit, "offset": offset, "total": total})
             return
 
         if path.startswith("/api/feed/profiles/"):

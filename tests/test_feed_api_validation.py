@@ -393,6 +393,31 @@ class FeedAPIValidationTests(unittest.TestCase):
         list_after_delete_status, list_after_delete_payload, _ = self._get(f"/api/feed/posts/{post_id}/comments")
         self.assertEqual(list_after_delete_status, 200)
         self.assertEqual(list_after_delete_payload["items"], [])
+        self.assertEqual(list_after_delete_payload["total"], 0)
+
+    def test_comments_list_total_ignores_pagination_window(self) -> None:
+        post_status, post_payload, _ = self._post(
+            "/api/feed/posts",
+            {"author": "Valid Author", "text": "Пост для проверки total в комментариях"},
+        )
+        self.assertEqual(post_status, 201)
+        post_id = post_payload["id"]
+
+        for idx in range(3):
+            create_status, _, _ = self._post(
+                f"/api/feed/posts/{post_id}/comments",
+                {
+                    "guest_profile_id": f"guest-{idx}",
+                    "author": f"Комментатор {idx}",
+                    "text": f"Комментарий {idx}",
+                },
+            )
+            self.assertEqual(create_status, 201)
+
+        list_status, list_payload, _ = self._get(f"/api/feed/posts/{post_id}/comments?limit=1&offset=1")
+        self.assertEqual(list_status, 200)
+        self.assertEqual(len(list_payload["items"]), 1)
+        self.assertEqual(list_payload["total"], 3)
 
     def test_comments_negative_400_403_404(self) -> None:
         post_status, post_payload, _ = self._post(

@@ -629,6 +629,7 @@
         myReaction,
         likes: Number(item.likes ?? reactions.like) || 0,
         comments: [],
+        commentsTotal: Number.isFinite(Number(item.comments_total)) ? Number(item.comments_total) : null,
         reposts: 0,
         likedByMe: myReaction === 'like',
       };
@@ -720,6 +721,13 @@
 
       button.append(icon, counter);
       return button;
+    }
+
+    function resolveCommentCounter(post) {
+      if (Number.isFinite(Number(post?.commentsTotal))) {
+        return Math.max(0, Number(post.commentsTotal));
+      }
+      return Array.isArray(post?.comments) ? post.comments.length : 0;
     }
 
     function renderFeed() {
@@ -838,9 +846,10 @@
           }
         });
 
+        const commentsCounter = resolveCommentCounter(post);
         footer.append(
           likeButton,
-          createInteractionButton('💬', Array.isArray(post.comments) ? post.comments.length : 0, 'Комментарий'),
+          createInteractionButton('💬', commentsCounter, 'Комментарий'),
           createInteractionButton('↻', post.reposts, 'Репост'),
         );
         article.appendChild(footer);
@@ -850,7 +859,7 @@
 
         const commentsTitle = document.createElement('p');
         commentsTitle.className = 'text-xs uppercase tracking-wide text-textSoft';
-        commentsTitle.textContent = `Комментарии (${Array.isArray(post.comments) ? post.comments.length : 0})`;
+        commentsTitle.textContent = `Комментарии (${commentsCounter})`;
         commentsWrap.appendChild(commentsTitle);
 
         const commentList = document.createElement('div');
@@ -986,6 +995,7 @@
       const payload = await response.json().catch(() => ({}));
       const items = Array.isArray(payload.items) ? payload.items : [];
       post.comments = items.map(mapApiComment);
+      post.commentsTotal = Number.isFinite(Number(payload.total)) ? Number(payload.total) : post.comments.length;
     }
 
     function setFeedLoadingSkeleton(isVisible) {

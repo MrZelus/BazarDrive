@@ -1096,7 +1096,9 @@ components:
           items: { $ref: '#/components/schemas/Comment' }
         limit: { type: integer }
         offset: { type: integer }
-        total: { type: integer }
+        total:
+          type: integer
+          description: Общее количество комментариев у поста без учёта limit/offset
       required: [items, limit, offset, total]
 
     CreateCommentRequest:
