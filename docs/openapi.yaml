@@ -4,6 +4,9 @@ info:
   version: 1.0.0
   description: |
     Контракт API для сценариев ленты, профиля гостя, правил публикации и документов водителя.
+    Поведение безопасности зависит от окружения:
+    - `dev`: CORS открыт (`Access-Control-Allow-Origin: *`), write-методы работают без auth.
+    - `prod`: CORS ограничен `CORS_ALLOWED_ORIGINS`, write-методы требуют `X-API-Key` или `Authorization: Bearer`.
 servers:
   - url: http://localhost:8001
     description: Local development
@@ -54,6 +57,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/FeedPostsListResponse'
+        '403':
+          description: Origin заблокирован CORS-политикой (актуально для prod)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
 
     post:
       tags: [Feed]
@@ -88,6 +97,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RateLimitError'
+        '401':
+          description: В prod для write-операций не переданы или невалидны auth credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+        '403':
+          description: Origin заблокирован CORS-политикой (актуально для prod)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+        '413':
+          description: Размер payload превышает лимит `MAX_REQUEST_BYTES`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayloadTooLargeError'
 
   /api/feed/posts/{id}:
     patch:
@@ -123,6 +150,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorMessage'
+        '401':
+          description: В prod для write-операций не переданы или невалидны auth credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+        '403':
+          description: Origin заблокирован CORS-политикой (актуально для prod)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+        '413':
+          description: Размер payload превышает лимит `MAX_REQUEST_BYTES`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayloadTooLargeError'
 
   /api/feed/profiles:
     post:
@@ -148,6 +193,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorMessage'
+        '401':
+          description: В prod для write-операций не переданы или невалидны auth credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+        '403':
+          description: Origin заблокирован CORS-политикой (актуально для prod)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
 
   /api/feed/profiles/{id}:
     get:
@@ -177,6 +234,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorMessage'
+        '403':
+          description: Origin заблокирован CORS-политикой (актуально для prod)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
 
   /api/feed/approved:
     get:
@@ -199,6 +262,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorMessage'
+        '403':
+          description: Origin заблокирован CORS-политикой (актуально для prod)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
 
   /api/feed/publication-rules:
     get:
@@ -211,6 +280,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PublicationRules'
+        '403':
+          description: Origin заблокирован CORS-политикой (актуально для prod)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
 
   /api/driver/documents:
     get:
@@ -228,6 +303,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DriverDocumentListResponse'
+        '403':
+          description: Origin заблокирован CORS-политикой (актуально для prod)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
 
     post:
       tags: [Driver documents]
@@ -257,6 +338,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DuplicateDocumentError'
+        '401':
+          description: В prod для write-операций не переданы или невалидны auth credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+        '403':
+          description: Origin заблокирован CORS-политикой (актуально для prod)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
 
   /api/driver/documents/{id}:
     patch:
@@ -292,6 +385,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorMessage'
+        '401':
+          description: В prod для write-операций не переданы или невалидны auth credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+        '403':
+          description: Origin заблокирован CORS-политикой (актуально для prod)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
 
     delete:
       tags: [Driver documents]
@@ -325,9 +430,69 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorMessage'
+        '401':
+          description: В prod для write-операций не переданы или невалидны auth credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+        '403':
+          description: Origin заблокирован CORS-политикой (актуально для prod)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
 
 components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: |
+        Используется только в `prod` для write-запросов.
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        Используется только в `prod` для write-запросов.
   schemas:
+    AuthErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              enum: [unauthorized, forbidden_origin]
+            message:
+              type: string
+            request_id:
+              type: string
+          required: [code, message, request_id]
+      required: [error]
+
+    PayloadTooLargeError:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: payload_too_large
+            message:
+              type: string
+              example: Payload Too Large
+            max_request_bytes:
+              type: integer
+              minimum: 1
+            request_id:
+              type: string
+          required: [code, message, max_request_bytes, request_id]
+      required: [error]
+
     ErrorMessage:
       type: object
       properties:
