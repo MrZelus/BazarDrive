@@ -582,9 +582,9 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
 
     def _handle_delete(self) -> None:
         path = urlparse(self.path).path
-        comment_prefix = "/api/feed/posts/"
-        if path.startswith(comment_prefix) and "/comments/" in path:
-            suffix = path[len(comment_prefix) :]
+        posts_prefix = "/api/feed/posts/"
+        if path.startswith(posts_prefix) and "/comments/" in path:
+            suffix = path[len(posts_prefix) :]
             post_id_raw, separator, comment_id_raw = suffix.partition("/comments/")
             if separator != "/comments/":
                 self._send_json(404, {"error": "Not found"})
@@ -606,6 +606,32 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
 
             try:
                 FeedService.delete_guest_comment(post_id=int(post_id_raw), comment_id=int(comment_id_raw), payload=payload)
+            except LookupError as error:
+                self._send_json(404, {"error": str(error)})
+                return
+            except PermissionError as error:
+                self._send_json(403, {"error": str(error)})
+                return
+
+            self._send_json(200, {"ok": True})
+            return
+
+        if path.startswith(posts_prefix):
+            post_id_raw = path[len(posts_prefix) :]
+            if not post_id_raw.isdigit() or int(post_id_raw) <= 0:
+                self._send_json(400, {"error": "Некорректный id поста"})
+                return
+
+            payload, error_payload, error_status = self._parse_feed_request_payload()
+            if error_payload is not None:
+                self._send_json(error_status, error_payload)
+                return
+            if payload is None:
+                self._send_json(400, {"error": "Некорректный payload"})
+                return
+
+            try:
+                FeedService.delete_guest_post(post_id=int(post_id_raw), payload=payload)
             except LookupError as error:
                 self._send_json(404, {"error": str(error)})
                 return

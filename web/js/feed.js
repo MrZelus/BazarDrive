@@ -589,6 +589,7 @@
       return {
         id: item.id,
         author: item.author || 'Гость',
+        guestProfileId: String(item.guest_profile_id || '').trim(),
         avatar: pickAvatar(item.author),
         publishedAt: formatPostDate(item.created_at),
         text: item.text || '',
@@ -619,6 +620,22 @@
       };
     }
 
+    function canDeletePost(post, actorId) {
+      return Boolean(actorId && String(post?.guestProfileId || '').trim() === actorId);
+    }
+
+    async function deletePost(postId, actorId) {
+      const response = await fetch(`${FEED_API_BASE}/api/feed/posts/${postId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ guest_profile_id: actorId }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || `Не удалось удалить пост (HTTP ${response.status})`);
+      }
+    }
+
     function createInteractionButton(iconText, value, label, extraClasses = '') {
       const button = document.createElement('button');
       button.type = 'button';
@@ -639,6 +656,7 @@
     function renderFeed() {
       clearChildren(feedEl);
       posts.forEach((post) => {
+        const actor = getCurrentGuestActor();
         const article = document.createElement('article');
         article.className = 'rounded-2xl bg-panel p-4 border border-white/10 animate-fadeInUp';
 
@@ -663,6 +681,27 @@
         meta.append(author, publishedAt);
         headerRow.append(avatar, meta);
         header.appendChild(headerRow);
+
+        if (canDeletePost(post, actor.id)) {
+          const deletePostBtn = document.createElement('button');
+          deletePostBtn.type = 'button';
+          deletePostBtn.className = 'text-xs text-warning hover:underline';
+          deletePostBtn.textContent = 'Удалить';
+          deletePostBtn.addEventListener('click', async () => {
+            deletePostBtn.disabled = true;
+            try {
+              await deletePost(post.id, actor.id);
+              await loadPosts();
+              showAppNotification('Пост удалён.', 'success');
+            } catch (error) {
+              console.error(error);
+              showAppNotification(error.message || 'Не удалось удалить пост.', 'error');
+            } finally {
+              deletePostBtn.disabled = false;
+            }
+          });
+          header.appendChild(deletePostBtn);
+        }
 
         const body = document.createElement('p');
         body.className = 'mb-3 text-[15px] leading-7 text-text';
@@ -708,7 +747,6 @@
         commentsTitle.textContent = `Комментарии (${Array.isArray(post.comments) ? post.comments.length : 0})`;
         commentsWrap.appendChild(commentsTitle);
 
-        const actor = getCurrentGuestActor();
         const commentList = document.createElement('div');
         commentList.className = 'space-y-2';
         (post.comments || []).forEach((comment) => {

@@ -446,7 +446,7 @@ class FeedService:
         return author_clean, text_clean
 
     @classmethod
-    def _is_comment_moderator(cls, guest_profile_id: str) -> bool:
+    def _is_moderator_profile(cls, guest_profile_id: str) -> bool:
         profile = repository.get_guest_profile(guest_profile_id)
         if not profile:
             return False
@@ -454,12 +454,35 @@ class FeedService:
         return role in cls.MODERATOR_ROLES
 
     @classmethod
+    def can_manage_post(cls, post: dict[str, object], actor_guest_profile_id: str) -> bool:
+        normalized_actor = actor_guest_profile_id.strip()
+        if not normalized_actor:
+            return False
+        author_profile_id = str(post.get("guest_profile_id", "")).strip()
+        return normalized_actor == author_profile_id or cls._is_moderator_profile(normalized_actor)
+
+    @classmethod
     def can_manage_comment(cls, comment: dict[str, object], actor_guest_profile_id: str) -> bool:
         normalized_actor = actor_guest_profile_id.strip()
         if not normalized_actor:
             return False
         author_profile_id = str(comment.get("guest_profile_id", "")).strip()
-        return normalized_actor == author_profile_id or cls._is_comment_moderator(normalized_actor)
+        return normalized_actor == author_profile_id or cls._is_moderator_profile(normalized_actor)
+
+    @classmethod
+    def delete_guest_post(cls, post_id: int, payload: dict[str, object]) -> bool:
+        post = repository.get_guest_feed_post(post_id)
+        if not post:
+            raise LookupError("Пост не найден")
+        actor_guest_profile_id = str(payload.get("guest_profile_id", "")).strip()
+        if not actor_guest_profile_id:
+            raise PermissionError("Недостаточно прав для удаления поста")
+        if not cls.can_manage_post(post, actor_guest_profile_id):
+            raise PermissionError("Недостаточно прав для удаления поста")
+        deleted = repository.delete_guest_feed_post(post_id=post_id)
+        if not deleted:
+            raise LookupError("Пост не найден")
+        return True
 
     @classmethod
     def create_guest_comment(cls, post_id: int, payload: dict[str, object]) -> dict[str, object]:
