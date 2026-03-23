@@ -39,6 +39,10 @@ class FeedPayloadTooLargeError(ValueError):
     pass
 
 
+class FeedAccessDeniedError(PermissionError):
+    pass
+
+
 class FeedService:
     RATE_LIMIT_WINDOW_SECONDS = 60
     RATE_LIMIT_MAX_POSTS_PER_IP = 8
@@ -575,9 +579,21 @@ class FeedService:
 
     @classmethod
     def update_guest_post(cls, post_id: int, payload: dict[str, object]) -> dict[str, object] | None:
+        post = repository.get_guest_feed_post(post_id)
+        if not post:
+            raise LookupError("Пост не найден")
+
         author, text = cls.validate_post_fields(str(payload.get("author", "")), str(payload.get("text", "")))
         media, image_url = cls.validate_post_media_payload(payload)
         guest_profile_id = str(payload.get("guest_profile_id", "")).strip() or None
+        is_moderator = bool(payload.get("_actor_is_moderator", False))
+        if not cls._can_manage_owner_id(
+            owner_guest_profile_id=repository.get_guest_feed_post_owner_id(post_id),
+            actor_guest_profile_id=guest_profile_id or "",
+            actor_is_moderator=is_moderator,
+        ):
+            raise FeedAccessDeniedError("Недостаточно прав для изменения поста")
+
         return repository.update_guest_feed_post(
             post_id=post_id,
             author=author,
@@ -629,15 +645,33 @@ class FeedService:
         return normalized_actor == author_profile_id or cls._is_moderator_profile(normalized_actor)
 
     @classmethod
+    def _can_manage_owner_id(
+        cls,
+        owner_guest_profile_id: str | None,
+        actor_guest_profile_id: str,
+        actor_is_moderator: bool,
+    ) -> bool:
+        if actor_is_moderator:
+            return True
+        owner_id = str(owner_guest_profile_id or "").strip()
+        actor_id = actor_guest_profile_id.strip()
+        if actor_id and cls._is_moderator_profile(actor_id):
+            return True
+        return bool(owner_id and actor_id and owner_id == actor_id)
+
+    @classmethod
     def delete_guest_post(cls, post_id: int, payload: dict[str, object]) -> bool:
-        post = repository.get_guest_feed_post(post_id)
-        if not post:
+        owner_id = repository.get_guest_feed_post_owner_id(post_id)
+        if owner_id is None:
             raise LookupError("Пост не найден")
         actor_guest_profile_id = str(payload.get("guest_profile_id", "")).strip()
-        if not actor_guest_profile_id:
-            raise PermissionError("Недостаточно прав для удаления поста")
-        if not cls.can_manage_post(post, actor_guest_profile_id):
-            raise PermissionError("Недостаточно прав для удаления поста")
+        is_moderator = bool(payload.get("_actor_is_moderator", False))
+        if not cls._can_manage_owner_id(
+            owner_guest_profile_id=owner_id,
+            actor_guest_profile_id=actor_guest_profile_id,
+            actor_is_moderator=is_moderator,
+        ):
+            raise FeedAccessDeniedError("Недостаточно прав для удаления поста")
         deleted = repository.delete_guest_feed_post(post_id=post_id)
         if not deleted:
             raise LookupError("Пост не найден")
@@ -671,10 +705,13 @@ class FeedService:
             raise LookupError("Комментарий не найден")
 
         actor_guest_profile_id = str(payload.get("guest_profile_id", "")).strip()
-        if not actor_guest_profile_id:
-            raise PermissionError("Недостаточно прав для изменения комментария")
-        if not cls.can_manage_comment(comment, actor_guest_profile_id):
-            raise PermissionError("Недостаточно прав для изменения комментария")
+        is_moderator = bool(payload.get("_actor_is_moderator", False))
+        if not cls._can_manage_owner_id(
+            owner_guest_profile_id=repository.get_guest_feed_comment_owner_id(comment_id),
+            actor_guest_profile_id=actor_guest_profile_id,
+            actor_is_moderator=is_moderator,
+        ):
+            raise FeedAccessDeniedError("Недостаточно прав для изменения комментария")
 
         text = str(payload.get("text", "")).strip()
         if not text:
@@ -696,8 +733,11 @@ class FeedService:
         if not comment or int(comment.get("post_id", 0)) != post_id:
             raise LookupError("Комментарий не найден")
         actor_guest_profile_id = str(payload.get("guest_profile_id", "")).strip()
-        if not actor_guest_profile_id:
-            raise PermissionError("Недостаточно прав для удаления комментария")
-        if not cls.can_manage_comment(comment, actor_guest_profile_id):
-            raise PermissionError("Недостаточно прав для удаления комментария")
+        is_moderator = bool(payload.get("_actor_is_moderator", False))
+        if not cls._can_manage_owner_id(
+            owner_guest_profile_id=repository.get_guest_feed_comment_owner_id(comment_id),
+            actor_guest_profile_id=actor_guest_profile_id,
+            actor_is_moderator=is_moderator,
+        ):
+            raise FeedAccessDeniedError("Недостаточно прав для удаления комментария")
         return repository.delete_guest_feed_comment(comment_id=comment_id)

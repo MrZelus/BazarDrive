@@ -19,6 +19,8 @@
 | `CORS_ALLOWED_ORIGINS` | Нет | пусто | Список origin через запятую для `prod` (например, `https://app.example.com,https://admin.example.com`). `*` в `prod` запрещён. |
 | `API_AUTH_KEYS` | Нет | пусто | Список валидных API-ключей для write-endpoints в `prod` (`X-API-Key`). |
 | `API_AUTH_BEARER_TOKENS` | Нет | пусто | Список bearer-токенов для write-endpoints в `prod` (`Authorization: Bearer <token>`). |
+| `MODERATOR_API_KEYS` | Нет | пусто | Список API-ключей модераторов в `prod`: дают write-auth и право изменять/удалять любые посты/комментарии. |
+| `MODERATOR_BEARER_TOKENS` | Нет | пусто | Список bearer-токенов модераторов в `prod` с теми же правами override. |
 
 ## Хранение изображений в гостевой ленте
 
@@ -48,8 +50,13 @@
   - `Origin`, отсутствующий в whitelist, отклоняется с `403`.
   - Для всех write-endpoints требуется хотя бы один из вариантов:
     - `X-API-Key` из `API_AUTH_KEYS`;
-    - `Authorization: Bearer <token>` из `API_AUTH_BEARER_TOKENS`.
+    - `Authorization: Bearer <token>` из `API_AUTH_BEARER_TOKENS`;
+    - `X-API-Key` из `MODERATOR_API_KEYS`;
+    - `Authorization: Bearer <token>` из `MODERATOR_BEARER_TOKENS`.
   - При отсутствии/невалидных учётных данных возвращается `401`.
+  - Object-level авторизация на PATCH/DELETE постов и комментариев:
+    - автор может изменять/удалять только свои сущности (`guest_profile_id` должен совпадать с владельцем);
+    - модераторские ключи/токены могут изменять и удалять любые сущности.
   - Все ошибки включают `request_id` для трассировки.
 
 ### Бэкап и очистка

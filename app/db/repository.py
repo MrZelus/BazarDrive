@@ -284,6 +284,21 @@ def get_guest_feed_post(post_id: int) -> Optional[dict[str, Any]]:
         return _attach_guest_feed_post_media(conn, [item])[0]
 
 
+def get_guest_feed_post_owner_id(post_id: int) -> Optional[str]:
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT guest_profile_id
+            FROM guest_feed_posts
+            WHERE id = ?
+            """,
+            (post_id,),
+        )
+        row = cur.fetchone()
+        return str(row[0]).strip() if row and row[0] is not None else None
+
+
 def delete_guest_feed_post(post_id: int) -> bool:
     with closing(sqlite3.connect(get_db_path())) as conn:
         cur = conn.cursor()
@@ -652,6 +667,21 @@ def get_guest_feed_comment(comment_id: int) -> Optional[dict[str, Any]]:
         )
         row = cur.fetchone()
         return dict(row) if row else None
+
+
+def get_guest_feed_comment_owner_id(comment_id: int) -> Optional[str]:
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT guest_profile_id
+            FROM guest_feed_comments
+            WHERE id = ?
+            """,
+            (comment_id,),
+        )
+        row = cur.fetchone()
+        return str(row[0]).strip() if row and row[0] is not None else None
 
 
 def update_guest_feed_comment(comment_id: int, text: str) -> Optional[dict[str, Any]]:
