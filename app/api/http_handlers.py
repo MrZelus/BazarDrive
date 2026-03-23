@@ -3,6 +3,7 @@ import logging
 import os
 import traceback
 import uuid
+from base64 import urlsafe_b64decode, urlsafe_b64encode
 from dataclasses import dataclass
 from typing import Callable
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -224,6 +225,42 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
 
         return payload, None, 200
 
+    @staticmethod
+    def _encode_posts_cursor(item: dict[str, object]) -> str | None:
+        created_at = str(item.get("created_at", "")).strip()
+        post_id = item.get("id")
+        if not created_at:
+            return None
+        try:
+            normalized_post_id = int(post_id)
+        except (TypeError, ValueError):
+            return None
+        raw = f"{created_at}|{normalized_post_id}".encode("utf-8")
+        return urlsafe_b64encode(raw).decode("ascii")
+
+    @staticmethod
+    def _decode_posts_cursor(raw_cursor: str) -> tuple[str, int]:
+        normalized = str(raw_cursor or "").strip()
+        if not normalized:
+            raise ValueError("cursor is empty")
+        try:
+            decoded = urlsafe_b64decode(normalized.encode("ascii")).decode("utf-8")
+        except Exception as error:
+            raise ValueError("cursor has invalid encoding") from error
+        parts = decoded.split("|", 1)
+        if len(parts) != 2:
+            raise ValueError("cursor must contain created_at and id")
+        created_at = parts[0].strip()
+        if not created_at:
+            raise ValueError("cursor.created_at is empty")
+        try:
+            cursor_id = int(parts[1].strip())
+        except ValueError as error:
+            raise ValueError("cursor.id must be an integer") from error
+        if cursor_id <= 0:
+            raise ValueError("cursor.id must be positive")
+        return created_at, cursor_id
+
     def _serve_stored_file(self, request_path: str) -> bool:
         file_path = FeedService.resolve_storage_path(request_path)
         if file_path is None or not os.path.isfile(file_path):
@@ -328,10 +365,44 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             limit = max(1, min(100, _parse_int("limit", 20)))
             offset = max(0, _parse_int("offset", 0))
             guest_profile_id = str(params.get("guest_profile_id", [""])[0]).strip()
-            posts = repository.list_guest_feed_posts(limit=limit, offset=offset)
+            cursor = str(params.get("cursor", [""])[0]).strip()
+            use_cursor = bool(cursor)
+            if use_cursor and "offset" in params:
+                self._send_json(400, {"error": "Нельзя одновременно передавать cursor и offset"})
+                return
+
+            if use_cursor:
+                try:
+                    cursor_created_at, cursor_id = self._decode_posts_cursor(cursor)
+                except ValueError:
+                    self._send_json(400, {"error": "Некорректный cursor"})
+                    return
+                cursor_batch = repository.list_guest_feed_posts_by_cursor(
+                    limit=limit + 1,
+                    cursor_created_at=cursor_created_at,
+                    cursor_id=cursor_id,
+                )
+                has_more = len(cursor_batch) > limit
+                posts = cursor_batch[:limit]
+            else:
+                posts = repository.list_guest_feed_posts(limit=limit, offset=offset)
+                has_more = False
             enriched_posts = FeedService.enrich_posts_with_reactions(posts, guest_profile_id=guest_profile_id)
             total = repository.count_guest_feed_posts()
-            self._send_json(200, {"items": enriched_posts, "limit": limit, "offset": offset, "total": total})
+            if not use_cursor:
+                has_more = (offset + len(enriched_posts)) < total
+            next_cursor = self._encode_posts_cursor(enriched_posts[-1]) if enriched_posts else None
+            self._send_json(
+                200,
+                {
+                    "items": enriched_posts,
+                    "limit": limit,
+                    "offset": offset,
+                    "total": total,
+                    "next_cursor": next_cursor if has_more else None,
+                    "has_more": has_more,
+                },
+            )
             return
 
         comments_prefix = "/api/feed/posts/"

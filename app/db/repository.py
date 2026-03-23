@@ -188,6 +188,40 @@ def list_guest_feed_posts(limit: int = 20, offset: int = 0) -> list[dict[str, An
         return _attach_guest_feed_post_media(conn, posts)
 
 
+def list_guest_feed_posts_by_cursor(
+    limit: int = 20,
+    cursor_created_at: Optional[str] = None,
+    cursor_id: Optional[int] = None,
+) -> list[dict[str, Any]]:
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        if cursor_created_at is None or cursor_id is None:
+            cur.execute(
+                """
+                SELECT id, author, text, guest_profile_id, likes, image_url, created_at, updated_at
+                FROM guest_feed_posts
+                ORDER BY datetime(created_at) DESC, id DESC
+                LIMIT ?
+                """,
+                (limit,),
+            )
+        else:
+            cur.execute(
+                """
+                SELECT id, author, text, guest_profile_id, likes, image_url, created_at, updated_at
+                FROM guest_feed_posts
+                WHERE datetime(created_at) < datetime(?)
+                   OR (datetime(created_at) = datetime(?) AND id < ?)
+                ORDER BY datetime(created_at) DESC, id DESC
+                LIMIT ?
+                """,
+                (cursor_created_at, cursor_created_at, cursor_id, limit),
+            )
+        posts = [dict(row) for row in cur.fetchall()]
+        return _attach_guest_feed_post_media(conn, posts)
+
+
 def count_guest_feed_posts() -> int:
     with closing(sqlite3.connect(get_db_path())) as conn:
         cur = conn.cursor()
