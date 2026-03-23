@@ -437,6 +437,100 @@ class FeedAPIValidationTests(unittest.TestCase):
         )
         self.assertEqual(not_found_comment_status, 404)
 
+    def test_delete_post_by_author_success_with_comment_cascade(self) -> None:
+        created_post = repository.create_guest_feed_post(
+            author="Post Author",
+            text="Пост для удаления автором",
+            guest_profile_id="guest-author-001",
+        )
+        post_id = created_post["id"]
+        repository.create_guest_feed_comment(
+            post_id=post_id,
+            guest_profile_id="guest-author-001",
+            author="Post Author",
+            text="Комментарий будет удалён каскадом",
+        )
+
+        delete_status, delete_payload, _ = self._delete(
+            f"/api/feed/posts/{post_id}",
+            {"guest_profile_id": "guest-author-001"},
+        )
+        self.assertEqual(delete_status, 200)
+        self.assertTrue(delete_payload.get("ok"))
+        self.assertIsNone(repository.get_guest_feed_post(post_id))
+        self.assertEqual(repository.list_guest_feed_comments(post_id=post_id), [])
+
+    def test_delete_post_by_foreign_user_returns_403(self) -> None:
+        created_post = repository.create_guest_feed_post(
+            author="Owner",
+            text="Чужой пост",
+            guest_profile_id="guest-owner-001",
+        )
+        post_id = created_post["id"]
+
+        status, payload, _ = self._delete(
+            f"/api/feed/posts/{post_id}",
+            {"guest_profile_id": "guest-other-001"},
+        )
+        self.assertEqual(status, 403)
+        self.assertIn("error", payload)
+
+    def test_delete_post_not_found_returns_404(self) -> None:
+        status, payload, _ = self._delete(
+            "/api/feed/posts/999999",
+            {"guest_profile_id": "guest-author-001"},
+        )
+        self.assertEqual(status, 404)
+        self.assertEqual(payload.get("error"), "Пост не найден")
+
+    def test_delete_post_invalid_id_returns_400(self) -> None:
+        status, payload, _ = self._delete(
+            "/api/feed/posts/not-a-number",
+            {"guest_profile_id": "guest-author-001"},
+        )
+        self.assertEqual(status, 400)
+        self.assertEqual(payload.get("error"), "Некорректный id поста")
+
+    def test_delete_post_by_moderator_success(self) -> None:
+        repository.upsert_guest_profile(
+            profile_id="guest-mod-001",
+            display_name="Moderator",
+            email="mod@example.com",
+            role="moderator",
+        )
+        created_post = repository.create_guest_feed_post(
+            author="Owner",
+            text="Пост для удаления модератором",
+            guest_profile_id="guest-owner-001",
+        )
+        post_id = created_post["id"]
+
+        status, payload, _ = self._delete(
+            f"/api/feed/posts/{post_id}",
+            {"guest_profile_id": "guest-mod-001"},
+        )
+        self.assertEqual(status, 200)
+        self.assertTrue(payload.get("ok"))
+        self.assertIsNone(repository.get_guest_feed_post(post_id))
+
+    def test_delete_post_requires_auth_in_prod(self) -> None:
+        os.environ["APP_ENV"] = "prod"
+        os.environ["CORS_ALLOWED_ORIGINS"] = "https://app.example.com"
+        os.environ["API_AUTH_KEYS"] = "secret-key"
+        created_post = repository.create_guest_feed_post(
+            author="Owner",
+            text="Пост для проверки auth",
+            guest_profile_id="guest-owner-001",
+        )
+
+        status, payload, _ = self._delete(
+            f"/api/feed/posts/{created_post['id']}",
+            {"guest_profile_id": "guest-owner-001"},
+            headers={"Origin": "https://app.example.com"},
+        )
+        self.assertEqual(status, 401)
+        self.assertEqual(payload.get("error", {}).get("code"), "unauthorized")
+
     def test_unexpected_error_returns_unified_json(self) -> None:
         original = repository.list_guest_feed_posts
 

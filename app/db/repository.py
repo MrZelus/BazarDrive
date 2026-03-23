@@ -237,6 +237,15 @@ def get_guest_feed_post(post_id: int) -> Optional[dict[str, Any]]:
         return dict(row) if row else None
 
 
+def delete_guest_feed_post(post_id: int) -> bool:
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        cur = conn.cursor()
+        cur.execute("PRAGMA foreign_keys = ON")
+        cur.execute("DELETE FROM guest_feed_posts WHERE id = ?", (post_id,))
+        conn.commit()
+        return cur.rowcount > 0
+
+
 def update_guest_feed_post(post_id: int, author: str, text: str, image_url: Optional[str] = None, guest_profile_id: Optional[str] = None) -> Optional[dict[str, Any]]:
     with closing(sqlite3.connect(get_db_path())) as conn:
         conn.row_factory = sqlite3.Row

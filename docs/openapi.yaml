@@ -168,6 +168,66 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PayloadTooLargeError'
+    delete:
+      tags: [Feed]
+      summary: Удалить пост (автор или модератор)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                guest_profile_id:
+                  type: string
+              required: [guest_profile_id]
+      responses:
+        '200':
+          description: Пост удалён
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+                required: [ok]
+        '400':
+          description: Некорректный id поста
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        '401':
+          description: В prod для write-операций не переданы или невалидны auth credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+        '403':
+          description: Недостаточно прав или Origin заблокирован CORS-политикой (актуально для prod)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        '404':
+          description: Пост не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        '413':
+          description: Размер payload превышает лимит `MAX_REQUEST_BYTES`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayloadTooLargeError'
 
   /api/feed/posts/{id}/comments:
     get:
