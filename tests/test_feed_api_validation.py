@@ -73,6 +73,16 @@ class FeedAPIValidationTests(unittest.TestCase):
         conn.close()
         return response.status, parsed, headers
 
+    def _post_raw(self, path: str, body: bytes, headers: dict[str, str]) -> tuple[int, dict, dict]:
+        conn = HTTPConnection(self.host, self.port, timeout=5)
+        conn.request("POST", path, body=body, headers=headers)
+        response = conn.getresponse()
+        data = response.read().decode("utf-8")
+        parsed = json.loads(data) if data else {}
+        response_headers = {k.lower(): v for k, v in response.getheaders()}
+        conn.close()
+        return response.status, parsed, response_headers
+
     def test_profile_validation_returns_400(self) -> None:
         status, payload, _ = self._post("/api/feed/profiles", {"id": "short", "display_name": "A"})
         self.assertEqual(status, 400)
@@ -111,6 +121,31 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertEqual(limited_status, 429)
         self.assertIn("retry_after", limited_payload)
         self.assertIn("retry-after", limited_headers)
+
+    def test_request_payload_too_large_returns_413(self) -> None:
+        previous_limit = os.environ.get("MAX_REQUEST_BYTES")
+        os.environ["MAX_REQUEST_BYTES"] = "64"
+        try:
+            body = json.dumps(
+                {
+                    "author": "Valid Author",
+                    "text": "Это валидный текст, который превышает лимит в 64 байта",
+                },
+                ensure_ascii=False,
+            ).encode("utf-8")
+            status, payload, _ = self._post_raw(
+                "/api/feed/posts",
+                body=body,
+                headers={"Content-Type": "application/json", "Content-Length": str(len(body))},
+            )
+            self.assertEqual(status, 413)
+            self.assertEqual(payload.get("error"), "payload_too_large")
+            self.assertEqual(payload.get("max_request_bytes"), 64)
+        finally:
+            if previous_limit is None:
+                os.environ.pop("MAX_REQUEST_BYTES", None)
+            else:
+                os.environ["MAX_REQUEST_BYTES"] = previous_limit
 
 
 
