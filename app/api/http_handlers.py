@@ -328,6 +328,33 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             self._send_json(200, {"items": posts, "limit": limit, "offset": offset, "total": total})
             return
 
+        comments_prefix = "/api/feed/posts/"
+        if path.startswith(comments_prefix) and path.endswith("/comments"):
+            suffix = path[len(comments_prefix) :]
+            post_id_raw = suffix[: -len("/comments")]
+            if not post_id_raw.isdigit() or int(post_id_raw) <= 0:
+                self._send_json(400, {"error": "Некорректный id поста"})
+                return
+
+            params = parse_qs(parsed.query)
+
+            def _parse_int(name: str, default: int) -> int:
+                raw = params.get(name, [str(default)])[0]
+                try:
+                    return int(raw)
+                except (TypeError, ValueError):
+                    return default
+
+            limit = max(1, min(200, _parse_int("limit", 100)))
+            offset = max(0, _parse_int("offset", 0))
+            try:
+                items = FeedService.list_guest_comments(post_id=int(post_id_raw), limit=limit, offset=offset)
+            except LookupError as error:
+                self._send_json(404, {"error": str(error)})
+                return
+            self._send_json(200, {"items": items, "limit": limit, "offset": offset, "total": len(items)})
+            return
+
         if path.startswith("/api/feed/profiles/"):
             profile_id = path[len("/api/feed/profiles/") :].strip()
             if not profile_id:
@@ -405,6 +432,24 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             self._send_json(201, profile)
             return
 
+        comments_prefix = "/api/feed/posts/"
+        if path.startswith(comments_prefix) and path.endswith("/comments"):
+            suffix = path[len(comments_prefix) :]
+            post_id_raw = suffix[: -len("/comments")]
+            if not post_id_raw.isdigit() or int(post_id_raw) <= 0:
+                self._send_json(400, {"error": "Некорректный id поста"})
+                return
+            try:
+                item = FeedService.create_guest_comment(post_id=int(post_id_raw), payload=payload)
+            except LookupError as error:
+                self._send_json(404, {"error": str(error)})
+                return
+            except ValueError as error:
+                self._send_json(400, {"error": str(error)})
+                return
+            self._send_json(201, item)
+            return
+
         if path != "/api/feed/posts":
             self._send_json(404, {"error": "Not found"})
             return
@@ -433,6 +478,46 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
 
     def _handle_patch(self) -> None:
         path = urlparse(self.path).path
+        comment_prefix = "/api/feed/posts/"
+        if path.startswith(comment_prefix) and "/comments/" in path:
+            suffix = path[len(comment_prefix) :]
+            post_id_raw, separator, comment_id_raw = suffix.partition("/comments/")
+            if separator != "/comments/":
+                self._send_json(404, {"error": "Not found"})
+                return
+            if not post_id_raw.isdigit() or int(post_id_raw) <= 0:
+                self._send_json(400, {"error": "Некорректный id поста"})
+                return
+            if not comment_id_raw.isdigit() or int(comment_id_raw) <= 0:
+                self._send_json(400, {"error": "Некорректный id комментария"})
+                return
+
+            payload, error_payload, error_status = self._parse_feed_request_payload()
+            if error_payload is not None:
+                self._send_json(error_status, error_payload)
+                return
+            if payload is None:
+                self._send_json(400, {"error": "Некорректный payload"})
+                return
+
+            try:
+                updated = FeedService.update_guest_comment(
+                    post_id=int(post_id_raw),
+                    comment_id=int(comment_id_raw),
+                    payload=payload,
+                )
+            except LookupError as error:
+                self._send_json(404, {"error": str(error)})
+                return
+            except PermissionError as error:
+                self._send_json(403, {"error": str(error)})
+                return
+            except ValueError as error:
+                self._send_json(400, {"error": str(error)})
+                return
+
+            self._send_json(200, updated)
+            return
 
         docs_prefix = "/api/driver/documents/"
         if path.startswith(docs_prefix):
@@ -497,6 +582,40 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
 
     def _handle_delete(self) -> None:
         path = urlparse(self.path).path
+        comment_prefix = "/api/feed/posts/"
+        if path.startswith(comment_prefix) and "/comments/" in path:
+            suffix = path[len(comment_prefix) :]
+            post_id_raw, separator, comment_id_raw = suffix.partition("/comments/")
+            if separator != "/comments/":
+                self._send_json(404, {"error": "Not found"})
+                return
+            if not post_id_raw.isdigit() or int(post_id_raw) <= 0:
+                self._send_json(400, {"error": "Некорректный id поста"})
+                return
+            if not comment_id_raw.isdigit() or int(comment_id_raw) <= 0:
+                self._send_json(400, {"error": "Некорректный id комментария"})
+                return
+
+            payload, error_payload, error_status = self._parse_feed_request_payload()
+            if error_payload is not None:
+                self._send_json(error_status, error_payload)
+                return
+            if payload is None:
+                self._send_json(400, {"error": "Некорректный payload"})
+                return
+
+            try:
+                FeedService.delete_guest_comment(post_id=int(post_id_raw), comment_id=int(comment_id_raw), payload=payload)
+            except LookupError as error:
+                self._send_json(404, {"error": str(error)})
+                return
+            except PermissionError as error:
+                self._send_json(403, {"error": str(error)})
+                return
+
+            self._send_json(200, {"ok": True})
+            return
+
         docs_prefix = "/api/driver/documents/"
         if not path.startswith(docs_prefix):
             self._send_json(404, {"error": "Not found"})

@@ -221,6 +221,22 @@ def create_guest_feed_post(author: str, text: str, image_url: Optional[str] = No
         return dict(row) if row else {}
 
 
+def get_guest_feed_post(post_id: int) -> Optional[dict[str, Any]]:
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT id, author, text, guest_profile_id, likes, image_url, created_at, updated_at
+            FROM guest_feed_posts
+            WHERE id = ?
+            """,
+            (post_id,),
+        )
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+
 def update_guest_feed_post(post_id: int, author: str, text: str, image_url: Optional[str] = None, guest_profile_id: Optional[str] = None) -> Optional[dict[str, Any]]:
     with closing(sqlite3.connect(get_db_path())) as conn:
         conn.row_factory = sqlite3.Row
@@ -252,6 +268,106 @@ def update_guest_feed_post(post_id: int, author: str, text: str, image_url: Opti
         )
         row = cur.fetchone()
         return dict(row) if row else None
+
+
+def list_guest_feed_comments(post_id: int, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT id, post_id, guest_profile_id, author, text, created_at, updated_at
+            FROM guest_feed_comments
+            WHERE post_id = ?
+            ORDER BY datetime(created_at) ASC, id ASC
+            LIMIT ? OFFSET ?
+            """,
+            (post_id, limit, offset),
+        )
+        return [dict(row) for row in cur.fetchall()]
+
+
+def create_guest_feed_comment(
+    post_id: int,
+    guest_profile_id: Optional[str],
+    author: str,
+    text: str,
+) -> dict[str, Any]:
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO guest_feed_comments (post_id, guest_profile_id, author, text)
+            VALUES (?, ?, ?, ?)
+            """,
+            (post_id, guest_profile_id, author, text),
+        )
+        conn.commit()
+        new_id = cur.lastrowid
+        cur.execute(
+            """
+            SELECT id, post_id, guest_profile_id, author, text, created_at, updated_at
+            FROM guest_feed_comments
+            WHERE id = ?
+            """,
+            (new_id,),
+        )
+        row = cur.fetchone()
+        return dict(row) if row else {}
+
+
+def get_guest_feed_comment(comment_id: int) -> Optional[dict[str, Any]]:
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT id, post_id, guest_profile_id, author, text, created_at, updated_at
+            FROM guest_feed_comments
+            WHERE id = ?
+            """,
+            (comment_id,),
+        )
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+
+def update_guest_feed_comment(comment_id: int, text: str) -> Optional[dict[str, Any]]:
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute(
+            """
+            UPDATE guest_feed_comments
+            SET text = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (text, comment_id),
+        )
+        if cur.rowcount == 0:
+            conn.rollback()
+            return None
+        conn.commit()
+        cur.execute(
+            """
+            SELECT id, post_id, guest_profile_id, author, text, created_at, updated_at
+            FROM guest_feed_comments
+            WHERE id = ?
+            """,
+            (comment_id,),
+        )
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+
+def delete_guest_feed_comment(comment_id: int) -> bool:
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM guest_feed_comments WHERE id = ?", (comment_id,))
+        conn.commit()
+        return cur.rowcount > 0
 
 
 def upsert_guest_profile(

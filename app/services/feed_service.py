@@ -46,6 +46,11 @@ class FeedService:
     SUPPORTED_IMAGE_MIME_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
     MAX_URLS_PER_POST = 2
     MAX_DUPLICATE_TOKEN_OCCURRENCES = 4
+    COMMENT_AUTHOR_MIN_LEN = AUTHOR_MIN_LEN
+    COMMENT_AUTHOR_MAX_LEN = AUTHOR_MAX_LEN
+    COMMENT_TEXT_MIN_LEN = 1
+    COMMENT_TEXT_MAX_LEN = 300
+    MODERATOR_ROLES = {"moderator", "admin"}
     FORBIDDEN_PATTERNS = (
         ("казино", "Контент с упоминанием азартных игр запрещён правилами публикации."),
         ("наркот", "Контент с упоминанием запрещённых веществ не допускается."),
@@ -422,3 +427,95 @@ class FeedService:
         image_url = str(payload.get("image_url", "")).strip() or None
         guest_profile_id = str(payload.get("guest_profile_id", "")).strip() or None
         return repository.update_guest_feed_post(post_id=post_id, author=author, text=text, image_url=image_url, guest_profile_id=guest_profile_id)
+
+    @classmethod
+    def validate_comment_fields(cls, author: str, text: str) -> tuple[str, str]:
+        author_clean = author.strip()
+        text_clean = text.strip()
+        if not author_clean or not text_clean:
+            raise ValueError("Поля author и text обязательны")
+        if len(author_clean) < cls.COMMENT_AUTHOR_MIN_LEN:
+            raise ValueError(f"Имя должно содержать минимум {cls.COMMENT_AUTHOR_MIN_LEN} символа")
+        if len(author_clean) > cls.COMMENT_AUTHOR_MAX_LEN:
+            raise ValueError(f"Имя слишком длинное (максимум {cls.COMMENT_AUTHOR_MAX_LEN} символов)")
+        if len(text_clean) < cls.COMMENT_TEXT_MIN_LEN:
+            raise ValueError(f"Комментарий должен содержать минимум {cls.COMMENT_TEXT_MIN_LEN} символ")
+        if len(text_clean) > cls.COMMENT_TEXT_MAX_LEN:
+            raise ValueError(f"Комментарий слишком длинный (максимум {cls.COMMENT_TEXT_MAX_LEN} символов)")
+        cls.validate_publication_rules(text_clean)
+        return author_clean, text_clean
+
+    @classmethod
+    def _is_comment_moderator(cls, guest_profile_id: str) -> bool:
+        profile = repository.get_guest_profile(guest_profile_id)
+        if not profile:
+            return False
+        role = str(profile.get("role", "")).strip().lower()
+        return role in cls.MODERATOR_ROLES
+
+    @classmethod
+    def can_manage_comment(cls, comment: dict[str, object], actor_guest_profile_id: str) -> bool:
+        normalized_actor = actor_guest_profile_id.strip()
+        if not normalized_actor:
+            return False
+        author_profile_id = str(comment.get("guest_profile_id", "")).strip()
+        return normalized_actor == author_profile_id or cls._is_comment_moderator(normalized_actor)
+
+    @classmethod
+    def create_guest_comment(cls, post_id: int, payload: dict[str, object]) -> dict[str, object]:
+        if not repository.get_guest_feed_post(post_id):
+            raise LookupError("Пост не найден")
+        author, text = cls.validate_comment_fields(str(payload.get("author", "")), str(payload.get("text", "")))
+        guest_profile_id = str(payload.get("guest_profile_id", "")).strip() or None
+        return repository.create_guest_feed_comment(
+            post_id=post_id,
+            guest_profile_id=guest_profile_id,
+            author=author,
+            text=text,
+        )
+
+    @staticmethod
+    def list_guest_comments(post_id: int, limit: int = 100, offset: int = 0) -> list[dict[str, object]]:
+        if not repository.get_guest_feed_post(post_id):
+            raise LookupError("Пост не найден")
+        return repository.list_guest_feed_comments(post_id=post_id, limit=limit, offset=offset)
+
+    @classmethod
+    def update_guest_comment(cls, post_id: int, comment_id: int, payload: dict[str, object]) -> dict[str, object]:
+        if not repository.get_guest_feed_post(post_id):
+            raise LookupError("Пост не найден")
+        comment = repository.get_guest_feed_comment(comment_id)
+        if not comment or int(comment.get("post_id", 0)) != post_id:
+            raise LookupError("Комментарий не найден")
+
+        actor_guest_profile_id = str(payload.get("guest_profile_id", "")).strip()
+        if not actor_guest_profile_id:
+            raise PermissionError("Недостаточно прав для изменения комментария")
+        if not cls.can_manage_comment(comment, actor_guest_profile_id):
+            raise PermissionError("Недостаточно прав для изменения комментария")
+
+        text = str(payload.get("text", "")).strip()
+        if not text:
+            raise ValueError("Поле text обязательно")
+        if len(text) > cls.COMMENT_TEXT_MAX_LEN:
+            raise ValueError(f"Комментарий слишком длинный (максимум {cls.COMMENT_TEXT_MAX_LEN} символов)")
+        cls.validate_publication_rules(text)
+
+        updated = repository.update_guest_feed_comment(comment_id=comment_id, text=text)
+        if not updated:
+            raise LookupError("Комментарий не найден")
+        return updated
+
+    @classmethod
+    def delete_guest_comment(cls, post_id: int, comment_id: int, payload: dict[str, object]) -> bool:
+        if not repository.get_guest_feed_post(post_id):
+            raise LookupError("Пост не найден")
+        comment = repository.get_guest_feed_comment(comment_id)
+        if not comment or int(comment.get("post_id", 0)) != post_id:
+            raise LookupError("Комментарий не найден")
+        actor_guest_profile_id = str(payload.get("guest_profile_id", "")).strip()
+        if not actor_guest_profile_id:
+            raise PermissionError("Недостаточно прав для удаления комментария")
+        if not cls.can_manage_comment(comment, actor_guest_profile_id):
+            raise PermissionError("Недостаточно прав для удаления комментария")
+        return repository.delete_guest_feed_comment(comment_id=comment_id)
