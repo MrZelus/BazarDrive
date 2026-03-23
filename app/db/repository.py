@@ -184,7 +184,8 @@ def list_guest_feed_posts(limit: int = 20, offset: int = 0) -> list[dict[str, An
             """,
             (limit, offset),
         )
-        return [dict(row) for row in cur.fetchall()]
+        posts = [dict(row) for row in cur.fetchall()]
+        return _attach_guest_feed_post_media(conn, posts)
 
 
 def count_guest_feed_posts() -> int:
@@ -195,7 +196,13 @@ def count_guest_feed_posts() -> int:
         return int(row[0]) if row else 0
 
 
-def create_guest_feed_post(author: str, text: str, image_url: Optional[str] = None, guest_profile_id: Optional[str] = None) -> dict[str, Any]:
+def create_guest_feed_post(
+    author: str,
+    text: str,
+    image_url: Optional[str] = None,
+    guest_profile_id: Optional[str] = None,
+    media: Optional[list[dict[str, Any]]] = None,
+) -> dict[str, Any]:
     with closing(sqlite3.connect(get_db_path())) as conn:
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
@@ -206,8 +213,10 @@ def create_guest_feed_post(author: str, text: str, image_url: Optional[str] = No
             """,
             (author, text, image_url, guest_profile_id),
         )
-        conn.commit()
         new_id = cur.lastrowid
+        if media:
+            replace_guest_feed_post_media(post_id=new_id, media=media, conn=conn)
+        conn.commit()
 
         cur.execute(
             """
@@ -218,7 +227,8 @@ def create_guest_feed_post(author: str, text: str, image_url: Optional[str] = No
             (new_id,),
         )
         row = cur.fetchone()
-        return dict(row) if row else {}
+        item = dict(row) if row else {}
+        return _attach_guest_feed_post_media(conn, [item])[0] if item else {}
 
 
 def get_guest_feed_post(post_id: int) -> Optional[dict[str, Any]]:
@@ -234,7 +244,10 @@ def get_guest_feed_post(post_id: int) -> Optional[dict[str, Any]]:
             (post_id,),
         )
         row = cur.fetchone()
-        return dict(row) if row else None
+        item = dict(row) if row else None
+        if not item:
+            return None
+        return _attach_guest_feed_post_media(conn, [item])[0]
 
 
 def delete_guest_feed_post(post_id: int) -> bool:
@@ -246,7 +259,14 @@ def delete_guest_feed_post(post_id: int) -> bool:
         return cur.rowcount > 0
 
 
-def update_guest_feed_post(post_id: int, author: str, text: str, image_url: Optional[str] = None, guest_profile_id: Optional[str] = None) -> Optional[dict[str, Any]]:
+def update_guest_feed_post(
+    post_id: int,
+    author: str,
+    text: str,
+    image_url: Optional[str] = None,
+    guest_profile_id: Optional[str] = None,
+    media: Optional[list[dict[str, Any]]] = None,
+) -> Optional[dict[str, Any]]:
     with closing(sqlite3.connect(get_db_path())) as conn:
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
@@ -265,6 +285,8 @@ def update_guest_feed_post(post_id: int, author: str, text: str, image_url: Opti
         if cur.rowcount == 0:
             conn.rollback()
             return None
+        if media is not None:
+            replace_guest_feed_post_media(post_id=post_id, media=media, conn=conn)
 
         conn.commit()
         cur.execute(
@@ -276,7 +298,159 @@ def update_guest_feed_post(post_id: int, author: str, text: str, image_url: Opti
             (post_id,),
         )
         row = cur.fetchone()
-        return dict(row) if row else None
+        item = dict(row) if row else None
+        if not item:
+            return None
+        return _attach_guest_feed_post_media(conn, [item])[0]
+
+
+def list_guest_feed_post_media(post_id: int, conn: Optional[sqlite3.Connection] = None) -> list[dict[str, Any]]:
+    owns_connection = conn is None
+    target_conn = conn or sqlite3.connect(get_db_path())
+    try:
+        target_conn.row_factory = sqlite3.Row
+        cur = target_conn.cursor()
+        cur.execute(
+            """
+            SELECT id, post_id, media_type, url, position, created_at
+            FROM guest_feed_post_media
+            WHERE post_id = ?
+            ORDER BY position ASC, id ASC
+            """,
+            (post_id,),
+        )
+        return [dict(row) for row in cur.fetchall()]
+    finally:
+        if owns_connection:
+            target_conn.close()
+
+
+def create_guest_feed_post_media(
+    post_id: int,
+    media_type: str,
+    url: str,
+    position: int,
+    conn: Optional[sqlite3.Connection] = None,
+) -> dict[str, Any]:
+    owns_connection = conn is None
+    target_conn = conn or sqlite3.connect(get_db_path())
+    try:
+        target_conn.row_factory = sqlite3.Row
+        cur = target_conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO guest_feed_post_media (post_id, media_type, url, position)
+            VALUES (?, ?, ?, ?)
+            """,
+            (post_id, media_type, url, position),
+        )
+        if owns_connection:
+            target_conn.commit()
+        media_id = cur.lastrowid
+        cur.execute(
+            """
+            SELECT id, post_id, media_type, url, position, created_at
+            FROM guest_feed_post_media
+            WHERE id = ?
+            """,
+            (media_id,),
+        )
+        row = cur.fetchone()
+        return dict(row) if row else {}
+    finally:
+        if owns_connection:
+            target_conn.close()
+
+
+def delete_guest_feed_post_media(post_id: int, conn: Optional[sqlite3.Connection] = None) -> int:
+    owns_connection = conn is None
+    target_conn = conn or sqlite3.connect(get_db_path())
+    try:
+        cur = target_conn.cursor()
+        cur.execute("DELETE FROM guest_feed_post_media WHERE post_id = ?", (post_id,))
+        deleted_count = cur.rowcount
+        if owns_connection:
+            target_conn.commit()
+        return deleted_count
+    finally:
+        if owns_connection:
+            target_conn.close()
+
+
+def replace_guest_feed_post_media(
+    post_id: int,
+    media: list[dict[str, Any]],
+    conn: Optional[sqlite3.Connection] = None,
+) -> list[dict[str, Any]]:
+    owns_connection = conn is None
+    target_conn = conn or sqlite3.connect(get_db_path())
+    try:
+        delete_guest_feed_post_media(post_id=post_id, conn=target_conn)
+        created: list[dict[str, Any]] = []
+        for index, item in enumerate(media):
+            created.append(
+                create_guest_feed_post_media(
+                    post_id=post_id,
+                    media_type=str(item.get("media_type", "image")),
+                    url=str(item.get("url", "")),
+                    position=int(item.get("position", index)),
+                    conn=target_conn,
+                )
+            )
+        if owns_connection:
+            target_conn.commit()
+        return created
+    finally:
+        if owns_connection:
+            target_conn.close()
+
+
+def _list_guest_feed_media_for_posts(conn: sqlite3.Connection, post_ids: list[int]) -> dict[int, list[dict[str, Any]]]:
+    normalized_ids = [int(post_id) for post_id in post_ids if int(post_id) > 0]
+    if not normalized_ids:
+        return {}
+    conn.row_factory = sqlite3.Row
+    placeholders = ",".join(["?"] * len(normalized_ids))
+    cur = conn.cursor()
+    cur.execute(
+        f"""
+        SELECT id, post_id, media_type, url, position, created_at
+        FROM guest_feed_post_media
+        WHERE post_id IN ({placeholders})
+        ORDER BY post_id ASC, position ASC, id ASC
+        """,
+        tuple(normalized_ids),
+    )
+    grouped: dict[int, list[dict[str, Any]]] = {post_id: [] for post_id in normalized_ids}
+    for row in cur.fetchall():
+        payload = dict(row)
+        grouped.setdefault(int(payload["post_id"]), []).append(payload)
+    return grouped
+
+
+def _attach_guest_feed_post_media(conn: sqlite3.Connection, posts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if not posts:
+        return posts
+    post_ids = [int(post.get("id", 0)) for post in posts if int(post.get("id", 0)) > 0]
+    media_by_post = _list_guest_feed_media_for_posts(conn, post_ids)
+    for post in posts:
+        post_id = int(post.get("id", 0))
+        media = media_by_post.get(post_id, [])
+        if not media:
+            legacy_image_url = str(post.get("image_url", "")).strip()
+            if legacy_image_url:
+                media = [
+                    {
+                        "id": 0,
+                        "post_id": post_id,
+                        "media_type": "image",
+                        "url": legacy_image_url,
+                        "position": 0,
+                        "created_at": post.get("created_at"),
+                    }
+                ]
+        post["media"] = media
+    return posts
 
 
 

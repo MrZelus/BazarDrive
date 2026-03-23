@@ -939,9 +939,36 @@ components:
           description: Агрегированные счётчики реакций по типам
         my_reaction: { type: string, nullable: true }
         image_url: { type: string, nullable: true }
+        media:
+          type: array
+          description: |
+            Новый контракт вложений (карусель/галерея). Для backward compatibility
+            у legacy-постов из `image_url` backend формирует media из одного image-элемента.
+          items:
+            $ref: '#/components/schemas/FeedPostMedia'
         created_at: { type: string, format: date-time }
         updated_at: { type: string, nullable: true }
-      required: [id, author, text, likes, reactions, created_at]
+      required: [id, author, text, likes, reactions, media, created_at]
+
+    FeedPostMedia:
+      type: object
+      properties:
+        id: { type: integer, description: Идентификатор вложения (0 для legacy-fallback) }
+        post_id: { type: integer }
+        media_type:
+          type: string
+          enum: [image, video]
+        url:
+          type: string
+          description: URL вложения (http/https либо локальный /uploads/feed/ для image)
+        position:
+          type: integer
+          minimum: 0
+        created_at:
+          type: string
+          nullable: true
+          format: date-time
+      required: [media_type, url, position]
 
     FeedPostsListResponse:
       type: object
@@ -1019,24 +1046,58 @@ components:
     CreateFeedPostRequest:
       type: object
       properties:
+        author: { type: string, minLength: 2, maxLength: 40 }
         text: { type: string }
         image_url:
           type: string
           nullable: true
-          description: URL или data URL base64 в зависимости от UI-клиента
+          description: Legacy-поле для старых клиентов. Если media[] не передан, преобразуется в media из одного image.
+        media:
+          type: array
+          maxItems: 8
+          description: Новый контракт медиа-вложений (1..N элементов).
+          items:
+            $ref: '#/components/schemas/FeedPostMedia'
+        guest_profile:
+          type: object
+          description: Встроенный payload гостевого профиля (опционально)
         author_profile_id:
           type: string
           nullable: true
-      required: [text]
+      required: [author, text]
+      example:
+        author: "Иван"
+        text: "Пост с каруселью"
+        media:
+          - media_type: image
+            url: "https://cdn.example.com/post-1.jpg"
+            position: 0
+          - media_type: image
+            url: "https://cdn.example.com/post-2.jpg"
+            position: 1
 
     UpdateFeedPostRequest:
       type: object
       properties:
+        author: { type: string, minLength: 2, maxLength: 40 }
         text: { type: string }
         image_url:
           type: string
           nullable: true
-      required: [text]
+          description: Legacy-поле для обратной совместимости
+        media:
+          type: array
+          maxItems: 8
+          items:
+            $ref: '#/components/schemas/FeedPostMedia'
+      required: [author, text]
+      example:
+        author: "Иван"
+        text: "Обновлённый пост с видео"
+        media:
+          - media_type: video
+            url: "https://cdn.example.com/post.mp4"
+            position: 0
 
     GuestProfile:
       type: object

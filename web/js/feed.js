@@ -588,6 +588,19 @@
     function mapApiPost(item) {
       const reactions = (item && typeof item.reactions === 'object' && item.reactions !== null) ? item.reactions : {};
       const myReaction = String(item.my_reaction || '').trim() || null;
+      const media = Array.isArray(item.media) ? item.media : [];
+      const normalizedMedia = media
+        .map((entry, index) => ({
+          mediaType: String(entry?.media_type || 'image').trim().toLowerCase() || 'image',
+          url: String(entry?.url || '').trim(),
+          position: Number.isFinite(Number(entry?.position)) ? Number(entry.position) : index,
+        }))
+        .filter((entry) => entry.url)
+        .sort((a, b) => a.position - b.position);
+      const legacyImage = String(item.image_url || '').trim();
+      if (!normalizedMedia.length && legacyImage) {
+        normalizedMedia.push({ mediaType: 'image', url: legacyImage, position: 0 });
+      }
       return {
         id: item.id,
         author: item.author || 'Гость',
@@ -596,6 +609,7 @@
         publishedAt: formatPostDate(item.created_at),
         text: item.text || '',
         image: item.image_url || '',
+        media: normalizedMedia,
         reactions,
         myReaction,
         likes: Number(item.likes ?? reactions.like) || 0,
@@ -749,7 +763,30 @@
 
         article.append(header, body);
 
-        if (post.image) {
+        if (Array.isArray(post.media) && post.media.length) {
+          const mediaContainer = document.createElement('div');
+          mediaContainer.className = 'mb-3 flex snap-x snap-mandatory gap-2 overflow-x-auto';
+
+          post.media.forEach((item, index) => {
+            const type = String(item.mediaType || 'image').toLowerCase();
+            if (type === 'video') {
+              const video = document.createElement('video');
+              video.src = String(item.url || '');
+              video.controls = true;
+              video.preload = 'metadata';
+              video.className = 'max-h-[420px] min-w-full snap-center rounded-xl bg-black object-contain';
+              mediaContainer.appendChild(video);
+              return;
+            }
+            const image = document.createElement('img');
+            image.src = String(item.url || '');
+            image.alt = `Изображение поста ${index + 1}`;
+            image.className = 'max-h-[420px] min-w-full snap-center rounded-xl object-cover';
+            image.loading = 'lazy';
+            mediaContainer.appendChild(image);
+          });
+          article.appendChild(mediaContainer);
+        } else if (post.image) {
           const image = document.createElement('img');
           image.src = String(post.image);
           image.alt = 'Изображение поста';

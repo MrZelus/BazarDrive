@@ -622,6 +622,63 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertEqual(payload["likes"], 1)
         self.assertEqual(payload["my_reaction"], "like")
 
+    def test_create_post_with_multiple_media_and_legacy_fallback(self) -> None:
+        status, payload, _ = self._post(
+            "/api/feed/posts",
+            {
+                "author": "Media Author",
+                "text": "Пост с несколькими медиа",
+                "media": [
+                    {"media_type": "image", "url": "https://example.com/image-1.jpg", "position": 1},
+                    {"media_type": "video", "url": "https://example.com/video-1.mp4", "position": 0},
+                ],
+            },
+        )
+        self.assertEqual(status, 201)
+        self.assertEqual([item["media_type"] for item in payload["media"]], ["video", "image"])
+        self.assertEqual(payload.get("image_url"), "https://example.com/image-1.jpg")
+
+        list_status, list_payload, _ = self._get("/api/feed/posts")
+        self.assertEqual(list_status, 200)
+        self.assertEqual(len(list_payload["items"][0]["media"]), 2)
+
+    def test_create_post_with_too_many_media_returns_413(self) -> None:
+        status, payload, _ = self._post(
+            "/api/feed/posts",
+            {
+                "author": "Media Author",
+                "text": "Пост с лишними вложениями",
+                "media": [{"media_type": "image", "url": f"https://example.com/{i}.jpg"} for i in range(9)],
+            },
+        )
+        self.assertEqual(status, 413)
+        self.assertIn("error", payload)
+
+    def test_create_post_with_invalid_media_type_returns_400(self) -> None:
+        status, payload, _ = self._post(
+            "/api/feed/posts",
+            {
+                "author": "Media Author",
+                "text": "Пост с невалидным типом",
+                "media": [{"media_type": "audio", "url": "https://example.com/file.mp3"}],
+            },
+        )
+        self.assertEqual(status, 400)
+        self.assertIn("Некорректный media_type", payload.get("error", ""))
+
+    def test_legacy_image_url_post_is_exposed_as_media(self) -> None:
+        created = repository.create_guest_feed_post(
+            author="Legacy Author",
+            text="Legacy image_url",
+            image_url="https://example.com/legacy-only.jpg",
+        )
+        status, payload, _ = self._get("/api/feed/posts")
+        self.assertEqual(status, 200)
+        target = next(item for item in payload["items"] if item["id"] == created["id"])
+        self.assertEqual(len(target["media"]), 1)
+        self.assertEqual(target["media"][0]["url"], "https://example.com/legacy-only.jpg")
+        self.assertEqual(target.get("image_url"), "https://example.com/legacy-only.jpg")
+
     def test_unexpected_error_returns_unified_json(self) -> None:
         original = repository.list_guest_feed_posts
 
