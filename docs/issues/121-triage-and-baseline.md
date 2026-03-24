@@ -500,3 +500,20 @@ Recommended usage:
    - `python scripts/capture_guest_feed_evidence.py --dry-run --browsers chrome,edge --manifest artifacts/121/capture-manifest.json`
 2. Execute real capture in browser-enabled environment:
    - `python scripts/capture_guest_feed_evidence.py --url http://127.0.0.1:8000/guest_feed.html --out artifacts/121 --manifest artifacts/121/capture-manifest.json`
+
+## Q10 targeted evidence capture filters (tab/viewport subsets)
+
+To speed up iterative reruns while keeping artifact naming deterministic, the capture helper now supports explicit filtering for tabs and viewports.
+
+- `scripts/capture_guest_feed_evidence.py` now supports:
+  - `--tabs feed,rules,profile` (default = all);
+  - `--viewports desktop,mobile` (default = all).
+- Preflight validation now checks all three selection dimensions (`browsers`, `tabs`, `viewports`) before Playwright import and fails early with deterministic errors (`Unsupported tab: ...`, `Unsupported viewport: ...`).
+- `build_capture_plan` now uses the selected subset matrix for both dry-run manifests and real capture runs, so the PR evidence manifest matches exactly what was requested.
+- Added regression tests in `tests/test_capture_guest_feed_evidence_script.py` for:
+  - unsupported tab rejection in preflight;
+  - dry-run manifest generation with filtered matrix (`profile` + `mobile` only).
+
+Example focused rerun command (mobile Profile only, Chrome):
+
+- `python scripts/capture_guest_feed_evidence.py --dry-run --browsers chrome --tabs profile --viewports mobile --manifest artifacts/121/capture-manifest-profile-mobile.json`

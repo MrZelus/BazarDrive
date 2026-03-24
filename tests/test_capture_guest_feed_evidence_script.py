@@ -44,6 +44,36 @@ class CaptureGuestFeedEvidenceScriptTests(unittest.TestCase):
             self.assertIn('"dry_run": true', manifest_text)
             self.assertIn('"browser": "chrome"', manifest_text)
 
+    def test_rejects_unsupported_tab_in_preflight(self) -> None:
+        result = self.run_script("--dry-run", "--tabs", "feed,unknown")
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("Unsupported tab: unknown", result.stdout)
+
+    def test_dry_run_filters_plan_by_tabs_and_viewports(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            manifest_path = Path(tmpdir) / "capture-manifest.json"
+            result = self.run_script(
+                "--browsers",
+                "chrome",
+                "--tabs",
+                "profile",
+                "--viewports",
+                "mobile",
+                "--dry-run",
+                "--manifest",
+                str(manifest_path),
+            )
+
+            self.assertEqual(result.returncode, 0)
+            self.assertIn("profile-mobile-chrome-after.png", result.stdout)
+            self.assertNotIn("feed-mobile-chrome-after.png", result.stdout)
+            self.assertNotIn("profile-desktop-chrome-after.png", result.stdout)
+            manifest_text = manifest_path.read_text(encoding="utf-8")
+            self.assertIn('"tab": "profile"', manifest_text)
+            self.assertIn('"viewport": "mobile"', manifest_text)
+            self.assertNotIn('"tab": "feed"', manifest_text)
+
 
 if __name__ == "__main__":
     unittest.main()
