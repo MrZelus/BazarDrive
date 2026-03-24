@@ -174,6 +174,41 @@
 - Merge commit: <ADD_FINAL_MERGE_COMMIT_LINK>
 ```
 
+## Final closure evidence (merged)
+
+- ✅ PR #122 — Theme token contrast adjustment (`121.2`, P0): https://github.com/MrZelus/BazarDrive/pull/122
+- ✅ PR #123 — Surface/card/button contrast fine-tuning (`121.3`, P0): https://github.com/MrZelus/BazarDrive/pull/123
+- ✅ PR #124 — Action-button a11y/state pass (`121.4`, P1): https://github.com/MrZelus/BazarDrive/pull/124
+- ✅ PR #125 / #127 — Closure artifacts and acceptance matrix (`121.5`, P2): https://github.com/MrZelus/BazarDrive/pull/125 and https://github.com/MrZelus/BazarDrive/pull/127
+- ✅ Follow-up docs PR #144 — final closure status template and checklist hygiene: https://github.com/MrZelus/BazarDrive/pull/144
+
+### Merge commits for traceability
+
+- `3bfffe4` (merge PR #122)
+- `4fd3f60` (merge PR #123)
+- `79ae874` (merge PR #124)
+- `1179bed` (merge PR #125)
+- `6ab9dd8` (merge PR #127)
+- `e6ba76e` (merge PR #144)
+
+### Final issue comment (filled, ready to post)
+
+```md
+Статус: ✅ Issue #121 закрыт.
+
+Что сделано:
+- Выполнены подзадачи 121.1 → 121.5 (tokens, contrast tuning, button/tab states, a11y/state UX pass, closure artifacts).
+- Проверены вкладки `Лента` / `Правила` / `Профиль`, включая profile sub-tabs и документы.
+
+Как проверено:
+- Ручной test plan: desktop + mobile viewport.
+- Автотесты: main tabs, publish/navigation flow, documents smoke, action-button a11y/state.
+
+Артефакты:
+- PRs: #122, #123, #124, #125, #127, #144
+- Merge commits: 3bfffe4, 4fd3f60, 79ae874, 1179bed, 6ab9dd8, e6ba76e
+```
+
 ## Issue comment draft (to post in #121)
 
 ```md
