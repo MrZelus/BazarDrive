@@ -471,3 +471,15 @@ To reduce manual mistakes in the final browser-enabled evidence PR, use the scri
 - Requires Playwright package and browser binaries:
   - `python -m playwright install chromium msedge`
 - If Edge channel is unavailable in a runner, fallback to Chrome-only capture and mark Edge parity as pending in PR notes.
+
+## Q8 automation reliability hardening (capture script preflight)
+
+To make the final evidence capture helper easier to operate in constrained environments, we added a preflight validation pass and regression tests.
+
+- `scripts/capture_guest_feed_evidence.py` now normalizes browser names to lowercase and validates the browser list **before** importing Playwright.
+- Unsupported browser values now return a deterministic actionable error (`Unsupported browser: <name>`) instead of being masked by environment-specific Playwright import errors.
+- Added automated checks in `tests/test_capture_guest_feed_evidence_script.py`:
+  - verifies unsupported browser rejection path;
+  - verifies actionable error text when Playwright is not installed.
+
+This keeps Q7 tooling behavior stable and predictable while preserving existing output format for evidence artifacts.

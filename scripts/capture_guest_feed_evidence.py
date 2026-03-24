@@ -69,8 +69,12 @@ async def main() -> int:
 
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
-    browsers = [item.strip() for item in args.browsers.split(",") if item.strip()]
+    browsers = [item.strip().lower() for item in args.browsers.split(",") if item.strip()]
     edge_channel = args.edge_channel or None
+
+    unsupported = [browser for browser in browsers if browser not in {"chrome", "edge"}]
+    if unsupported:
+        raise RuntimeError(f"Unsupported browser: {unsupported[0]}")
 
     try:
         from playwright.async_api import Error as PlaywrightError
@@ -82,8 +86,6 @@ async def main() -> int:
         ) from exc
 
     for browser_name in browsers:
-        if browser_name not in {"chrome", "edge"}:
-            raise ValueError(f"Unsupported browser: {browser_name}")
         try:
             await capture_for_browser(async_playwright, browser_name, args.url, out_dir, edge_channel)
         except PlaywrightError as exc:
