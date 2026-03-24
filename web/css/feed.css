@@ -12,19 +12,19 @@
 }
 
 .tab-btn.active {
-  color: #4f8cff;
-  background-color: #1b2338;
+  color: #6aa1ff;
+  background-color: #243252;
 }
 
 .role-btn.active {
-  background-color: #4f8cff;
+  background-color: #6aa1ff;
   color: #ffffff;
 }
 
 .profile-menu-btn.active {
-  background-color: #1f2a45;
-  color: #e8edff;
-  border-color: rgba(79, 140, 255, 0.7);
+  background-color: #243252;
+  color: #edf2ff;
+  border-color: rgba(106, 161, 255, 0.78);
 }
 
 .app-notification {
@@ -37,14 +37,14 @@
   padding: 10px 12px;
   font-size: 13px;
   line-height: 1.35;
-  color: #e8edff;
+  color: #edf2ff;
   backdrop-filter: blur(6px);
   animation: fade-in-notification 180ms ease-out;
 }
 
 .app-notification--info {
-  background-color: rgba(79, 140, 255, 0.2);
-  border-color: rgba(79, 140, 255, 0.45);
+  background-color: rgba(106, 161, 255, 0.24);
+  border-color: rgba(106, 161, 255, 0.52);
 }
 
 .app-notification--success {

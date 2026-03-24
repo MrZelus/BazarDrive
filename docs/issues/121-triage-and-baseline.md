@@ -24,7 +24,7 @@
 ## Subtask status checklist (issue #121)
 
 - [x] 121.1 Baseline-диагностика: скриншоты текущего состояния + computed colors ключевых блоков.
-- [ ] 121.2 Корректировка цветовых токенов темы в `web/js/tailwind-config.js`.
+- [x] 121.2 Корректировка цветовых токенов темы в `web/js/tailwind-config.js`.
 - [ ] 121.3 Тонкая настройка контраста карточек/бордеров/кнопок (`guest_feed.html`, `web/css/feed.css`).
 - [ ] 121.4 Визуальная и а11y-проверка состояний (`active`, `inactive`, `hover`, `disabled`) на всех вкладках.
 - [ ] 121.5 PR-артефакты: before/after скриншоты, test plan, привязка `Closes #121`.
@@ -52,6 +52,33 @@
 - Текстовый контраст в целом достаточный.
 - Основной риск регрессии #121 подтверждается в зоне **surface separation**: разрыв между page background и карточками (`bg` vs `panel/panelSoft`) слишком мал (`1.09` / `1.21`) и визуальная иерархия может «слипаться».
 - Следующий PR (121.2) должен в первую очередь увеличить separation-контраст поверхностей, сохранив читаемость текста/CTA.
+
+
+## 121.2 Theme tokens update (P0)
+
+### Updated tokens
+- `bg`: `#0b1020` → `#050812`
+- `panel`: `#131a2b` → `#1a2742`
+- `panelSoft`: `#1b2338` → `#243252`
+- `accent`: `#4f8cff` → `#6aa1ff`
+- `text`: `#e8edff` → `#edf2ff`
+- `textSoft`: `#9aa7c7` → `#b3bedb`
+
+### Post-change contrast snapshot
+
+| Pair | Contrast |
+|---|---:|
+| `bg (#050812)` vs `panel (#1a2742)` | `1.35` |
+| `bg (#050812)` vs `panelSoft (#243252)` | `1.57` |
+| `text (#edf2ff)` vs `bg (#050812)` | `17.85` |
+| `textSoft (#b3bedb)` vs `bg (#050812)` | `10.77` |
+| `textSoft (#b3bedb)` vs `panel (#1a2742)` | `8.00` |
+| `accent (#6aa1ff)` vs `panel (#1a2742)` | `5.77` |
+
+### 121.2 conclusion
+- Surface separation improved compared with baseline (`1.09`/`1.21` → `1.35`/`1.57`).
+- Text and action color contrast remains comfortably above recommended thresholds for normal text/UI.
+- Next step is **121.3**: tune borders, secondary buttons, and per-screen states using updated tokens.
 
 ## Issue comment draft (to post in #121)
 
