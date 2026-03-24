@@ -443,3 +443,31 @@ Use this template in the next browser-enabled PR to reduce review latency and ma
 Reviewer shortcut:
 
 - If any table cell in "Evidence matrix" is missing, request follow-up before closing #121.
+
+## Q7 browser evidence automation helper
+
+To reduce manual mistakes in the final browser-enabled evidence PR, use the script below to capture all required tab screenshots in one run.
+
+### Script
+
+- `scripts/capture_guest_feed_evidence.py`
+- Captures `Лента` / `Правила` / `Профиль` for:
+  - desktop `1440x900`
+  - mobile `390x844`
+  - Chrome + Edge
+- Saves files to `artifacts/121/*-after.png` using naming:
+  - `<tab>-<viewport>-<browser>-after.png`
+
+### Recommended run order
+
+1. Start a local static server from repo root:
+   - `python -m http.server 8000`
+2. In another shell, run:
+   - `python scripts/capture_guest_feed_evidence.py --url http://127.0.0.1:8000/guest_feed.html --out artifacts/121`
+3. Attach generated files to the final evidence PR and fill Q6 matrix with links.
+
+### Notes
+
+- Requires Playwright package and browser binaries:
+  - `python -m playwright install chromium msedge`
+- If Edge channel is unavailable in a runner, fallback to Chrome-only capture and mark Edge parity as pending in PR notes.
