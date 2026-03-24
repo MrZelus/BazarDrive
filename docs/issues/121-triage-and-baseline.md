@@ -403,3 +403,43 @@ notes: |
 - Chrome and Edge parity both marked `pass`.
 - All five UI regression tests reported `pass` in PR checks.
 - Final issue comment includes merged PR list + merge SHAs + screenshot links.
+
+## Q6 final evidence PR template (ready-to-fill)
+
+Use this template in the next browser-enabled PR to reduce review latency and make closure evidence uniform.
+
+```md
+## Summary
+- Final visual evidence pass for #121 on tabs `Лента`, `Правила`, `Профиль`.
+- Browser parity check completed in Chrome + Edge.
+- Desktop/mobile screenshots attached (after state, plus before where available).
+
+## Scope guard
+- In scope: contrast/background/readability/button states for guest feed surfaces.
+- Out of scope: redesign, Tailwind pipeline migration, API/business logic changes.
+
+## Evidence matrix
+| Tab | Desktop | Mobile | Chrome | Edge |
+|---|---|---|---|---|
+| Лента | <link> | <link> | ✅/❌ | ✅/❌ |
+| Правила | <link> | <link> | ✅/❌ | ✅/❌ |
+| Профиль | <link> | <link> | ✅/❌ | ✅/❌ |
+
+## Test plan executed
+1. Open `guest_feed.html`.
+2. Switch `Лента → Правила → Профиль`.
+3. Verify contrast/readability for text, borders, and CTA buttons.
+4. Validate profile subtabs and documents flow.
+5. Repeat on mobile viewport `390x844`.
+
+## Automated checks
+- `pytest -q tests/test_guest_feed_theme_contrast_guardrails.py tests/test_main_tabs_a11y.py tests/test_feed_publish_profile_navigation_flow.py tests/test_driver_documents_ui_smoke.py tests/test_feed_action_buttons_a11y_states.py`
+
+## Issue sync
+- Part of #121 (or Closes #121 if all acceptance criteria are satisfied).
+- Final issue comment posted with merged PR list + merge SHAs + screenshot links.
+```
+
+Reviewer shortcut:
+
+- If any table cell in "Evidence matrix" is missing, request follow-up before closing #121.
