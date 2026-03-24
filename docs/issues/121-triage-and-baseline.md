@@ -233,3 +233,37 @@
 ## Notes on screenshots
 - In this runtime, `playwright` / browser screenshot tooling is unavailable.
 - Before/after captures should be attached from a browser-enabled environment as part of the final closure PR (`Closes #121`).
+
+
+## Follow-up execution queue (after #121 closure package)
+
+To keep follow-up work atomic (one PR per action) and aligned with the latest thread requests ("продолжи работу"), use this queue:
+
+1. **Q1 (P0) — Browser evidence capture pass**  
+   - Attach before/after screenshots for `Лента`, `Правила`, `Профиль` in desktop + mobile viewport from a browser-enabled environment.  
+   - Verify Chrome + Edge rendering parity for updated surfaces/buttons/states.  
+   - Publish artifacts in one dedicated PR with `Part of #121` (or successor tracking issue if scope moved).
+2. **Q2 (P1) — Issue-thread closure sync**  
+   - Post final closure comment from the ready template above.  
+   - Include links to merged PRs and merge SHAs.  
+   - Close #121 only when screenshot evidence is attached.
+3. **Q3 (P2) — Post-closure hygiene**  
+   - Open a new maintenance issue only if visual diff reveals browser-specific regressions.  
+   - Keep any additional UX polish out of #121 scope (separate issue/PR line).
+
+### Ready-to-post status update (follow-up)
+
+```md
+Статус: 🔄 Follow-up после технического закрытия #121 продолжается.
+
+Что осталось:
+- Приложить before/after скриншоты (desktop + mobile) из browser-enabled окружения.
+- Подтвердить Chrome + Edge parity и добавить ссылки в issue-комментарий.
+
+Что уже готово:
+- Все кодовые подзадачи 121.2–121.4 и closure docs 121.5 смержены.
+- Acceptance matrix и финальный шаблон комментария заполнены.
+
+Следующий PR:
+- Dedicated artifacts PR с визуальными доказательствами и итоговым комментарием в #121.
+```
