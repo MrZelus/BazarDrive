@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 from pathlib import Path
 
 
@@ -20,6 +21,23 @@ VIEWPORTS = {
     "desktop": {"width": 1440, "height": 900},
     "mobile": {"width": 390, "height": 844},
 }
+
+
+def build_capture_plan(browsers: list[str], out_dir: Path) -> list[dict[str, str]]:
+    plan: list[dict[str, str]] = []
+    for browser_name in browsers:
+        for viewport_name in VIEWPORTS:
+            for tab_name in TAB_SELECTORS:
+                target = out_dir / f"{tab_name}-{viewport_name}-{browser_name}-after.png"
+                plan.append(
+                    {
+                        "tab": tab_name,
+                        "viewport": viewport_name,
+                        "browser": browser_name,
+                        "path": str(target),
+                    }
+                )
+    return plan
 
 
 async def capture_for_browser(async_playwright, browser_name: str, page_url: str, out_dir: Path, edge_channel: str | None) -> None:
@@ -65,6 +83,8 @@ async def main() -> int:
         default="msedge",
         help="Playwright Chromium channel for Edge (set empty string to disable)",
     )
+    parser.add_argument("--manifest", default="", help="Optional path to write JSON capture manifest")
+    parser.add_argument("--dry-run", action="store_true", help="Validate inputs and print capture plan without running Playwright")
     args = parser.parse_args()
 
     out_dir = Path(args.out)
@@ -75,6 +95,29 @@ async def main() -> int:
     unsupported = [browser for browser in browsers if browser not in {"chrome", "edge"}]
     if unsupported:
         raise RuntimeError(f"Unsupported browser: {unsupported[0]}")
+
+    capture_plan = build_capture_plan(browsers, out_dir)
+    manifest_path = Path(args.manifest) if args.manifest else None
+    if args.dry_run:
+        for item in capture_plan:
+            print(f"PLAN: {item['path']}")
+        if manifest_path:
+            manifest_path.parent.mkdir(parents=True, exist_ok=True)
+            manifest_path.write_text(
+                json.dumps(
+                    {
+                        "url": args.url,
+                        "dry_run": True,
+                        "captures": capture_plan,
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            print(f"Manifest: {manifest_path}")
+        return 0
 
     try:
         from playwright.async_api import Error as PlaywrightError
@@ -93,6 +136,23 @@ async def main() -> int:
                 "Playwright runtime error. Ensure browser binaries are installed: "
                 "python -m playwright install chromium msedge"
             ) from exc
+
+    if manifest_path:
+        manifest_path.parent.mkdir(parents=True, exist_ok=True)
+        manifest_path.write_text(
+            json.dumps(
+                {
+                    "url": args.url,
+                    "dry_run": False,
+                    "captures": capture_plan,
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        print(f"Manifest: {manifest_path}")
 
     return 0
 
