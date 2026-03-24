@@ -300,3 +300,44 @@ Use this checklist to finish the remaining visual-evidence pass in one atomic PR
 - `Part of #121` (or successor issue if #121 is already closed).
 - Embedded before/after images for all three tabs on desktop + mobile.
 - Short parity note: `Chrome ✅ / Edge ✅` or mismatch note with follow-up issue link.
+
+## Q2 execution playbook (issue-thread closure sync)
+
+Use this after the visual-evidence PR is merged to close the communication loop in issue #121.
+
+### Publication order
+
+1. Post one final comment in issue #121 using the filled template from this document.
+2. Include links to:
+   - merged PRs (`#122`, `#123`, `#124`, `#125`, `#127`, `#144`, plus visual-evidence PR);
+   - merge commits for each PR;
+   - screenshot artifact paths (desktop + mobile for `Лента` / `Правила` / `Профиль`).
+3. Close issue #121 only after the comment is posted and screenshot evidence is visible.
+
+### Final comment checklist (must be all true)
+
+- [ ] Acceptance criteria matrix is still valid against latest `main`.
+- [ ] Chrome parity confirmed.
+- [ ] Edge parity confirmed.
+- [ ] Desktop screenshots attached for all 3 tabs.
+- [ ] Mobile screenshots attached for all 3 tabs.
+- [ ] Automated regression tests status included.
+
+### Ready-to-post closure sync snippet
+
+```md
+Статус: ✅ Финальная синхронизация по #121 завершена.
+
+Что подтверждено:
+- Все сабтаски 121.1–121.5 смержены; визуальные доказательства приложены отдельным PR.
+- Chrome/Edge parity пройдены для `Лента` / `Правила` / `Профиль` на desktop + mobile viewport.
+
+Проверки:
+- Ручной test plan: вкладки, состояния кнопок, профиль/документы.
+- Автотесты: `test_main_tabs_a11y`, `test_feed_publish_profile_navigation_flow`, `test_driver_documents_ui_smoke`, `test_feed_action_buttons_a11y_states`.
+
+Артефакты:
+- Merged PRs: <LIST>
+- Merge commits: <LIST>
+- Screenshots: <PATHS>
+```
