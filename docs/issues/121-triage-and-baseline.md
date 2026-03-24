@@ -341,3 +341,15 @@ Use this after the visual-evidence PR is merged to close the communication loop 
 - Merge commits: <LIST>
 - Screenshots: <PATHS>
 ```
+
+## Q4 follow-up hardening (automated contrast guardrails)
+
+Added automated regression checks to keep #121 fixes stable over time:
+
+- `tests/test_guest_feed_theme_contrast_guardrails.py` validates WCAG-oriented contrast guardrails for `text`, `textSoft`, and `accent` against `bg/panel`.
+- The same test enforces minimum surface separation ratios for `bg` vs `panel/panelSoft` to catch future "flat white" style regressions early.
+- The suite also verifies that `web/css/feed.css` color variables stay synchronized with `web/js/tailwind-config.js` tokens.
+
+Execution target:
+
+- Include this test in the regular `pytest` run used by follow-up PRs for feed UI.
