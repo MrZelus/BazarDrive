@@ -3,12 +3,12 @@ window.tailwind.config = {
   theme: {
     extend: {
       colors: {
-        bg: '#0b1020',
-        panel: '#131a2b',
-        panelSoft: '#1b2338',
-        accent: '#4f8cff',
-        text: '#e8edff',
-        textSoft: '#9aa7c7',
+        bg: '#050812',
+        panel: '#1a2742',
+        panelSoft: '#243252',
+        accent: '#6aa1ff',
+        text: '#edf2ff',
+        textSoft: '#b3bedb',
         success: '#34d399',
         warning: '#fbbf24'
       },
