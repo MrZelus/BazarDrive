@@ -49,7 +49,7 @@ def build_capture_plan(
     return plan
 
 
-def build_markdown_matrix(capture_plan: list[dict[str, str]]) -> str:
+def build_markdown_matrix(capture_plan: list[dict[str, str]], check_files: bool = False) -> str:
     matrix: dict[str, dict[str, str]] = {tab: {} for tab in TAB_SELECTORS}
     for item in capture_plan:
         key = f"{item['viewport']}/{item['browser']}"
@@ -67,7 +67,15 @@ def build_markdown_matrix(capture_plan: list[dict[str, str]]) -> str:
         }[tab]
         row = [label]
         for key in ("desktop/chrome", "desktop/edge", "mobile/chrome", "mobile/edge"):
-            row.append(matrix[tab].get(key, "-") or "-")
+            path = matrix[tab].get(key, "")
+            if not path:
+                row.append("-")
+                continue
+            if check_files:
+                status = "✅" if Path(path).exists() else "❌"
+                row.append(f"{status} [{path}]({path})")
+            else:
+                row.append(f"[{path}]({path})")
         rows.append("| " + " | ".join(row) + " |")
     return "\n".join(rows)
 
@@ -146,6 +154,11 @@ async def main() -> int:
         default="",
         help="Optional path to write Markdown evidence matrix based on selected capture plan",
     )
+    parser.add_argument(
+        "--report-md-check-files",
+        action="store_true",
+        help="Annotate Markdown matrix cells with ✅/❌ based on actual file existence",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Validate inputs and print capture plan without running Playwright")
     args = parser.parse_args()
 
@@ -188,7 +201,10 @@ async def main() -> int:
             print(f"Manifest: {manifest_path}")
         if report_md_path:
             report_md_path.parent.mkdir(parents=True, exist_ok=True)
-            report_md_path.write_text(build_markdown_matrix(capture_plan) + "\n", encoding="utf-8")
+            report_md_path.write_text(
+                build_markdown_matrix(capture_plan, check_files=args.report_md_check_files) + "\n",
+                encoding="utf-8",
+            )
             print(f"Markdown report: {report_md_path}")
 
     if args.dry_run:

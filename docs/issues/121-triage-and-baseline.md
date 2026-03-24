@@ -531,3 +531,21 @@ To reduce manual formatting work when filling the final evidence PR, the capture
 Example:
 
 - `python scripts/capture_guest_feed_evidence.py --dry-run --browsers chrome --tabs feed,profile --viewports mobile --report-md artifacts/121/evidence-matrix.md`
+
+## Q12 evidence matrix file-status annotations
+
+To make PR review faster, the Markdown evidence export now supports optional file-existence status markers.
+
+- `scripts/capture_guest_feed_evidence.py` now supports:
+  - `--report-md-check-files`: annotate each selected matrix cell with:
+    - `✅` when the referenced screenshot file exists;
+    - `❌` when the file is still missing.
+- Markdown cells are now rendered as links (`[path](path)`), so reviewers can click artifact paths directly from the PR body.
+- This mode is especially useful after real capture runs to quickly spot missing browser/viewport/tab combinations before posting final closure evidence.
+- Added regression coverage in `tests/test_capture_guest_feed_evidence_script.py`:
+  - verifies linked Markdown formatting for report rows;
+  - verifies `--report-md-check-files` emits `❌` markers in dry-run when files are absent.
+
+Example:
+
+- `python scripts/capture_guest_feed_evidence.py --url http://127.0.0.1:8000/guest_feed.html --out artifacts/121 --browsers chrome,edge --report-md artifacts/121/evidence-matrix.md --report-md-check-files`

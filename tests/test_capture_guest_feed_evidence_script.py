@@ -94,8 +94,36 @@ class CaptureGuestFeedEvidenceScriptTests(unittest.TestCase):
             self.assertTrue(report_path.exists())
             report_text = report_path.read_text(encoding="utf-8")
             self.assertIn("| Tab | desktop/chrome | desktop/edge | mobile/chrome | mobile/edge |", report_text)
-            self.assertIn("| Лента | - | - | artifacts/121/feed-mobile-chrome-after.png | - |", report_text)
-            self.assertIn("| Профиль | - | - | artifacts/121/profile-mobile-chrome-after.png | - |", report_text)
+            self.assertIn(
+                "| Лента | - | - | [artifacts/121/feed-mobile-chrome-after.png](artifacts/121/feed-mobile-chrome-after.png) | - |",
+                report_text,
+            )
+            self.assertIn(
+                "| Профиль | - | - | [artifacts/121/profile-mobile-chrome-after.png](artifacts/121/profile-mobile-chrome-after.png) | - |",
+                report_text,
+            )
+
+    def test_dry_run_markdown_matrix_can_include_file_status(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            report_path = Path(tmpdir) / "evidence-matrix.md"
+            result = self.run_script(
+                "--dry-run",
+                "--browsers",
+                "chrome",
+                "--tabs",
+                "feed",
+                "--viewports",
+                "mobile",
+                "--out",
+                tmpdir,
+                "--report-md",
+                str(report_path),
+                "--report-md-check-files",
+            )
+
+            self.assertEqual(result.returncode, 0)
+            report_text = report_path.read_text(encoding="utf-8")
+            self.assertIn("❌", report_text)
 
 
 if __name__ == "__main__":
