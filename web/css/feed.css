@@ -38,15 +38,22 @@
 }
 
 .tab-btn:hover,
-.tab-btn:focus-visible,
 .profile-menu-btn:hover,
-.profile-menu-btn:focus-visible,
-.role-btn:hover,
-.role-btn:focus-visible {
+.role-btn:hover {
   color: rgb(var(--feed-text-rgb));
   background-color: rgb(var(--feed-panel-soft-rgb) / 0.8);
   border-color: rgb(var(--feed-accent-rgb) / 0.56);
   box-shadow: 0 0 0 1px rgb(var(--feed-accent-rgb) / 0.12) inset;
+}
+
+.tab-btn:focus-visible,
+.profile-menu-btn:focus-visible,
+.role-btn:focus-visible {
+  outline: none;
+  color: rgb(var(--feed-text-rgb));
+  background-color: rgb(var(--feed-panel-soft-rgb) / 0.84);
+  border-color: rgb(var(--feed-accent-rgb) / 0.64);
+  box-shadow: 0 0 0 2px rgb(var(--feed-accent-rgb) / 0.28);
 }
 
 .tab-btn.active,
@@ -70,7 +77,10 @@
 .profile-menu-btn[aria-disabled='true'],
 .role-btn:disabled,
 .role-btn[aria-disabled='true'] {
-  opacity: 0.56;
+  opacity: 0.72;
+  color: rgb(var(--feed-text-soft-rgb));
+  background-color: rgb(var(--feed-panel-soft-rgb) / 0.28);
+  border-color: rgb(var(--feed-text-soft-rgb) / 0.24);
   cursor: not-allowed;
   box-shadow: none;
   transform: none;
@@ -114,7 +124,7 @@
 
 button:disabled,
 button[aria-disabled='true'] {
-  opacity: 0.56;
+  opacity: 0.72;
   cursor: not-allowed;
 }
 
