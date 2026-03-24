@@ -26,7 +26,7 @@
 - [x] 121.1 Baseline-диагностика: скриншоты текущего состояния + computed colors ключевых блоков.
 - [x] 121.2 Корректировка цветовых токенов темы в `web/js/tailwind-config.js`.
 - [x] 121.3 Тонкая настройка контраста карточек/бордеров/кнопок (`guest_feed.html`, `web/css/feed.css`).
-- [ ] 121.4 Визуальная и а11y-проверка состояний (`active`, `inactive`, `hover`, `disabled`) на всех вкладках.
+- [x] 121.4 Визуальная и а11y-проверка состояний (`active`, `inactive`, `hover`, `disabled`) на всех вкладках.
 - [ ] 121.5 PR-артефакты: before/after скриншоты, test plan, привязка `Closes #121`.
 
 ## 121.1 Baseline diagnostics
@@ -93,6 +93,22 @@
 - Surface boundaries are now easier to parse on `Лента`, `Правила`, `Профиль` without changing layout architecture.
 - Secondary and tab controls are visually distinguishable in default and interactive states.
 - Next step is **121.4**: a11y/state pass (focus semantics + action-button state checks across dynamic UI).
+
+## 121.4 A11y + state UX pass (P1)
+
+### Updated interaction states
+- Added shared helper `setButtonBusyState(...)` in `web/js/feed.js` and wired it to long-running actions (`Опубликовать`, `Сохранить профиль`, `Сохранить документ`, delete/comment actions, like toggles).
+- Busy transitions now set `disabled`, `aria-disabled`, and `aria-busy` consistently for action buttons.
+- Added contextual `aria-label` values for destructive actions to disambiguate controls in screen readers:
+  - delete document,
+  - delete post,
+  - edit/delete comment,
+  - submit comment action context.
+
+### 121.4 conclusion
+- Interactive button states are now explicit for both visual and assistive-technology users.
+- Destructive and contextual actions are distinguishable in accessibility trees.
+- Next step is **121.5**: attach before/after visual artifacts and closure evidence for acceptance criteria.
 
 ## Issue comment draft (to post in #121)
 

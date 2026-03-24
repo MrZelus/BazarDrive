@@ -189,6 +189,19 @@
       }, 4500);
     }
 
+    function setButtonBusyState(button, isBusy, busyText = '', idleText = '') {
+      if (!button) return;
+      const busy = Boolean(isBusy);
+      button.disabled = busy;
+      button.setAttribute('aria-disabled', String(busy));
+      button.setAttribute('aria-busy', String(busy));
+      if (busy && busyText) {
+        button.textContent = busyText;
+      } else if (!busy && idleText) {
+        button.textContent = idleText;
+      }
+    }
+
     function resolveModerationErrorMessage(rawMessage = '') {
       const source = String(rawMessage || '').trim();
       if (!source) return MODERATION_ERROR_COPY.generic;
@@ -349,14 +362,15 @@
     function applyDocumentLoadingState(isLoading) {
       isSubmittingDocument = Boolean(isLoading);
       if (submitDocumentBtn) {
-        submitDocumentBtn.disabled = isSubmittingDocument;
-        submitDocumentBtn.textContent = isSubmittingDocument ? 'Сохранение...' : 'Сохранить';
+        setButtonBusyState(submitDocumentBtn, isSubmittingDocument, 'Сохранение...', 'Сохранить');
       }
       if (cancelDocumentBtn) {
         cancelDocumentBtn.disabled = isSubmittingDocument;
+        cancelDocumentBtn.setAttribute('aria-disabled', String(isSubmittingDocument));
       }
       if (addDocumentBtn) {
         addDocumentBtn.disabled = isSubmittingDocument;
+        addDocumentBtn.setAttribute('aria-disabled', String(isSubmittingDocument));
       }
       [documentTypeInput, documentNumberInput, documentValidUntilInput].forEach((field) => {
         if (!field) return;
@@ -403,9 +417,11 @@
         deleteButton.className = 'text-xs text-warning hover:underline';
         deleteButton.dataset.docDelete = String(item.id || '');
         deleteButton.textContent = 'Удалить';
+        deleteButton.setAttribute('aria-label', `Удалить документ: ${String(item.title || 'Документ')}`);
         deleteButton.addEventListener('click', async () => {
           const id = Number(deleteButton.dataset.docDelete);
           if (!id) return;
+          setButtonBusyState(deleteButton, true, 'Удаление...');
           try {
             const response = await fetch(`${FEED_API_BASE}/api/driver/documents/${id}`, { method: 'DELETE' });
             if (!response.ok) {
@@ -415,6 +431,7 @@
           } catch (error) {
             console.error(error);
             setDocumentAlert(error.message || 'Не удалось удалить документ');
+            setButtonBusyState(deleteButton, false, '', 'Удалить');
           }
         });
 
@@ -709,7 +726,7 @@
     function createInteractionButton(iconText, value, label, extraClasses = '') {
       const button = document.createElement('button');
       button.type = 'button';
-      button.setAttribute('aria-label', String(label || '').trim());
+      button.setAttribute('aria-label', `${String(label || '').trim()}: ${Number(value || 0)}`);
       button.className = `group inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-textSoft transition hover:bg-panelSoft hover:text-text ${extraClasses}`.trim();
 
       const icon = document.createElement('span');
@@ -764,8 +781,9 @@
           deletePostBtn.type = 'button';
           deletePostBtn.className = 'text-xs text-warning hover:underline';
           deletePostBtn.textContent = 'Удалить';
+          deletePostBtn.setAttribute('aria-label', `Удалить пост автора ${String(post.author || 'Гость')}`);
           deletePostBtn.addEventListener('click', async () => {
-            deletePostBtn.disabled = true;
+            setButtonBusyState(deletePostBtn, true, 'Удаление...');
             try {
               await deletePost(post.id, actor.id);
               await loadPosts({ reset: true });
@@ -774,7 +792,7 @@
               console.error(error);
               showAppNotification(error.message || 'Не удалось удалить пост.', 'error');
             } finally {
-              deletePostBtn.disabled = false;
+              setButtonBusyState(deletePostBtn, false, '', 'Удалить');
             }
           });
           header.appendChild(deletePostBtn);
@@ -831,7 +849,7 @@
             showAppNotification('Сначала заполните и сохраните профиль гостя.', 'error');
             return;
           }
-          likeButton.disabled = true;
+          setButtonBusyState(likeButton, true);
           try {
             const payload = target.myReaction === 'like'
               ? await deletePostReaction(postId, actor.id)
@@ -842,7 +860,7 @@
             console.error(error);
             showAppNotification(error.message || 'Не удалось обновить реакцию.', 'error');
           } finally {
-            likeButton.disabled = false;
+            setButtonBusyState(likeButton, false);
           }
         });
 
@@ -883,6 +901,7 @@
             editBtn.type = 'button';
             editBtn.className = 'text-xs text-accent hover:underline';
             editBtn.textContent = 'Редактировать';
+            editBtn.setAttribute('aria-label', `Редактировать комментарий от ${String(comment.author || 'автора')}`);
             editBtn.addEventListener('click', async () => {
               const nextText = window.prompt('Изменить комментарий', comment.text);
               if (nextText === null) return;
@@ -911,7 +930,9 @@
             deleteBtn.type = 'button';
             deleteBtn.className = 'text-xs text-warning hover:underline';
             deleteBtn.textContent = 'Удалить';
+            deleteBtn.setAttribute('aria-label', `Удалить комментарий от ${String(comment.author || 'автора')}`);
             deleteBtn.addEventListener('click', async () => {
+              setButtonBusyState(deleteBtn, true, 'Удаление...');
               try {
                 const response = await fetch(`${FEED_API_BASE}/api/feed/posts/${post.id}/comments/${comment.id}`, {
                   method: 'DELETE',
@@ -926,6 +947,8 @@
               } catch (error) {
                 console.error(error);
                 showAppNotification(error.message || 'Не удалось удалить комментарий.', 'error');
+              } finally {
+                setButtonBusyState(deleteBtn, false, '', 'Удалить');
               }
             });
             controls.append(editBtn, deleteBtn);
@@ -950,6 +973,7 @@
         submit.type = 'submit';
         submit.className = 'rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-black hover:opacity-90';
         submit.textContent = 'Отправить';
+        submit.setAttribute('aria-label', `Отправить комментарий к посту автора ${String(post.author || 'Гость')}`);
         form.append(input, submit);
         form.addEventListener('submit', async (event) => {
           event.preventDefault();
@@ -962,7 +986,7 @@
             showAppNotification('Сначала заполните и сохраните профиль гостя.', 'error');
             return;
           }
-          submit.disabled = true;
+          setButtonBusyState(submit, true, 'Отправка...');
           try {
             const response = await fetch(`${FEED_API_BASE}/api/feed/posts/${post.id}/comments`, {
               method: 'POST',
@@ -979,7 +1003,7 @@
             console.error(error);
             showAppNotification(error.message || 'Не удалось добавить комментарий.', 'error');
           } finally {
-            submit.disabled = false;
+            setButtonBusyState(submit, false, '', 'Отправить');
           }
         });
         commentsWrap.appendChild(form);
@@ -1134,8 +1158,7 @@
       }
 
       storePendingPostDraft('');
-      publishBtn.disabled = true;
-      publishBtn.textContent = 'Публикация...';
+      setButtonBusyState(publishBtn, true, 'Публикация...');
       try {
         const response = await fetch(`${FEED_API_BASE}/api/feed/posts`, {
           method: 'POST',
@@ -1162,8 +1185,7 @@
         console.error(error);
         showAppNotification(error.message || 'Не удалось опубликовать пост', 'error');
       } finally {
-        publishBtn.disabled = false;
-        publishBtn.textContent = 'Опубликовать';
+        setButtonBusyState(publishBtn, false, '', 'Опубликовать');
       }
     }
 
@@ -1330,8 +1352,7 @@
         return;
       }
 
-      saveProfileBtn.disabled = true;
-      saveProfileBtn.textContent = 'Сохранение...';
+      setButtonBusyState(saveProfileBtn, true, 'Сохранение...');
       try {
         const response = await fetch(`${FEED_API_BASE}/api/feed/profiles`, {
           method: 'POST',
@@ -1366,8 +1387,7 @@
         console.error(error);
         showAppNotification(error.message || 'Не удалось сохранить профиль гостя', 'error');
       } finally {
-        saveProfileBtn.disabled = false;
-        saveProfileBtn.textContent = 'Сохранить профиль гостя';
+        setButtonBusyState(saveProfileBtn, false, '', 'Сохранить профиль гостя');
       }
     }
 
