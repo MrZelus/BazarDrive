@@ -293,7 +293,7 @@
 
     function buildInfoCard(message) {
       const card = document.createElement('div');
-      card.className = 'rounded-xl border border-white/10 bg-panelSoft px-3 py-2 text-sm text-textSoft';
+      card.className = 'rounded-xl border border-textSoft/20 bg-panelSoft px-3 py-2 text-sm text-textSoft';
       card.textContent = String(message || '').trim();
       return card;
     }
@@ -309,7 +309,7 @@
       const previewItems = items.slice(0, 3);
       previewItems.forEach((item) => {
         const card = document.createElement('div');
-        card.className = 'rounded-xl border border-white/10 bg-panelSoft px-3 py-2';
+        card.className = 'rounded-xl border border-textSoft/20 bg-panelSoft px-3 py-2';
 
         const title = document.createElement('p');
         title.className = 'text-sm font-medium';
@@ -403,7 +403,7 @@
 
       normalizedItems.forEach((item) => {
         const article = document.createElement('article');
-        article.className = 'rounded-xl border border-white/10 bg-panelSoft px-3 py-3 space-y-2';
+        article.className = 'rounded-xl border border-textSoft/20 bg-panelSoft px-3 py-3 space-y-2';
 
         const header = document.createElement('div');
         header.className = 'flex items-start justify-between gap-3';
@@ -752,7 +752,7 @@
       posts.forEach((post) => {
         const actor = getCurrentGuestActor();
         const article = document.createElement('article');
-        article.className = 'rounded-2xl bg-panel p-4 border border-white/10 animate-fadeInUp';
+        article.className = 'rounded-2xl bg-panel p-4 border border-textSoft/20 animate-fadeInUp';
 
         const header = document.createElement('header');
         header.className = 'mb-3 flex items-center justify-between';
@@ -815,7 +815,7 @@
               video.src = String(item.url || '');
               video.controls = true;
               video.preload = 'metadata';
-              video.className = 'max-h-[420px] min-w-full snap-center rounded-xl bg-black object-contain';
+              video.className = 'max-h-[420px] min-w-full snap-center rounded-xl bg-panel object-contain';
               mediaContainer.appendChild(video);
               return;
             }
@@ -837,7 +837,7 @@
         }
 
         const footer = document.createElement('footer');
-        footer.className = 'flex items-center gap-1 border-t border-white/10 pt-2';
+        footer.className = 'flex items-center gap-1 border-t border-textSoft/20 pt-2';
 
         const likeButton = createInteractionButton('♡', post.likes, 'Лайк', `js-like-btn ${post.likedByMe ? 'text-accent' : ''}`);
         likeButton.dataset.postId = String(post.id || '');
@@ -873,7 +873,7 @@
         article.appendChild(footer);
 
         const commentsWrap = document.createElement('section');
-        commentsWrap.className = 'mt-3 border-t border-white/10 pt-3 space-y-2';
+        commentsWrap.className = 'mt-3 border-t border-textSoft/20 pt-3 space-y-2';
 
         const commentsTitle = document.createElement('p');
         commentsTitle.className = 'text-xs uppercase tracking-wide text-textSoft';
@@ -884,7 +884,7 @@
         commentList.className = 'space-y-2';
         (post.comments || []).forEach((comment) => {
           const row = document.createElement('div');
-          row.className = 'rounded-lg border border-white/10 bg-panelSoft px-3 py-2';
+          row.className = 'rounded-lg border border-textSoft/20 bg-panelSoft px-3 py-2';
 
           const top = document.createElement('div');
           top.className = 'mb-1 flex items-center justify-between gap-2';
@@ -968,10 +968,10 @@
         const input = document.createElement('input');
         input.type = 'text';
         input.placeholder = 'Напишите комментарий...';
-        input.className = 'min-w-0 flex-1 rounded-lg border border-white/15 bg-panel px-3 py-2 text-sm text-text outline-none focus:border-accent';
+        input.className = 'min-w-0 flex-1 rounded-lg border border-textSoft/25 bg-panel px-3 py-2 text-sm text-text outline-none focus:border-accent';
         const submit = document.createElement('button');
         submit.type = 'submit';
-        submit.className = 'rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-black hover:opacity-90';
+        submit.className = 'rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-bg hover:opacity-90';
         submit.textContent = 'Отправить';
         submit.setAttribute('aria-label', `Отправить комментарий к посту автора ${String(post.author || 'Гость')}`);
         form.append(input, submit);
@@ -1028,7 +1028,7 @@
       if (!isVisible) return;
       for (let idx = 0; idx < 2; idx += 1) {
         const skeleton = document.createElement('div');
-        skeleton.className = 'rounded-2xl border border-white/10 bg-panel p-4 animate-pulse';
+        skeleton.className = 'rounded-2xl border border-textSoft/20 bg-panel p-4 animate-pulse';
         const line1 = document.createElement('div');
         line1.className = 'mb-2 h-3 w-1/3 rounded bg-panelSoft';
         const line2 = document.createElement('div');
@@ -1044,7 +1044,7 @@
       const normalized = String(message || '').trim();
       if (!normalized) return;
       const warning = document.createElement('div');
-      warning.className = 'rounded-2xl bg-panel p-4 border border-white/10 text-sm text-warning';
+      warning.className = 'rounded-2xl bg-panel p-4 border border-textSoft/20 text-sm text-warning';
       warning.textContent = normalized;
       feedLoadStateEl.appendChild(warning);
     }
@@ -1202,7 +1202,7 @@
       if (filteredDocs.length) {
         filteredDocs.forEach((doc) => {
           const article = document.createElement('article');
-          article.className = 'rounded-2xl bg-panel p-4 border border-white/10 animate-fadeInUp';
+          article.className = 'rounded-2xl bg-panel p-4 border border-textSoft/20 animate-fadeInUp';
 
           const top = document.createElement('div');
           top.className = 'flex items-start justify-between gap-3';
@@ -1234,7 +1234,7 @@
         });
       } else {
         const empty = document.createElement('div');
-        empty.className = 'rounded-2xl bg-panel p-4 border border-white/10 text-sm text-textSoft';
+        empty.className = 'rounded-2xl bg-panel p-4 border border-textSoft/20 text-sm text-textSoft';
         empty.textContent = 'Ничего не найдено. Попробуйте другой запрос.';
         docsList.appendChild(empty);
       }
