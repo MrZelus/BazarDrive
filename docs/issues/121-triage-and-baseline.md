@@ -341,3 +341,57 @@ Use this after the visual-evidence PR is merged to close the communication loop 
 - Merge commits: <LIST>
 - Screenshots: <PATHS>
 ```
+
+## Q3 execution playbook (post-closure hygiene)
+
+Use this only after #121 is closed and all visual evidence is published.
+
+### Trigger conditions
+
+Open a follow-up maintenance issue **only if at least one condition is true**:
+
+- A browser-specific mismatch is reproduced (Chrome vs Edge) on `Лента` / `Правила` / `Профиль`.
+- A control state regression appears in production-like checks (`active`, `hover`, `disabled`, `busy`).
+- A readability regression appears after unrelated UI merges (contrast drop between `bg` and `panel/panelSoft`).
+
+### Out-of-scope guardrails
+
+When opening a follow-up, keep #121 closed and avoid re-expanding its scope:
+
+- Do **not** reopen #121 for cosmetic polish outside accepted criteria.
+- Do **not** mix redesign tasks with regression fixes.
+- Do **not** bundle Tailwind pipeline migrations into maintenance PRs.
+
+### Follow-up issue template (ready to copy)
+
+```md
+Title: [Post-#121][UI] Browser-specific contrast/state regression in guest feed
+
+Context:
+- #121 is closed with accepted evidence and parity checks.
+- A new regression was found in: <TAB / COMPONENT>.
+
+Observed:
+- Browser/viewport: <Chrome|Edge>, <Desktop|Mobile>.
+- Expected: controls/surfaces remain distinguishable and readable.
+- Actual: <SHORT REGRESSION DESCRIPTION>.
+
+Evidence:
+- Screenshot path(s): <PATHS>
+- First bad commit/PR (if known): <REF>
+
+Scope:
+- In: targeted fix for regression only.
+- Out: redesign, global token rethink, Tailwind tooling migration.
+```
+
+### Closure note snippet for maintenance issue
+
+```md
+Статус: ✅ Follow-up regression fix merged.
+
+Проверено:
+- Chrome / Edge parity восстановлены.
+- Desktop / mobile viewport подтверждены.
+- Релевантные UI-регрессии (#121 scope) устранены без расширения дизайна.
+```
