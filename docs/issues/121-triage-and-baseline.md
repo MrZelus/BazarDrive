@@ -483,3 +483,20 @@ To make the final evidence capture helper easier to operate in constrained envir
   - verifies actionable error text when Playwright is not installed.
 
 This keeps Q7 tooling behavior stable and predictable while preserving existing output format for evidence artifacts.
+
+## Q9 evidence manifest automation (dry-run planning mode)
+
+To simplify the final browser-enabled evidence PR handoff, the capture helper now supports a deterministic planning mode and machine-readable manifest output.
+
+- `scripts/capture_guest_feed_evidence.py` now supports:
+  - `--dry-run`: validates inputs and prints the full screenshot plan without importing Playwright;
+  - `--manifest <path>`: writes a JSON manifest with URL, dry-run flag, and full capture matrix (`tab`, `viewport`, `browser`, `path`).
+- This enables PR preparation in restricted environments (where Playwright is unavailable) while keeping artifact naming aligned with Q5/Q6 evidence matrix expectations.
+- Added regression coverage in `tests/test_capture_guest_feed_evidence_script.py` to ensure dry-run exits successfully and writes a manifest without Playwright dependency.
+
+Recommended usage:
+
+1. Preview and export plan (no browser runtime required):
+   - `python scripts/capture_guest_feed_evidence.py --dry-run --browsers chrome,edge --manifest artifacts/121/capture-manifest.json`
+2. Execute real capture in browser-enabled environment:
+   - `python scripts/capture_guest_feed_evidence.py --url http://127.0.0.1:8000/guest_feed.html --out artifacts/121 --manifest artifacts/121/capture-manifest.json`
