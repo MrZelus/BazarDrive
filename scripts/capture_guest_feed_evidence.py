@@ -166,7 +166,7 @@ async def main() -> int:
     parser.add_argument(
         "--fail-on-missing-files",
         action="store_true",
-        help="Exit with non-zero status when any planned screenshot file is missing",
+        help="Exit with code 1 when expected screenshot files from the selected capture plan are missing",
     )
     parser.add_argument("--dry-run", action="store_true", help="Validate inputs and print capture plan without running Playwright")
     args = parser.parse_args()
@@ -221,11 +221,11 @@ async def main() -> int:
             print(f"PLAN: {item['path']}")
         write_outputs(dry_run=True)
         if args.fail_on_missing_files:
-            missing = find_missing_capture_files(capture_plan)
-            if missing:
-                print(f"ERROR: Missing screenshot files: {len(missing)}")
-                for path in missing:
-                    print(f"MISSING: {path}")
+            missing_files = find_missing_capture_files(capture_plan)
+            if missing_files:
+                print(f"ERROR: Missing {len(missing_files)} expected screenshot file(s).")
+                for missing_path in missing_files:
+                    print(f"MISSING: {missing_path}")
                 return 1
         return 0
 
@@ -257,11 +257,11 @@ async def main() -> int:
 
     write_outputs(dry_run=False)
     if args.fail_on_missing_files:
-        missing = find_missing_capture_files(capture_plan)
-        if missing:
-            print(f"ERROR: Missing screenshot files: {len(missing)}")
-            for path in missing:
-                print(f"MISSING: {path}")
+        missing_files = find_missing_capture_files(capture_plan)
+        if missing_files:
+            print(f"ERROR: Missing {len(missing_files)} expected screenshot file(s).")
+            for missing_path in missing_files:
+                print(f"MISSING: {missing_path}")
             return 1
 
     return 0
