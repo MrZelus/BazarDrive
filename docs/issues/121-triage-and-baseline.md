@@ -353,3 +353,53 @@ Added automated regression checks to keep #121 fixes stable over time:
 Execution target:
 
 - Include this test in the regular `pytest` run used by follow-up PRs for feed UI.
+
+## Q5 operational handoff (artifact manifest + command checklist)
+
+To avoid drift in final evidence collection, use the following fixed handoff package in the next browser-enabled follow-up PR.
+
+### Artifact manifest template
+
+```yaml
+issue: 121
+evidence_pr: <PR_NUMBER>
+parity:
+  chrome: pass|fail
+  edge: pass|fail
+viewports:
+  desktop: 1440x900
+  mobile: 390x844
+screenshots:
+  feed:
+    desktop_after: artifacts/121/feed-desktop-after.png
+    mobile_after: artifacts/121/feed-mobile-after.png
+  rules:
+    desktop_after: artifacts/121/rules-desktop-after.png
+    mobile_after: artifacts/121/rules-mobile-after.png
+  profile:
+    desktop_after: artifacts/121/profile-desktop-after.png
+    mobile_after: artifacts/121/profile-mobile-after.png
+validation:
+  contrast_guardrails_test: pass|fail
+  main_tabs_a11y: pass|fail
+  publish_profile_flow: pass|fail
+  documents_smoke: pass|fail
+  action_buttons_a11y_states: pass|fail
+notes: |
+  <browser-specific notes or follow-up issue links>
+```
+
+### Command checklist (copy/paste order)
+
+1. `pytest -q tests/test_guest_feed_theme_contrast_guardrails.py tests/test_main_tabs_a11y.py tests/test_feed_publish_profile_navigation_flow.py tests/test_driver_documents_ui_smoke.py tests/test_feed_action_buttons_a11y_states.py`
+2. Capture desktop/mobile screenshots for `Лента` / `Правила` / `Профиль` in Chrome.
+3. Repeat capture/validation in Edge with the same viewport presets.
+4. Fill the manifest above and embed it (or equivalent table) in the PR body.
+5. Post final issue sync comment using the closure snippet and include screenshot links.
+
+### Exit criteria for final #121 close action
+
+- All screenshot paths in the manifest are present and viewable in PR artifacts.
+- Chrome and Edge parity both marked `pass`.
+- All five UI regression tests reported `pass` in PR checks.
+- Final issue comment includes merged PR list + merge SHAs + screenshot links.
