@@ -27,17 +27,22 @@ def parse_csv_list(raw: str) -> list[str]:
     return [item.strip().lower() for item in raw.split(",") if item.strip()]
 
 
+def build_screenshot_filename(tab_name: str, viewport_name: str, browser_name: str, phase: str) -> str:
+    return f"{tab_name}-{viewport_name}-{browser_name}-{phase}.png"
+
+
 def build_capture_plan(
     browsers: list[str],
     out_dir: Path,
     tabs: list[str],
     viewports: list[str],
+    phase: str,
 ) -> list[dict[str, str]]:
     plan: list[dict[str, str]] = []
     for browser_name in browsers:
         for viewport_name in viewports:
             for tab_name in tabs:
-                target = out_dir / f"{tab_name}-{viewport_name}-{browser_name}-after.png"
+                target = out_dir / build_screenshot_filename(tab_name, viewport_name, browser_name, phase)
                 plan.append(
                     {
                         "tab": tab_name,
@@ -92,6 +97,7 @@ async def capture_for_browser(
     edge_channel: str | None,
     tabs: list[str],
     viewports: list[str],
+    phase: str,
 ) -> None:
     async with async_playwright() as p:
         launcher = p.chromium
@@ -113,7 +119,7 @@ async def capture_for_browser(
                     selector = TAB_SELECTORS[tab_name]
                     await page.click(selector)
                     await page.wait_for_timeout(250)
-                    target = out_dir / f"{tab_name}-{viewport_name}-{browser_name}-after.png"
+                    target = out_dir / build_screenshot_filename(tab_name, viewport_name, browser_name, phase)
                     await page.screenshot(path=str(target), full_page=True)
                     print(f"Saved: {target}")
 
@@ -152,6 +158,12 @@ async def main() -> int:
         default="desktop,mobile",
         help="Comma-separated viewport keys to capture: desktop,mobile",
     )
+    parser.add_argument(
+        "--phase",
+        default="after",
+        choices=("before", "after"),
+        help="Screenshot phase suffix in output filenames: before or after",
+    )
     parser.add_argument("--manifest", default="", help="Optional path to write JSON capture manifest")
     parser.add_argument(
         "--report-md",
@@ -187,6 +199,7 @@ async def main() -> int:
         out_dir=out_dir,
         tabs=tabs,
         viewports=viewports,
+        phase=args.phase,
     )
     manifest_path = Path(args.manifest) if args.manifest else None
     report_md_path = Path(args.report_md) if args.report_md else None
@@ -248,6 +261,7 @@ async def main() -> int:
                 edge_channel,
                 tabs,
                 viewports,
+                args.phase,
             )
         except PlaywrightError as exc:
             raise RuntimeError(

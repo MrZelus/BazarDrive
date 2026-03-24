@@ -569,3 +569,23 @@ To prevent publishing incomplete evidence matrices, the capture helper now suppo
 Example strict preflight (fails fast if any selected artifact path is missing):
 
 - `python scripts/capture_guest_feed_evidence.py --dry-run --browsers chrome --tabs feed --viewports mobile --out artifacts/121 --fail-on-missing-files`
+
+## Q14 before/after phase naming support (`--phase`)
+
+To align the capture workflow with the original #121 requirement to attach both **before** and **after** screenshots, the evidence helper now supports explicit phase-based file naming.
+
+- `scripts/capture_guest_feed_evidence.py` now supports:
+  - `--phase before|after` (default: `after`).
+- Selected phase is applied consistently across:
+  - planned paths in `--dry-run`;
+  - runtime screenshot writes in real capture mode;
+  - manifest and Markdown report outputs (because they reuse the same capture plan).
+- This allows two deterministic runs without post-processing/renaming:
+  - baseline capture with `--phase before`;
+  - post-fix capture with `--phase after`.
+- Added regression coverage in `tests/test_capture_guest_feed_evidence_script.py`:
+  - verifies dry-run emits `*-before.png` filenames when `--phase before` is selected.
+
+Example:
+
+- `python scripts/capture_guest_feed_evidence.py --dry-run --phase before --browsers chrome,edge --report-md artifacts/121/evidence-before.md`

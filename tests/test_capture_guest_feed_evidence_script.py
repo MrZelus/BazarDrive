@@ -74,6 +74,23 @@ class CaptureGuestFeedEvidenceScriptTests(unittest.TestCase):
             self.assertIn('"viewport": "mobile"', manifest_text)
             self.assertNotIn('"tab": "feed"', manifest_text)
 
+    def test_dry_run_supports_before_phase_filenames(self) -> None:
+        result = self.run_script(
+            "--dry-run",
+            "--browsers",
+            "chrome",
+            "--tabs",
+            "feed",
+            "--viewports",
+            "mobile",
+            "--phase",
+            "before",
+        )
+
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("feed-mobile-chrome-before.png", result.stdout)
+        self.assertNotIn("feed-mobile-chrome-after.png", result.stdout)
+
     def test_dry_run_writes_markdown_matrix_report(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             report_path = Path(tmpdir) / "evidence-matrix.md"
