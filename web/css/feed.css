@@ -1,3 +1,14 @@
+:root {
+  --feed-bg-rgb: 5 8 18;
+  --feed-panel-rgb: 26 39 66;
+  --feed-panel-soft-rgb: 36 50 82;
+  --feed-accent-rgb: 106 161 255;
+  --feed-text-rgb: 237 242 255;
+  --feed-text-soft-rgb: 179 190 219;
+  --feed-success-rgb: 52 211 153;
+  --feed-warning-rgb: 251 191 36;
+}
+
 .screen {
   display: none;
   opacity: 0;
@@ -12,55 +23,55 @@
 }
 
 .tab-btn {
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  color: #b3bedb;
-  background-color: rgba(26, 39, 66, 0.42);
+  border: 1px solid rgb(var(--feed-text-soft-rgb) / 0.22);
+  color: rgb(var(--feed-text-soft-rgb));
+  background-color: rgb(var(--feed-panel-rgb) / 0.42);
 }
 
 .tab-btn:hover,
 .tab-btn:focus-visible {
-  color: #edf2ff;
-  background-color: rgba(36, 50, 82, 0.68);
-  border-color: rgba(147, 178, 255, 0.56);
+  color: rgb(var(--feed-text-rgb));
+  background-color: rgb(var(--feed-panel-soft-rgb) / 0.8);
+  border-color: rgb(var(--feed-accent-rgb) / 0.56);
 }
 
 .tab-btn.active {
-  color: #edf2ff;
-  background-color: #243252;
-  border-color: rgba(106, 161, 255, 0.78);
-  box-shadow: 0 0 0 1px rgba(106, 161, 255, 0.12) inset;
+  color: rgb(var(--feed-text-rgb));
+  background-color: rgb(var(--feed-panel-soft-rgb));
+  border-color: rgb(var(--feed-accent-rgb) / 0.78);
+  box-shadow: 0 0 0 1px rgb(var(--feed-accent-rgb) / 0.12) inset;
 }
 
 .role-btn {
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid rgb(var(--feed-text-soft-rgb) / 0.22);
 }
 
 .role-btn:hover,
 .role-btn:focus-visible {
-  border-color: rgba(147, 178, 255, 0.5);
-  color: #edf2ff;
+  border-color: rgb(var(--feed-accent-rgb) / 0.5);
+  color: rgb(var(--feed-text-rgb));
 }
 
 .role-btn.active {
-  background-color: #6aa1ff;
-  color: #ffffff;
-  border-color: rgba(220, 232, 255, 0.65);
+  background-color: rgb(var(--feed-accent-rgb));
+  color: rgb(var(--feed-bg-rgb));
+  border-color: rgb(var(--feed-text-rgb) / 0.7);
 }
 
 .profile-menu-btn {
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: rgb(var(--feed-text-soft-rgb) / 0.2);
 }
 
 .profile-menu-btn:hover,
 .profile-menu-btn:focus-visible {
-  color: #edf2ff;
-  border-color: rgba(147, 178, 255, 0.48);
+  color: rgb(var(--feed-text-rgb));
+  border-color: rgb(var(--feed-accent-rgb) / 0.48);
 }
 
 .profile-menu-btn.active {
-  background-color: #243252;
-  color: #edf2ff;
-  border-color: rgba(106, 161, 255, 0.78);
+  background-color: rgb(var(--feed-panel-soft-rgb));
+  color: rgb(var(--feed-text-rgb));
+  border-color: rgb(var(--feed-accent-rgb) / 0.78);
 }
 
 button:disabled {
@@ -74,28 +85,28 @@ button:disabled {
   z-index: 20;
   margin: 0 16px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid rgb(var(--feed-text-soft-rgb) / 0.32);
   padding: 10px 12px;
   font-size: 13px;
   line-height: 1.35;
-  color: #edf2ff;
+  color: rgb(var(--feed-text-rgb));
   backdrop-filter: blur(6px);
   animation: fade-in-notification 180ms ease-out;
 }
 
 .app-notification--info {
-  background-color: rgba(106, 161, 255, 0.26);
-  border-color: rgba(106, 161, 255, 0.56);
+  background-color: rgb(var(--feed-accent-rgb) / 0.26);
+  border-color: rgb(var(--feed-accent-rgb) / 0.56);
 }
 
 .app-notification--success {
-  background-color: rgba(52, 211, 153, 0.16);
-  border-color: rgba(52, 211, 153, 0.45);
+  background-color: rgb(var(--feed-success-rgb) / 0.16);
+  border-color: rgb(var(--feed-success-rgb) / 0.45);
 }
 
 .app-notification--error {
-  background-color: rgba(251, 191, 36, 0.16);
-  border-color: rgba(251, 191, 36, 0.45);
+  background-color: rgb(var(--feed-warning-rgb) / 0.16);
+  border-color: rgb(var(--feed-warning-rgb) / 0.45);
 }
 
 @keyframes fade-in-notification {
