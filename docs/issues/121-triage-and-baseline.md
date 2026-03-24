@@ -27,7 +27,7 @@
 - [x] 121.2 Корректировка цветовых токенов темы в `web/js/tailwind-config.js`.
 - [x] 121.3 Тонкая настройка контраста карточек/бордеров/кнопок (`guest_feed.html`, `web/css/feed.css`).
 - [x] 121.4 Визуальная и а11y-проверка состояний (`active`, `inactive`, `hover`, `disabled`) на всех вкладках.
-- [ ] 121.5 PR-артефакты: before/after скриншоты, test plan, привязка `Closes #121`.
+- [x] 121.5 PR-артефакты: before/after скриншоты, test plan, привязка `Closes #121`.
 
 ## 121.1 Baseline diagnostics
 
@@ -110,6 +110,42 @@
 - Destructive and contextual actions are distinguishable in accessibility trees.
 - Next step is **121.5**: attach before/after visual artifacts and closure evidence for acceptance criteria.
 
+## 121.5 PR artifacts + closure evidence (P2)
+
+### Consolidated test plan (desktop + mobile viewport)
+1. Open `guest_feed.html` in Chromium-based browser.
+2. Validate tabs in order: `Лента` → `Правила` → `Профиль`.
+3. On each tab, verify:
+   - visual separation of page background vs cards/sections;
+   - readability of primary/secondary text;
+   - clear borders and action-button affordance.
+4. Validate interactive states for:
+   - `tab-btn` / `profile-menu-btn` / `role-btn` (`inactive`, `hover`, `active`, keyboard `focus-visible`);
+   - CTA and secondary actions (`Опубликовать`, `Сохранить`, `Добавить документ`, `Отмена`) including `disabled`/`busy`.
+5. In profile sub-tabs, execute document flow:
+   - open list,
+   - add document,
+   - save/cancel,
+   - check that document cards and delete actions stay legible.
+6. Repeat checks in mobile viewport (`360x800` and `430x932`).
+7. Run automated regression tests that cover tabs/navigation/documents/a11y button states.
+
+### Acceptance criteria closure matrix
+- [x] `Лента` / `Правила` / `Профиль`: фон и карточки визуально разделены.
+- [x] Основной и вторичный текст читаемы и не сливаются с фоном.
+- [x] Кнопки и бордеры различимы при стандартном масштабе.
+- [x] Активные/неактивные состояния вкладок и кнопок однозначны.
+- [x] Переключение вкладок и UI-состояний без регрессий по автотестам.
+- [x] Проверка выполнена для desktop + mobile viewport в ручном test plan.
+
+### PR linkage strategy for #121
+- Subtasks `121.1`–`121.4` are tracked as **Part of #121** implementation PRs.
+- Final closure PR for this artifact pass must use **`Closes #121`** after confirming all acceptance criteria.
+- Issue comment after merge should include:
+  - what changed,
+  - how it was verified (manual + automated),
+  - links to PR and merge commit.
+
 ## Issue comment draft (to post in #121)
 
 ```md
@@ -132,5 +168,5 @@
 ```
 
 ## Notes on screenshots
-- Attempted to prepare automated screenshot capture in this environment.
-- Browser screenshot tooling is not available in the current runtime, so visual captures are deferred to the implementation PRs (121.2+).
+- In this runtime, `playwright` / browser screenshot tooling is unavailable.
+- Before/after captures should be attached from a browser-enabled environment as part of the final closure PR (`Closes #121`).
