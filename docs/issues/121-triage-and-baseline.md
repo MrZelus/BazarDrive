@@ -146,6 +146,34 @@
   - how it was verified (manual + automated),
   - links to PR and merge commit.
 
+
+## Final closure status (post-subtasks 121.1–121.5)
+
+- Все подзадачи `121.1`–`121.5` завершены и покрывают acceptance criteria из исходного issue.
+- Отдельные implementation PR выполнялись с пометкой `Part of #121`; финальный closure PR должен использовать `Closes #121`.
+- Сводка проверки для закрытия должна содержать:
+  - ссылки на PR/merge commit по каждому подшагу,
+  - ручной test plan (desktop + mobile viewport),
+  - результаты автотестов (`tabs/navigation/documents/a11y states`).
+
+### Recommended final issue comment (closure)
+
+```md
+Статус: ✅ Issue #121 закрыт.
+
+Что сделано:
+- Выполнены подзадачи 121.1 → 121.5 (tokens, contrast tuning, button/tab states, a11y/state UX pass, closure artifacts).
+- Проверены вкладки `Лента` / `Правила` / `Профиль`, включая profile sub-tabs и документы.
+
+Как проверено:
+- Ручной test plan: desktop + mobile viewport.
+- Автотесты: main tabs, publish/navigation flow, documents smoke, action-button a11y/state.
+
+Артефакты:
+- PR: <ADD_FINAL_PR_LINK>
+- Merge commit: <ADD_FINAL_MERGE_COMMIT_LINK>
+```
+
 ## Issue comment draft (to post in #121)
 
 ```md
