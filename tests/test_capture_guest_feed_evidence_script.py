@@ -74,6 +74,29 @@ class CaptureGuestFeedEvidenceScriptTests(unittest.TestCase):
             self.assertIn('"viewport": "mobile"', manifest_text)
             self.assertNotIn('"tab": "feed"', manifest_text)
 
+    def test_dry_run_writes_markdown_matrix_report(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            report_path = Path(tmpdir) / "evidence-matrix.md"
+            result = self.run_script(
+                "--dry-run",
+                "--browsers",
+                "chrome",
+                "--tabs",
+                "feed,profile",
+                "--viewports",
+                "mobile",
+                "--report-md",
+                str(report_path),
+            )
+
+            self.assertEqual(result.returncode, 0)
+            self.assertIn("Markdown report:", result.stdout)
+            self.assertTrue(report_path.exists())
+            report_text = report_path.read_text(encoding="utf-8")
+            self.assertIn("| Tab | desktop/chrome | desktop/edge | mobile/chrome | mobile/edge |", report_text)
+            self.assertIn("| Лента | - | - | artifacts/121/feed-mobile-chrome-after.png | - |", report_text)
+            self.assertIn("| Профиль | - | - | artifacts/121/profile-mobile-chrome-after.png | - |", report_text)
+
 
 if __name__ == "__main__":
     unittest.main()

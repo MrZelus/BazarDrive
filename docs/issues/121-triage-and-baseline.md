@@ -517,3 +517,17 @@ To speed up iterative reruns while keeping artifact naming deterministic, the ca
 Example focused rerun command (mobile Profile only, Chrome):
 
 - `python scripts/capture_guest_feed_evidence.py --dry-run --browsers chrome --tabs profile --viewports mobile --manifest artifacts/121/capture-manifest-profile-mobile.json`
+
+## Q11 PR-ready Markdown evidence matrix export
+
+To reduce manual formatting work when filling the final evidence PR, the capture helper now exports a Markdown matrix directly from the capture plan.
+
+- `scripts/capture_guest_feed_evidence.py` now supports:
+  - `--report-md <path>`: writes a ready-to-paste Markdown table for the PR evidence block.
+- The table includes fixed columns (`desktop/mobile` × `chrome/edge`) and rows for all tabs (`Лента`, `Правила`, `Профиль`), inserting `-` for combinations not selected in targeted runs.
+- This keeps dry-run planning and focused reruns compatible with the same PR reporting format introduced in Q6.
+- Added regression coverage in `tests/test_capture_guest_feed_evidence_script.py` to verify Markdown report generation and expected filtered paths.
+
+Example:
+
+- `python scripts/capture_guest_feed_evidence.py --dry-run --browsers chrome --tabs feed,profile --viewports mobile --report-md artifacts/121/evidence-matrix.md`

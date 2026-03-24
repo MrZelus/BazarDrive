@@ -49,6 +49,29 @@ def build_capture_plan(
     return plan
 
 
+def build_markdown_matrix(capture_plan: list[dict[str, str]]) -> str:
+    matrix: dict[str, dict[str, str]] = {tab: {} for tab in TAB_SELECTORS}
+    for item in capture_plan:
+        key = f"{item['viewport']}/{item['browser']}"
+        matrix[item["tab"]][key] = item["path"]
+
+    header = "| Tab | desktop/chrome | desktop/edge | mobile/chrome | mobile/edge |"
+    separator = "|---|---|---|---|---|"
+    rows = [header, separator]
+
+    for tab in TAB_SELECTORS:
+        label = {
+            "feed": "Лента",
+            "rules": "Правила",
+            "profile": "Профиль",
+        }[tab]
+        row = [label]
+        for key in ("desktop/chrome", "desktop/edge", "mobile/chrome", "mobile/edge"):
+            row.append(matrix[tab].get(key, "-") or "-")
+        rows.append("| " + " | ".join(row) + " |")
+    return "\n".join(rows)
+
+
 async def capture_for_browser(
     async_playwright,
     browser_name: str,
@@ -118,6 +141,11 @@ async def main() -> int:
         help="Comma-separated viewport keys to capture: desktop,mobile",
     )
     parser.add_argument("--manifest", default="", help="Optional path to write JSON capture manifest")
+    parser.add_argument(
+        "--report-md",
+        default="",
+        help="Optional path to write Markdown evidence matrix based on selected capture plan",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Validate inputs and print capture plan without running Playwright")
     args = parser.parse_args()
 
@@ -139,16 +167,16 @@ async def main() -> int:
         viewports=viewports,
     )
     manifest_path = Path(args.manifest) if args.manifest else None
-    if args.dry_run:
-        for item in capture_plan:
-            print(f"PLAN: {item['path']}")
+    report_md_path = Path(args.report_md) if args.report_md else None
+
+    def write_outputs(dry_run: bool) -> None:
         if manifest_path:
             manifest_path.parent.mkdir(parents=True, exist_ok=True)
             manifest_path.write_text(
                 json.dumps(
                     {
                         "url": args.url,
-                        "dry_run": True,
+                        "dry_run": dry_run,
                         "captures": capture_plan,
                     },
                     ensure_ascii=False,
@@ -158,6 +186,15 @@ async def main() -> int:
                 encoding="utf-8",
             )
             print(f"Manifest: {manifest_path}")
+        if report_md_path:
+            report_md_path.parent.mkdir(parents=True, exist_ok=True)
+            report_md_path.write_text(build_markdown_matrix(capture_plan) + "\n", encoding="utf-8")
+            print(f"Markdown report: {report_md_path}")
+
+    if args.dry_run:
+        for item in capture_plan:
+            print(f"PLAN: {item['path']}")
+        write_outputs(dry_run=True)
         return 0
 
     try:
@@ -186,22 +223,7 @@ async def main() -> int:
                 "python -m playwright install chromium msedge"
             ) from exc
 
-    if manifest_path:
-        manifest_path.parent.mkdir(parents=True, exist_ok=True)
-        manifest_path.write_text(
-            json.dumps(
-                {
-                    "url": args.url,
-                    "dry_run": False,
-                    "captures": capture_plan,
-                },
-                ensure_ascii=False,
-                indent=2,
-            )
-            + "\n",
-            encoding="utf-8",
-        )
-        print(f"Manifest: {manifest_path}")
+    write_outputs(dry_run=False)
 
     return 0
 
