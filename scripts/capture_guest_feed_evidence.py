@@ -80,6 +80,10 @@ def build_markdown_matrix(capture_plan: list[dict[str, str]], check_files: bool 
     return "\n".join(rows)
 
 
+def find_missing_capture_files(capture_plan: list[dict[str, str]]) -> list[str]:
+    return [item["path"] for item in capture_plan if not Path(item["path"]).exists()]
+
+
 async def capture_for_browser(
     async_playwright,
     browser_name: str,
@@ -159,6 +163,11 @@ async def main() -> int:
         action="store_true",
         help="Annotate Markdown matrix cells with ✅/❌ based on actual file existence",
     )
+    parser.add_argument(
+        "--fail-on-missing-files",
+        action="store_true",
+        help="Exit with code 1 when expected screenshot files from the selected capture plan are missing",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Validate inputs and print capture plan without running Playwright")
     args = parser.parse_args()
 
@@ -211,6 +220,13 @@ async def main() -> int:
         for item in capture_plan:
             print(f"PLAN: {item['path']}")
         write_outputs(dry_run=True)
+        if args.fail_on_missing_files:
+            missing_files = find_missing_capture_files(capture_plan)
+            if missing_files:
+                print(f"ERROR: Missing {len(missing_files)} expected screenshot file(s).")
+                for missing_path in missing_files:
+                    print(f"MISSING: {missing_path}")
+                return 1
         return 0
 
     try:
@@ -240,6 +256,13 @@ async def main() -> int:
             ) from exc
 
     write_outputs(dry_run=False)
+    if args.fail_on_missing_files:
+        missing_files = find_missing_capture_files(capture_plan)
+        if missing_files:
+            print(f"ERROR: Missing {len(missing_files)} expected screenshot file(s).")
+            for missing_path in missing_files:
+                print(f"MISSING: {missing_path}")
+            return 1
 
     return 0
 
