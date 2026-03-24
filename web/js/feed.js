@@ -195,6 +195,7 @@
       button.disabled = busy;
       button.setAttribute('aria-disabled', String(busy));
       button.setAttribute('aria-busy', String(busy));
+      button.classList.toggle('is-loading', busy);
       if (busy && busyText) {
         button.textContent = busyText;
       } else if (!busy && idleText) {
