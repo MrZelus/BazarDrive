@@ -25,7 +25,7 @@
 
 - [x] 121.1 Baseline-диагностика: скриншоты текущего состояния + computed colors ключевых блоков.
 - [x] 121.2 Корректировка цветовых токенов темы в `web/js/tailwind-config.js`.
-- [ ] 121.3 Тонкая настройка контраста карточек/бордеров/кнопок (`guest_feed.html`, `web/css/feed.css`).
+- [x] 121.3 Тонкая настройка контраста карточек/бордеров/кнопок (`guest_feed.html`, `web/css/feed.css`).
 - [ ] 121.4 Визуальная и а11y-проверка состояний (`active`, `inactive`, `hover`, `disabled`) на всех вкладках.
 - [ ] 121.5 PR-артефакты: before/after скриншоты, test plan, привязка `Closes #121`.
 
@@ -80,6 +80,20 @@
 - Text and action color contrast remains comfortably above recommended thresholds for normal text/UI.
 - Next step is **121.3**: tune borders, secondary buttons, and per-screen states using updated tokens.
 
+
+## 121.3 UI contrast fine tuning (P0)
+
+### Updated surfaces and controls
+- Increased static surface separators in `guest_feed.html` from `border-white/10` to `border-white/15` for key cards/containers and top/bottom chrome.
+- Increased divider/form contrast in profile documents flow (`addDocumentForm`, `hr`) and strengthened the secondary cancel button (`border-white/35` + `bg-panelSoft/40` + `text-text`).
+- Added explicit base/hover/focus styles for `tab-btn`, `role-btn`, `profile-menu-btn` in `web/css/feed.css` so active and inactive states are visually unambiguous.
+- Added shared `button:disabled` styling to make long-running/blocked actions clearly non-interactive.
+
+### 121.3 conclusion
+- Surface boundaries are now easier to parse on `Лента`, `Правила`, `Профиль` without changing layout architecture.
+- Secondary and tab controls are visually distinguishable in default and interactive states.
+- Next step is **121.4**: a11y/state pass (focus semantics + action-button state checks across dynamic UI).
+
 ## Issue comment draft (to post in #121)
 
 ```md
@@ -98,7 +112,7 @@
 - PR: <ADD_PR_LINK>
 - Commit: <ADD_COMMIT_LINK>
 
-Следующий шаг (P0): **121.2** — корректировка токенов темы.
+Следующий шаг (P1): **121.4** — визуальная и a11y-проверка состояний (`active`/`inactive`/`hover`/`disabled`).
 ```
 
 ## Notes on screenshots

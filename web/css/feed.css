@@ -11,14 +11,50 @@
   transform: translateY(0);
 }
 
+.tab-btn {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #b3bedb;
+  background-color: rgba(26, 39, 66, 0.42);
+}
+
+.tab-btn:hover,
+.tab-btn:focus-visible {
+  color: #edf2ff;
+  background-color: rgba(36, 50, 82, 0.68);
+  border-color: rgba(147, 178, 255, 0.56);
+}
+
 .tab-btn.active {
-  color: #6aa1ff;
+  color: #edf2ff;
   background-color: #243252;
+  border-color: rgba(106, 161, 255, 0.78);
+  box-shadow: 0 0 0 1px rgba(106, 161, 255, 0.12) inset;
+}
+
+.role-btn {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.role-btn:hover,
+.role-btn:focus-visible {
+  border-color: rgba(147, 178, 255, 0.5);
+  color: #edf2ff;
 }
 
 .role-btn.active {
   background-color: #6aa1ff;
   color: #ffffff;
+  border-color: rgba(220, 232, 255, 0.65);
+}
+
+.profile-menu-btn {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.profile-menu-btn:hover,
+.profile-menu-btn:focus-visible {
+  color: #edf2ff;
+  border-color: rgba(147, 178, 255, 0.48);
 }
 
 .profile-menu-btn.active {
@@ -27,13 +63,18 @@
   border-color: rgba(106, 161, 255, 0.78);
 }
 
+button:disabled {
+  opacity: 0.56;
+  cursor: not-allowed;
+}
+
 .app-notification {
   position: sticky;
   top: 74px;
   z-index: 20;
   margin: 0 16px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   padding: 10px 12px;
   font-size: 13px;
   line-height: 1.35;
@@ -43,8 +84,8 @@
 }
 
 .app-notification--info {
-  background-color: rgba(106, 161, 255, 0.24);
-  border-color: rgba(106, 161, 255, 0.52);
+  background-color: rgba(106, 161, 255, 0.26);
+  border-color: rgba(106, 161, 255, 0.56);
 }
 
 .app-notification--success {

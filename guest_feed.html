@@ -11,7 +11,7 @@
 </head>
 <body class="bg-bg text-text antialiased font-sans">
   <div class="mx-auto w-full max-w-[520px] min-h-screen pb-24">
-    <header class="sticky top-0 z-10 bg-bg/95 backdrop-blur border-b border-white/10 px-5 py-4">
+    <header class="sticky top-0 z-10 bg-bg/95 backdrop-blur border-b border-white/15 px-5 py-4">
       <h1 class="text-xl font-semibold">BazarDrive</h1>
       <p class="text-sm text-textSoft">Тёмная тема • мобильный интерфейс</p>
     </header>
@@ -19,7 +19,7 @@
 
     <main class="px-4 py-4 space-y-4">
       <section id="screen-feed" class="screen active animate-fadeInUp" role="tabpanel" aria-labelledby="main-tab-btn-feed">
-        <div class="rounded-2xl bg-panel p-4 border border-white/10">
+        <div class="rounded-2xl bg-panel p-4 border border-white/15">
           <p class="text-base font-semibold">Как публиковать посты (пошагово)</p>
           <ol class="mt-2 text-sm text-textSoft space-y-1 list-decimal pl-5">
             <li>Откройте «Профиль» и заполните гостевой профиль.</li>
@@ -27,7 +27,7 @@
             <li>Нажмите «Опубликовать» и дождитесь обновления ленты.</li>
           </ol>
         </div>
-        <div class="mb-4 rounded-2xl bg-panel p-4 border border-white/10">
+        <div class="mb-4 rounded-2xl bg-panel p-4 border border-white/15">
           <label for="newPostInput" class="mb-2 block text-sm font-medium text-textSoft">Что нового?</label>
           <p id="publishPrecheckHint" class="mb-2 text-xs text-textSoft" role="status" aria-live="polite">
             Пре‑проверка: минимум 5 символов, без спама и запрещённых тем.
@@ -53,11 +53,11 @@
       </section>
 
       <section id="screen-rules" class="screen" role="tabpanel" aria-labelledby="main-tab-btn-rules" hidden aria-hidden="true" inert>
-        <div class="mb-4 rounded-2xl bg-panel p-4 border border-white/10">
+        <div class="mb-4 rounded-2xl bg-panel p-4 border border-white/15">
           <h2 class="text-lg font-semibold">Правила и документы</h2>
           <p class="mt-2 text-sm text-textSoft">Единый раздел: правила платформы, публикации и шаблоны документов.</p>
         </div>
-        <div class="mb-4 rounded-2xl bg-panel p-4 border border-white/10">
+        <div class="mb-4 rounded-2xl bg-panel p-4 border border-white/15">
           <label for="docsSearch" class="mb-2 block text-sm font-medium text-textSoft">Поиск по правилам и документам</label>
           <p id="docsSearchHint" class="mb-2 text-xs text-textSoft">Введите минимум 2 символа, чтобы сузить список документов.</p>
           <input
@@ -69,7 +69,7 @@
           />
           <p id="docsSearchStatus" class="mt-2 text-xs text-textSoft" role="status" aria-live="polite"></p>
         </div>
-        <div class="mb-4 rounded-2xl bg-panel p-4 border border-white/10">
+        <div class="mb-4 rounded-2xl bg-panel p-4 border border-white/15">
           <p class="text-base font-semibold">Краткие правила публикации</p>
           <ol class="mt-2 text-sm text-textSoft space-y-1 list-decimal pl-5">
             <li>Заполните профиль гостя (имя + email или телефон).</li>
@@ -162,7 +162,7 @@
             <button id="addDocumentBtn" type="button" class="h-10 rounded-xl bg-accent px-4 text-sm font-medium text-white transition active:scale-[0.99]">Добавить документ</button>
           </div>
           <div id="documentsApiAlert" class="hidden rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning"></div>
-          <form id="addDocumentForm" class="hidden space-y-2 rounded-xl border border-white/10 bg-panelSoft p-3">
+          <form id="addDocumentForm" class="hidden space-y-2 rounded-xl border border-white/15 bg-panelSoft p-3">
             <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <div class="space-y-1">
                 <label class="block text-xs text-textSoft" for="documentType">Тип документа</label>
@@ -193,12 +193,12 @@
             </div>
             <div class="flex items-center gap-2">
               <button id="submitDocumentBtn" type="submit" class="h-10 rounded-xl bg-accent px-4 text-sm font-medium text-white transition active:scale-[0.99]">Сохранить</button>
-              <button id="cancelDocumentBtn" type="button" class="h-10 rounded-xl border border-white/20 px-4 text-sm text-textSoft">Отмена</button>
+              <button id="cancelDocumentBtn" type="button" class="h-10 rounded-xl border border-white/35 bg-panelSoft/40 px-4 text-sm text-text">Отмена</button>
             </div>
           </form>
           <div id="driverDocumentsList" class="space-y-2"></div>
 
-          <hr class="border-white/10 my-2" />
+          <hr class="border-white/15 my-2" />
           <p class="text-sm text-textSoft">Профиль гостя: обязательное условие для публикации постов в ленте.</p>
           <div class="space-y-2">
             <label class="block text-xs text-textSoft" for="profileName">Отображаемое имя</label>
@@ -252,7 +252,7 @@
     </main>
   </div>
 
-  <nav class="fixed bottom-0 left-0 right-0 bg-panel/95 backdrop-blur border-t border-white/10" role="tablist" aria-label="Основное меню">
+  <nav class="fixed bottom-0 left-0 right-0 bg-panel/95 backdrop-blur border-t border-white/15" role="tablist" aria-label="Основное меню">
     <div class="mx-auto max-w-[520px] grid grid-cols-3 gap-2 p-2">
       <button id="main-tab-btn-feed" data-tab="feed" role="tab" aria-selected="true" aria-controls="screen-feed" class="tab-btn active h-14 rounded-xl flex flex-col items-center justify-center text-textSoft transition">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
