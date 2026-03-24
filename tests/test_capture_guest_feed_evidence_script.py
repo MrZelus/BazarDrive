@@ -125,6 +125,45 @@ class CaptureGuestFeedEvidenceScriptTests(unittest.TestCase):
             report_text = report_path.read_text(encoding="utf-8")
             self.assertIn("❌", report_text)
 
+    def test_dry_run_fail_on_missing_files_returns_nonzero(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = self.run_script(
+                "--dry-run",
+                "--browsers",
+                "chrome",
+                "--tabs",
+                "feed",
+                "--viewports",
+                "mobile",
+                "--out",
+                tmpdir,
+                "--fail-on-missing-files",
+            )
+
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("ERROR: Missing screenshot files: 1", result.stdout)
+            self.assertIn("MISSING:", result.stdout)
+
+    def test_dry_run_fail_on_missing_files_passes_when_file_exists(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            screenshot_path = Path(tmpdir) / "feed-mobile-chrome-after.png"
+            screenshot_path.touch()
+            result = self.run_script(
+                "--dry-run",
+                "--browsers",
+                "chrome",
+                "--tabs",
+                "feed",
+                "--viewports",
+                "mobile",
+                "--out",
+                tmpdir,
+                "--fail-on-missing-files",
+            )
+
+            self.assertEqual(result.returncode, 0)
+            self.assertNotIn("ERROR: Missing screenshot files", result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

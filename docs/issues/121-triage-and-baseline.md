@@ -549,3 +549,23 @@ To make PR review faster, the Markdown evidence export now supports optional fil
 Example:
 
 - `python scripts/capture_guest_feed_evidence.py --url http://127.0.0.1:8000/guest_feed.html --out artifacts/121 --browsers chrome,edge --report-md artifacts/121/evidence-matrix.md --report-md-check-files`
+
+## Q13 evidence completeness gate (`--fail-on-missing-files`)
+
+To make the final evidence pass enforceable in automation (and avoid posting an incomplete matrix by mistake), the capture helper now supports strict missing-file validation.
+
+- `scripts/capture_guest_feed_evidence.py` now supports:
+  - `--fail-on-missing-files`: exits with non-zero status if any planned screenshot file is absent.
+- The check works in both modes:
+  - `--dry-run` (preflight validation of expected evidence set),
+  - real capture mode (post-run completeness verification).
+- When missing files are found, the script prints:
+  - total count (`ERROR: Missing screenshot files: <n>`),
+  - per-file diagnostics (`MISSING: <path>`), making reruns deterministic.
+- Added regression coverage in `tests/test_capture_guest_feed_evidence_script.py`:
+  - verifies non-zero exit when planned files are missing;
+  - verifies zero exit when expected screenshot file already exists.
+
+Example (strict preflight for a targeted rerun):
+
+- `python scripts/capture_guest_feed_evidence.py --dry-run --browsers chrome --tabs feed --viewports mobile --out artifacts/121 --fail-on-missing-files`
