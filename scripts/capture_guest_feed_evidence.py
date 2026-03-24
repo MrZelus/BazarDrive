@@ -23,11 +23,20 @@ VIEWPORTS = {
 }
 
 
-def build_capture_plan(browsers: list[str], out_dir: Path) -> list[dict[str, str]]:
+def parse_csv_list(raw: str) -> list[str]:
+    return [item.strip().lower() for item in raw.split(",") if item.strip()]
+
+
+def build_capture_plan(
+    browsers: list[str],
+    out_dir: Path,
+    tabs: list[str],
+    viewports: list[str],
+) -> list[dict[str, str]]:
     plan: list[dict[str, str]] = []
     for browser_name in browsers:
-        for viewport_name in VIEWPORTS:
-            for tab_name in TAB_SELECTORS:
+        for viewport_name in viewports:
+            for tab_name in tabs:
                 target = out_dir / f"{tab_name}-{viewport_name}-{browser_name}-after.png"
                 plan.append(
                     {
@@ -40,7 +49,15 @@ def build_capture_plan(browsers: list[str], out_dir: Path) -> list[dict[str, str
     return plan
 
 
-async def capture_for_browser(async_playwright, browser_name: str, page_url: str, out_dir: Path, edge_channel: str | None) -> None:
+async def capture_for_browser(
+    async_playwright,
+    browser_name: str,
+    page_url: str,
+    out_dir: Path,
+    edge_channel: str | None,
+    tabs: list[str],
+    viewports: list[str],
+) -> None:
     async with async_playwright() as p:
         launcher = p.chromium
         launch_kwargs = {"headless": True}
@@ -51,13 +68,14 @@ async def capture_for_browser(async_playwright, browser_name: str, page_url: str
 
         browser = await launcher.launch(**launch_kwargs)
         try:
-            for viewport_name, viewport in VIEWPORTS.items():
-                context = await browser.new_context(viewport=viewport)
+            for viewport_name in viewports:
+                context = await browser.new_context(viewport=VIEWPORTS[viewport_name])
                 page = await context.new_page()
                 await page.goto(page_url, wait_until="networkidle")
                 await page.wait_for_timeout(400)
 
-                for tab_name, selector in TAB_SELECTORS.items():
+                for tab_name in tabs:
+                    selector = TAB_SELECTORS[tab_name]
                     await page.click(selector)
                     await page.wait_for_timeout(250)
                     target = out_dir / f"{tab_name}-{viewport_name}-{browser_name}-after.png"
@@ -67,6 +85,12 @@ async def capture_for_browser(async_playwright, browser_name: str, page_url: str
                 await context.close()
         finally:
             await browser.close()
+
+
+def validate_values(values: list[str], allowed: set[str], label: str) -> None:
+    unsupported = [value for value in values if value not in allowed]
+    if unsupported:
+        raise RuntimeError(f"Unsupported {label}: {unsupported[0]}")
 
 
 async def main() -> int:
@@ -83,20 +107,37 @@ async def main() -> int:
         default="msedge",
         help="Playwright Chromium channel for Edge (set empty string to disable)",
     )
+    parser.add_argument(
+        "--tabs",
+        default="feed,rules,profile",
+        help="Comma-separated tab keys to capture: feed,rules,profile",
+    )
+    parser.add_argument(
+        "--viewports",
+        default="desktop,mobile",
+        help="Comma-separated viewport keys to capture: desktop,mobile",
+    )
     parser.add_argument("--manifest", default="", help="Optional path to write JSON capture manifest")
     parser.add_argument("--dry-run", action="store_true", help="Validate inputs and print capture plan without running Playwright")
     args = parser.parse_args()
 
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
-    browsers = [item.strip().lower() for item in args.browsers.split(",") if item.strip()]
+    browsers = parse_csv_list(args.browsers)
+    tabs = parse_csv_list(args.tabs)
+    viewports = parse_csv_list(args.viewports)
     edge_channel = args.edge_channel or None
 
-    unsupported = [browser for browser in browsers if browser not in {"chrome", "edge"}]
-    if unsupported:
-        raise RuntimeError(f"Unsupported browser: {unsupported[0]}")
+    validate_values(browsers, {"chrome", "edge"}, "browser")
+    validate_values(tabs, set(TAB_SELECTORS), "tab")
+    validate_values(viewports, set(VIEWPORTS), "viewport")
 
-    capture_plan = build_capture_plan(browsers, out_dir)
+    capture_plan = build_capture_plan(
+        browsers=browsers,
+        out_dir=out_dir,
+        tabs=tabs,
+        viewports=viewports,
+    )
     manifest_path = Path(args.manifest) if args.manifest else None
     if args.dry_run:
         for item in capture_plan:
@@ -130,7 +171,15 @@ async def main() -> int:
 
     for browser_name in browsers:
         try:
-            await capture_for_browser(async_playwright, browser_name, args.url, out_dir, edge_channel)
+            await capture_for_browser(
+                async_playwright,
+                browser_name,
+                args.url,
+                out_dir,
+                edge_channel,
+                tabs,
+                viewports,
+            )
         except PlaywrightError as exc:
             raise RuntimeError(
                 "Playwright runtime error. Ensure browser binaries are installed: "
