@@ -267,3 +267,36 @@ To keep follow-up work atomic (one PR per action) and aligned with the latest th
 Следующий PR:
 - Dedicated artifacts PR с визуальными доказательствами и итоговым комментарием в #121.
 ```
+
+## Q1 execution playbook (browser evidence PR)
+
+Use this checklist to finish the remaining visual-evidence pass in one atomic PR.
+
+### Step-by-step capture matrix
+
+| Screen | Desktop capture | Mobile capture | What must be visible |
+|---|---|---|---|
+| `Лента` | `artifacts/121/feed-desktop-after.png` | `artifacts/121/feed-mobile-after.png` | Card/background separation, post controls, active main tab |
+| `Правила` | `artifacts/121/rules-desktop-after.png` | `artifacts/121/rules-mobile-after.png` | Text readability, section borders, bottom nav clarity |
+| `Профиль` | `artifacts/121/profile-desktop-after.png` | `artifacts/121/profile-mobile-after.png` | Profile menu states, role buttons, document controls |
+
+### Required viewport presets
+
+- Desktop: `1440x900`
+- Mobile: `390x844` (iPhone 12/13 baseline)
+
+### Browser parity protocol (Chrome + Edge)
+
+1. Open each tab (`Лента` → `Правила` → `Профиль`) in Chrome and Edge.
+2. For each tab, capture desktop and mobile screenshots with the same viewport.
+3. Confirm that the following are consistent between browsers:
+   - card surface separation (`bg` vs `panel/panelSoft`);
+   - active/inactive button states (`tab-btn`, `profile-menu-btn`, `role-btn`);
+   - disabled/busy visual states for primary actions.
+4. If any mismatch is found, log it as a follow-up issue and link it in the PR body (do not expand #121 scope).
+
+### PR body minimum for visual-evidence pass
+
+- `Part of #121` (or successor issue if #121 is already closed).
+- Embedded before/after images for all three tabs on desktop + mobile.
+- Short parity note: `Chrome ✅ / Edge ✅` or mismatch note with follow-up issue link.
