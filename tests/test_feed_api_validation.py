@@ -797,6 +797,30 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertEqual(target["media"][0]["url"], "https://example.com/legacy-only.jpg")
         self.assertEqual(target.get("image_url"), "https://example.com/legacy-only.jpg")
 
+    def test_create_post_with_null_image_url_does_not_emit_none_media(self) -> None:
+        status, payload, _ = self._post(
+            "/api/feed/posts",
+            {
+                "author": "Null Image",
+                "text": "Пост без изображения",
+                "image_url": None,
+            },
+        )
+        self.assertEqual(status, 201)
+        self.assertNotEqual(payload.get("image_url"), "None")
+        self.assertEqual(payload.get("media"), [])
+
+    def test_legacy_string_none_image_url_is_not_used_as_media_fallback(self) -> None:
+        created = repository.create_guest_feed_post(
+            author="Legacy None",
+            text="Пост с невалидным legacy image",
+            image_url="None",
+        )
+        status, payload, _ = self._get("/api/feed/posts")
+        self.assertEqual(status, 200)
+        target = next(item for item in payload["items"] if item["id"] == created["id"])
+        self.assertEqual(target.get("media"), [])
+
     def test_feed_cursor_pagination_first_and_next_page(self) -> None:
         for idx in range(5):
             repository.create_guest_feed_post(author=f"Author {idx}", text=f"Post {idx}", guest_profile_id="guest-cursor")

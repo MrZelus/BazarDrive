@@ -486,8 +486,9 @@ def _attach_guest_feed_post_media(conn: sqlite3.Connection, posts: list[dict[str
         post_id = int(post.get("id", 0))
         media = media_by_post.get(post_id, [])
         if not media:
-            legacy_image_url = str(post.get("image_url", "")).strip()
-            if legacy_image_url:
+            raw_legacy_image_url = post.get("image_url")
+            legacy_image_url = str(raw_legacy_image_url).strip() if raw_legacy_image_url is not None else ""
+            if legacy_image_url and legacy_image_url.lower() not in {"none", "null"}:
                 media = [
                     {
                         "id": 0,

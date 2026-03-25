@@ -770,7 +770,13 @@
         .filter((entry) => entry.url)
         .sort((a, b) => a.position - b.position);
       const legacyImage = String(item.image_url || '').trim();
-      if (!normalizedMedia.length && legacyImage) {
+      const normalizedLegacyImage = legacyImage.toLowerCase();
+      if (
+        !normalizedMedia.length &&
+        legacyImage &&
+        normalizedLegacyImage !== 'none' &&
+        normalizedLegacyImage !== 'null'
+      ) {
         normalizedMedia.push({ mediaType: 'image', url: legacyImage, position: 0 });
       }
       return {
