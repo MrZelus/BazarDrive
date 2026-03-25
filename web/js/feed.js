@@ -196,6 +196,7 @@
     const submitDocumentBtn = document.getElementById('submitDocumentBtn');
     const cancelDocumentBtn = document.getElementById('cancelDocumentBtn');
     const driverDocumentsList = document.getElementById('driverDocumentsList');
+    const driverDocumentsLoadingState = document.getElementById('driverDocumentsLoadingState');
     const documentsApiAlert = document.getElementById('documentsApiAlert');
     const documentTypeInput = document.getElementById('documentType');
     const documentNumberInput = document.getElementById('documentNumber');
@@ -617,7 +618,22 @@
       renderDriverOverviewDocuments(normalizedItems);
     }
 
+    function setDriverDocumentsListLoading(isLoading) {
+      const loading = Boolean(isLoading);
+      if (driverDocumentsLoadingState) {
+        driverDocumentsLoadingState.classList.toggle('hidden', !loading);
+        driverDocumentsLoadingState.setAttribute('aria-hidden', String(!loading));
+      }
+      if (driverDocumentsList) {
+        driverDocumentsList.setAttribute('aria-busy', String(loading));
+      }
+      if (loading && driverDocumentsList) {
+        clearChildren(driverDocumentsList);
+      }
+    }
+
     async function loadDriverDocuments() {
+      setDriverDocumentsListLoading(true);
       try {
         const response = await fetch(`${FEED_API_BASE}/api/driver/documents?profile_id=driver-main`);
         const payload = await response.json().catch(() => ({}));
@@ -629,6 +645,8 @@
         console.error(error);
         renderDriverOverviewDocuments([]);
         setDocumentAlert(error.message || 'Не удалось загрузить список документов');
+      } finally {
+        setDriverDocumentsListLoading(false);
       }
     }
 

@@ -25,6 +25,20 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
             re.compile(r"function setActiveProfileTab\(tab\)[\s\S]+if \(tab === 'documents'\)\s*\{\s*loadDriverDocuments\(\);", re.MULTILINE),
         )
 
+    def test_documents_list_has_explicit_loading_state(self) -> None:
+        html = Path('guest_feed.html').read_text(encoding='utf-8')
+        script = Path('web/js/feed.js').read_text(encoding='utf-8')
+        self.assertIn('id="driverDocumentsLoadingState"', html)
+        self.assertIn('Загружаем документы...', html)
+        self.assertIn('function setDriverDocumentsListLoading(isLoading)', script)
+        self.assertRegex(
+            script,
+            re.compile(
+                r"async function loadDriverDocuments\(\)\s*\{\s*setDriverDocumentsListLoading\(true\);[\s\S]+finally\s*\{\s*setDriverDocumentsListLoading\(false\);",
+                re.MULTILINE,
+            ),
+        )
+
 
 if __name__ == '__main__':
     unittest.main()
