@@ -108,6 +108,7 @@
 - OpenAPI-контракт по ленте: `docs/openapi.yaml`.
 - QA-набор (smoke + регрессия): `docs/feed_qa_regression.md`.
 - CSV для импорта QA-кейсов в тест-менеджер: `docs/feed_qa_cases.csv`.
+- План автоматизации и декомпозиции по эпику #172: `docs/issues/172-documents-trust-automation-plan.md`.
 
 
 ### Миграции базы данных
