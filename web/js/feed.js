@@ -146,6 +146,15 @@
 	      });
 	    }
 
+	    function getActiveProfileTab() {
+	      const activeButton = Array.from(profileMenuButtons).find((btn) => btn.classList.contains('active'));
+	      const requestedTab = activeButton?.dataset?.profileTab;
+	      if (requestedTab && Object.prototype.hasOwnProperty.call(profileTabScreens, requestedTab)) {
+	        return requestedTab;
+	      }
+	      return PROFILE_TAB_FALLBACK;
+	    }
+
     const roleButtons = document.querySelectorAll('.role-btn');
     const roleDriver = document.getElementById('role-driver');
     const roleCommon = document.getElementById('role-common');
@@ -1366,7 +1375,7 @@
 	      }
 	    }
 
-    function setRole(role) {
+	    function setRole(role) {
       roleButtons.forEach((btn) => {
         btn.classList.toggle('active', btn.dataset.role === role);
       });
@@ -1381,6 +1390,11 @@
 	      }
 	      localStorage.setItem(ROLE_STORAGE_KEY, role);
 	      updateProfileTabButtonAccess(role);
+	      const allowedTabs = new Set(getAllowedProfileTabs(role));
+	      const currentActiveTab = getActiveProfileTab();
+	      if (!allowedTabs.has(currentActiveTab)) {
+	        setActiveProfileTab(PROFILE_TAB_FALLBACK);
+	      }
 	    }
 
     async function saveGuestProfile() {
