@@ -90,8 +90,18 @@
     const newPostInput = document.getElementById('newPostInput');
     const publishBtn = document.getElementById('publishBtn');
     const publishPrecheckHint = document.getElementById('publishPrecheckHint');
+    const newPostImageInput = document.getElementById('newPostImageInput');
+    const clearPostImageBtn = document.getElementById('clearPostImageBtn');
+    const selectedPostImageName = document.getElementById('selectedPostImageName');
+    const publishFileError = document.getElementById('publishFileError');
     const appNotification = document.getElementById('appNotification');
     let notificationTimer = null;
+    const POST_IMAGE_MAX_BYTES = 3 * 1024 * 1024;
+    const POST_IMAGE_ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+    const postDraftMediaState = {
+      selectedFile: null,
+      error: '',
+    };
 
     const docsList = document.getElementById('docsList');
     const docsSearch = document.getElementById('docsSearch');
@@ -305,6 +315,73 @@
       } else {
         publishPrecheckHint.classList.add('text-textSoft');
       }
+    }
+
+    function bytesToMb(sizeInBytes = 0) {
+      const value = Number(sizeInBytes) / (1024 * 1024);
+      return value.toFixed(1);
+    }
+
+    function setPublishFileError(message = '') {
+      const normalized = String(message || '').trim();
+      postDraftMediaState.error = normalized;
+      if (!publishFileError) return;
+      publishFileError.textContent = normalized;
+      publishFileError.classList.toggle('hidden', !normalized);
+    }
+
+    function updateSelectedPostImageUi() {
+      if (selectedPostImageName) {
+        selectedPostImageName.textContent = postDraftMediaState.selectedFile
+          ? `Выбрано фото: ${postDraftMediaState.selectedFile.name}`
+          : 'Фото не выбрано';
+      }
+      if (clearPostImageBtn) {
+        clearPostImageBtn.classList.toggle('hidden', !postDraftMediaState.selectedFile);
+      }
+    }
+
+    function clearSelectedPostImage() {
+      postDraftMediaState.selectedFile = null;
+      setPublishFileError('');
+      if (newPostImageInput) {
+        newPostImageInput.value = '';
+      }
+      updateSelectedPostImageUi();
+    }
+
+    function validateSelectedPostImage(file) {
+      if (!file) {
+        return 'Не удалось прочитать выбранный файл. Попробуйте выбрать фото ещё раз.';
+      }
+      if (!POST_IMAGE_ALLOWED_MIME_TYPES.has(file.type)) {
+        return 'Неподдерживаемый формат фото. Допустимые типы: JPG, PNG, WEBP.';
+      }
+      if (file.size > POST_IMAGE_MAX_BYTES) {
+        return `Фото слишком большое. Максимальный размер: ${bytesToMb(POST_IMAGE_MAX_BYTES)} МБ.`;
+      }
+      return '';
+    }
+
+    function handlePostImageChange(event) {
+      const file = event?.target?.files?.[0];
+      if (!file) {
+        clearSelectedPostImage();
+        return;
+      }
+      const validationError = validateSelectedPostImage(file);
+      if (validationError) {
+        postDraftMediaState.selectedFile = null;
+        if (newPostImageInput) {
+          newPostImageInput.value = '';
+        }
+        setPublishFileError(validationError);
+        updateSelectedPostImageUi();
+        return;
+      }
+      postDraftMediaState.selectedFile = file;
+      setPublishFileError('');
+      updateSelectedPostImageUi();
     }
 
     function formatDocumentDate(dateValue) {
@@ -1184,6 +1261,10 @@
     async function addNewPost() {
       const text = String(newPostInput?.value || '').trim();
       if (!text) return;
+      if (postDraftMediaState.error) {
+        showAppNotification(postDraftMediaState.error, 'error');
+        return;
+      }
       const precheckState = getPublishPrecheckState(text);
       applyPublishPrecheckHint(precheckState);
       if (precheckState.type === 'warning') {
@@ -1222,6 +1303,7 @@
           throw new Error(resolveModerationErrorMessage(payload.error || `Ошибка публикации (HTTP ${response.status})`));
         }
         newPostInput.value = '';
+        clearSelectedPostImage();
         applyPublishPrecheckHint();
         storePendingPostDraft('');
         await loadPosts({ reset: true });
@@ -1501,6 +1583,8 @@
     });
 
     publishBtn.addEventListener('click', addNewPost);
+    newPostImageInput?.addEventListener('change', handlePostImageChange);
+    clearPostImageBtn?.addEventListener('click', clearSelectedPostImage);
     newPostInput.addEventListener('input', () => {
       applyPublishPrecheckHint(getPublishPrecheckState(newPostInput.value));
     });
@@ -1539,6 +1623,7 @@
     const initialRole = ['driver', 'passenger', 'guest'].includes(savedRole) ? savedRole : 'guest';
     const initialTab = VALID_MAIN_TABS.includes(savedActiveTab) ? savedActiveTab : 'feed';
 
+    updateSelectedPostImageUi();
     ensureFeedInfiniteScroll();
     loadPosts({ reset: true });
     renderDocs();

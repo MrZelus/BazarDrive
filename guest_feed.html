@@ -32,6 +32,17 @@
           <p id="publishPrecheckHint" class="mb-2 text-xs text-textSoft" role="status" aria-live="polite">
             Пре‑проверка: минимум 5 символов, без спама и запрещённых тем.
           </p>
+          <div class="mb-3 rounded-xl border border-textSoft/20 bg-panelSoft px-3 py-2">
+            <div class="flex flex-wrap items-center gap-2">
+              <label for="newPostImageInput" class="ui-btn ui-btn--secondary inline-flex h-9 cursor-pointer items-center rounded-lg px-3 text-xs font-medium">
+                Выбрать фото
+              </label>
+              <input id="newPostImageInput" type="file" accept="image/jpeg,image/png,image/webp" class="hidden" />
+              <button id="clearPostImageBtn" type="button" class="ui-btn ui-btn--secondary hidden h-9 rounded-lg px-3 text-xs">Очистить</button>
+              <p id="selectedPostImageName" class="text-xs text-textSoft" role="status" aria-live="polite">Фото не выбрано</p>
+            </div>
+            <p id="publishFileError" class="mt-2 hidden text-xs text-warning" role="alert"></p>
+          </div>
           <div class="flex items-center gap-3">
             <input
               id="newPostInput"
