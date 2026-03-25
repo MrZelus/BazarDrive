@@ -77,6 +77,19 @@
 
     const FEED_API_BASE = resolveFeedApiBase();
 
+    function normalizeFeedMediaUrl(rawUrl) {
+      const value = String(rawUrl || '').trim();
+      if (!value) return '';
+      const lowered = value.toLowerCase();
+      if (lowered.startsWith('http://') || lowered.startsWith('https://') || lowered.startsWith('data:')) {
+        return value;
+      }
+      if (value.startsWith('/uploads/feed/')) {
+        return `${FEED_API_BASE}${value}`;
+      }
+      return value;
+    }
+
     const feedEl = document.getElementById('feed');
     const feedLoadStateEl = document.createElement('div');
     feedLoadStateEl.id = 'feedLoadState';
@@ -764,7 +777,7 @@
       const normalizedMedia = media
         .map((entry, index) => ({
           mediaType: String(entry?.media_type || 'image').trim().toLowerCase() || 'image',
-          url: String(entry?.url || '').trim(),
+          url: normalizeFeedMediaUrl(entry?.url),
           position: Number.isFinite(Number(entry?.position)) ? Number(entry.position) : index,
         }))
         .filter((entry) => entry.url)
@@ -775,7 +788,7 @@
         legacyImage &&
         normalizedLegacyImage !== 'none' &&
         normalizedLegacyImage !== 'null'
-      ) ? legacyImage : '';
+      ) ? normalizeFeedMediaUrl(legacyImage) : '';
       if (
         !normalizedMedia.length &&
         safeLegacyImage
