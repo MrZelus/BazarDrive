@@ -98,20 +98,53 @@
     const docsSearchStatus = document.getElementById('docsSearchStatus');
 
     const tabButtons = document.querySelectorAll('.tab-btn');
-    const profileMenuButtons = document.querySelectorAll('.profile-menu-btn');
-    const profileTabScreens = {
-      overview: document.getElementById('profile-tab-overview'),
-      taxi_ip: document.getElementById('profile-tab-taxi_ip'),
-      documents: document.getElementById('profile-tab-documents'),
-      payouts: document.getElementById('profile-tab-payouts'),
-      security: document.getElementById('profile-tab-security')
-    };
+	    const profileMenuButtons = document.querySelectorAll('.profile-menu-btn');
+	    const profileTabScreens = {
+	      overview: document.getElementById('profile-tab-overview'),
+	      taxi_ip: document.getElementById('profile-tab-taxi_ip'),
+	      documents: document.getElementById('profile-tab-documents'),
+	      payouts: document.getElementById('profile-tab-payouts'),
+	      security: document.getElementById('profile-tab-security')
+	    };
+	    const ROLE_TABS = {
+	      driver: ['overview', 'taxi_ip', 'documents', 'payouts', 'security'],
+	      passenger: ['overview', 'documents', 'security'],
+	      guest: ['overview', 'documents', 'security']
+	    };
+	    const PROFILE_TAB_FALLBACK = 'overview';
     const screens = {
       feed: document.getElementById('screen-feed'),
       rules: document.getElementById('screen-rules'),
       profile: document.getElementById('screen-profile')
     };
-    const VALID_MAIN_TABS = Object.keys(screens);
+	    const VALID_MAIN_TABS = Object.keys(screens);
+
+	    function getAllowedProfileTabs(role) {
+	      if (Object.prototype.hasOwnProperty.call(ROLE_TABS, role)) {
+	        return ROLE_TABS[role];
+	      }
+	      return ROLE_TABS.driver;
+	    }
+
+	    function getCurrentRole() {
+	      const savedRole = localStorage.getItem(ROLE_STORAGE_KEY);
+	      return ['driver', 'passenger', 'guest'].includes(savedRole) ? savedRole : 'driver';
+	    }
+
+	    function updateProfileTabButtonAccess(role) {
+	      const allowedTabs = new Set(getAllowedProfileTabs(role));
+	      profileMenuButtons.forEach((btn) => {
+	        const tabName = btn.dataset.profileTab;
+	        const isAllowed = allowedTabs.has(tabName);
+	        btn.disabled = !isAllowed;
+	        btn.setAttribute('aria-disabled', String(!isAllowed));
+	        btn.setAttribute('aria-hidden', String(!isAllowed));
+	        btn.toggleAttribute('hidden', !isAllowed);
+	        if (!isAllowed) {
+	          btn.tabIndex = -1;
+	        }
+	      });
+	    }
 
     const roleButtons = document.querySelectorAll('.role-btn');
     const roleDriver = document.getElementById('role-driver');
@@ -1306,41 +1339,49 @@
       setActiveScreen(nextButton.dataset.tab);
     }
 
-    function setActiveProfileTab(tab) {
-      profileMenuButtons.forEach((btn) => {
-        const isActive = btn.dataset.profileTab === tab;
-        btn.classList.toggle('active', isActive);
-        btn.setAttribute('aria-selected', String(isActive));
-        btn.tabIndex = isActive ? 0 : -1;
-      });
-      Object.entries(profileTabScreens).forEach(([name, screen]) => {
-        const isActive = name === tab;
-        screen.classList.toggle('hidden', !isActive);
-        screen.toggleAttribute('hidden', !isActive);
-        screen.setAttribute('aria-hidden', String(!isActive));
-        screen.toggleAttribute('inert', !isActive);
-      });
-      if (tab === 'documents') {
-        loadDriverDocuments();
-      }
-    }
+	    function setActiveProfileTab(tab) {
+	      const requestedTab = Object.prototype.hasOwnProperty.call(profileTabScreens, tab) ? tab : PROFILE_TAB_FALLBACK;
+	      const allowedTabs = new Set(getAllowedProfileTabs(getCurrentRole()));
+	      const activeTab = allowedTabs.has(requestedTab) ? requestedTab : PROFILE_TAB_FALLBACK;
+
+	      profileMenuButtons.forEach((btn) => {
+	        const isActive = btn.dataset.profileTab === activeTab;
+	        btn.classList.toggle('active', isActive);
+	        btn.setAttribute('aria-selected', String(isActive));
+	        if (btn.disabled || btn.hidden) {
+	          btn.tabIndex = -1;
+	        } else {
+	          btn.tabIndex = isActive ? 0 : -1;
+	        }
+	      });
+	      Object.entries(profileTabScreens).forEach(([name, screen]) => {
+	        const isActive = name === activeTab;
+	        screen.classList.toggle('hidden', !isActive);
+	        screen.toggleAttribute('hidden', !isActive);
+	        screen.setAttribute('aria-hidden', String(!isActive));
+	        screen.toggleAttribute('inert', !isActive);
+	      });
+	      if (tab === 'documents') {
+	        loadDriverDocuments();
+	      }
+	    }
 
     function setRole(role) {
       roleButtons.forEach((btn) => {
         btn.classList.toggle('active', btn.dataset.role === role);
       });
 
-      if (role === 'driver') {
-        roleDriver.classList.remove('hidden');
-        roleCommon.classList.add('hidden');
-        loadDriverDocuments();
-      } else {
-        roleDriver.classList.add('hidden');
-        roleCommon.classList.remove('hidden');
-      }
-
-      localStorage.setItem(ROLE_STORAGE_KEY, role);
-    }
+	      if (role === 'driver') {
+	        roleDriver.classList.remove('hidden');
+	        roleCommon.classList.add('hidden');
+	        loadDriverDocuments();
+	      } else {
+	        roleDriver.classList.add('hidden');
+	        roleCommon.classList.remove('hidden');
+	      }
+	      localStorage.setItem(ROLE_STORAGE_KEY, role);
+	      updateProfileTabButtonAccess(role);
+	    }
 
     async function saveGuestProfile() {
       const profile = makeGuestProfilePayload();
