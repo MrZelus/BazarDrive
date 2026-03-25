@@ -1361,7 +1361,7 @@
 	        screen.setAttribute('aria-hidden', String(!isActive));
 	        screen.toggleAttribute('inert', !isActive);
 	      });
-	      if (activeTab === 'documents') {
+	      if (tab === 'documents') {
 	        loadDriverDocuments();
 	      }
 	    }
