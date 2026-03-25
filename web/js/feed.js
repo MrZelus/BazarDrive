@@ -771,13 +771,16 @@
         .sort((a, b) => a.position - b.position);
       const legacyImage = String(item.image_url || '').trim();
       const normalizedLegacyImage = legacyImage.toLowerCase();
-      if (
-        !normalizedMedia.length &&
+      const safeLegacyImage = (
         legacyImage &&
         normalizedLegacyImage !== 'none' &&
         normalizedLegacyImage !== 'null'
+      ) ? legacyImage : '';
+      if (
+        !normalizedMedia.length &&
+        safeLegacyImage
       ) {
-        normalizedMedia.push({ mediaType: 'image', url: legacyImage, position: 0 });
+        normalizedMedia.push({ mediaType: 'image', url: safeLegacyImage, position: 0 });
       }
       return {
         id: item.id,
@@ -786,7 +789,7 @@
         avatar: pickAvatar(item.author),
         publishedAt: formatPostDate(item.created_at),
         text: item.text || '',
-        image: item.image_url || '',
+        image: safeLegacyImage,
         media: normalizedMedia,
         reactions,
         myReaction,
