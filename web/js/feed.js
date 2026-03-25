@@ -384,6 +384,25 @@
       updateSelectedPostImageUi();
     }
 
+    function fileToBase64Payload(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const rawResult = String(reader.result || '');
+          const [, base64Payload = ''] = rawResult.split(',', 2);
+          if (!base64Payload) {
+            reject(new Error('Не удалось подготовить фото к публикации. Попробуйте выбрать другой файл.'));
+            return;
+          }
+          resolve(base64Payload);
+        };
+        reader.onerror = () => {
+          reject(new Error('Не удалось прочитать фото. Попробуйте выбрать файл ещё раз.'));
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
     function formatDocumentDate(dateValue) {
       const value = String(dateValue || '').trim();
       if (!value) return '—';
@@ -1285,13 +1304,26 @@
       storePendingPostDraft('');
       setButtonBusyState(publishBtn, true, 'Публикация...');
       try {
+        const selectedFile = postDraftMediaState.selectedFile;
+        const payloadBody = { author, text, guest_profile: guestProfile };
+        const hasSelectedImage = Boolean(selectedFile);
+        if (hasSelectedImage) {
+          payloadBody.image_base64 = await fileToBase64Payload(selectedFile);
+          payloadBody.image_mime_type = selectedFile.type;
+        }
         const response = await fetch(`${FEED_API_BASE}/api/feed/posts`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ author, text, guest_profile: guestProfile }),
+          body: JSON.stringify(payloadBody),
         });
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) {
+          if (hasSelectedImage && response.status === 413) {
+            throw new Error('Фото слишком большое для публикации. Выберите изображение меньшего размера.');
+          }
+          if (hasSelectedImage && response.status === 400) {
+            throw new Error('Не удалось опубликовать фото. Проверьте формат изображения (JPG, PNG, WEBP) и повторите попытку.');
+          }
           if (response.status === 429) {
             const retryAfterRaw = payload.retry_after ?? response.headers.get('Retry-After');
             const retryAfterSeconds = Number(retryAfterRaw) || 0;
