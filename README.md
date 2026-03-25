@@ -69,6 +69,7 @@
 
 ### Что умеет
 - Добавлять посты гостей через backend API (`POST /api/feed/posts`).
+- Прикреплять к посту одно изображение (JPEG/PNG/WEBP, до 3 МБ) через JSON-поля `image_base64` + `image_mime_type`.
 - Сохранять профиль гостя с ролью `guest_author` через backend API (`POST /api/feed/profiles`).
 - Загружать посты через backend API (`GET /api/feed/posts`).
 - Редактировать посты через модальное окно и backend API (`PATCH /api/feed/posts/{id}`).
