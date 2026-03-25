@@ -971,7 +971,7 @@
             const image = document.createElement('img');
             image.src = String(item.url || '');
             image.alt = `Изображение поста ${index + 1}`;
-            image.className = 'max-h-[420px] min-w-full snap-center rounded-xl object-cover';
+            image.className = 'h-auto w-full max-h-[420px] snap-center rounded-xl object-contain';
             image.loading = 'lazy';
             mediaContainer.appendChild(image);
           });
@@ -980,7 +980,7 @@
           const image = document.createElement('img');
           image.src = String(post.image);
           image.alt = 'Изображение поста';
-          image.className = 'mb-3 max-h-[420px] w-full rounded-xl object-cover';
+          image.className = 'mb-3 h-auto w-full max-h-[420px] rounded-xl object-contain';
           image.loading = 'lazy';
           article.appendChild(image);
         }
