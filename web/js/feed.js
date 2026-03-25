@@ -890,7 +890,7 @@
           const target = posts.find((currentPost) => currentPost.id === postId);
           if (!target) return;
           if (!actor.id) {
-            showAppNotification('Сначала заполните и сохраните профиль гостя.', 'error');
+            showAppNotification('Сначала заполните и сохраните профиль публикации.', 'error');
             return;
           }
           setButtonBusyState(likeButton, true);
@@ -1027,7 +1027,7 @@
             return;
           }
           if (!actor.id) {
-            showAppNotification('Сначала заполните и сохраните профиль гостя.', 'error');
+            showAppNotification('Сначала заполните и сохраните профиль публикации.', 'error');
             return;
           }
           setButtonBusyState(submit, true, 'Отправка...');
@@ -1197,7 +1197,7 @@
         storePendingPostDraft(text);
         setActiveScreen('profile');
         setActiveProfileTab('documents');
-        showAppNotification('Для публикации заполните профиль гостя: имя и хотя бы email или телефон. После сохранения публикация продолжится автоматически.', 'info');
+        showAppNotification('Для публикации заполните профиль публикации: имя и хотя бы email или телефон. После сохранения публикация продолжится автоматически.', 'info');
         return;
       }
 
@@ -1448,12 +1448,12 @@
           await addNewPost();
           return;
         }
-        showAppNotification('Профиль гостя сохранён.', 'success');
+        showAppNotification('Профиль публикации сохранён.', 'success');
       } catch (error) {
         console.error(error);
-        showAppNotification(error.message || 'Не удалось сохранить профиль гостя', 'error');
+        showAppNotification(error.message || 'Не удалось сохранить профиль публикации', 'error');
       } finally {
-        setButtonBusyState(saveProfileBtn, false, '', 'Сохранить профиль гостя');
+        setButtonBusyState(saveProfileBtn, false, '', 'Сохранить профиль публикации');
       }
     }
 
