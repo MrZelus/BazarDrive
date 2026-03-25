@@ -43,12 +43,26 @@ class FeedPublishProfileNavigationFlowTests(unittest.TestCase):
         self.assertIn("## 1) Карта переходов между разделами", self.flow_doc)
         self.assertIn("### Rate limit (`429 Too Many Requests`)", self.flow_doc)
         self.assertIn("### Навигация между разделами", self.flow_doc)
+        self.assertIn("## 5) Ролевая матрица профиля (актуально для #160)", self.flow_doc)
+        self.assertIn("`driver`: `overview`, `taxi_ip`, `documents`, `payouts`, `security`.", self.flow_doc)
+        self.assertIn("`passenger`: `overview`, `documents`, `security`.", self.flow_doc)
+        self.assertIn("`guest`: `overview`, `documents`, `security`.", self.flow_doc)
 
     def test_unified_notifications_are_used_instead_of_alert(self) -> None:
         self.assertIn("const appNotification = document.getElementById('appNotification');", self.script)
         self.assertIn("function showAppNotification(message = '', type = 'info') {", self.script)
         self.assertNotIn("alert(", self.script)
         self.assertIn('id="appNotification"', self.page)
+
+    def test_role_matrix_and_documents_blocks_match_issue_160(self) -> None:
+        self.assertIn("const ROLE_TABS = {", self.script)
+        self.assertIn("driver: ['overview', 'taxi_ip', 'documents', 'payouts', 'security']", self.script)
+        self.assertIn("passenger: ['overview', 'documents', 'security']", self.script)
+        self.assertIn("guest: ['overview', 'documents', 'security']", self.script)
+        self.assertIn("const activeTab = allowedTabs.has(requestedTab) ? requestedTab : PROFILE_TAB_FALLBACK;", self.script)
+        self.assertIn("if (!allowedTabs.has(currentActiveTab)) {", self.script)
+        self.assertIn('id="guestProfileStatus"', self.page)
+        self.assertIn('id="driverDocumentsSection"', self.page)
 
 
 if __name__ == "__main__":
