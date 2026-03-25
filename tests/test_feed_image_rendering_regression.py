@@ -15,9 +15,14 @@ class FeedImageRenderingRegressionTests(unittest.TestCase):
         self.render_block = render_match.group(1)
 
     def test_map_api_post_sanitizes_legacy_none_and_null_image_values(self) -> None:
+        self.assertIn("function normalizeFeedMediaUrl(rawUrl) {", self.script)
+        self.assertIn("if (value.startsWith('/uploads/feed/')) {", self.script)
+        self.assertIn("return `${FEED_API_BASE}${value}`;", self.script)
+        self.assertIn("url: normalizeFeedMediaUrl(entry?.url),", self.map_block)
         self.assertIn("const safeLegacyImage = (", self.map_block)
         self.assertIn("normalizedLegacyImage !== 'none'", self.map_block)
         self.assertIn("normalizedLegacyImage !== 'null'", self.map_block)
+        self.assertIn(") ? normalizeFeedMediaUrl(legacyImage) : '';", self.map_block)
         self.assertIn("image: safeLegacyImage", self.map_block)
 
     def test_render_feed_uses_object_contain_for_post_images(self) -> None:
