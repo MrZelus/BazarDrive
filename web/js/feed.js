@@ -128,7 +128,7 @@
 
 	    function getCurrentRole() {
 	      const savedRole = localStorage.getItem(ROLE_STORAGE_KEY);
-	      return ['driver', 'passenger', 'guest'].includes(savedRole) ? savedRole : 'driver';
+	      return ['driver', 'passenger', 'guest'].includes(savedRole) ? savedRole : 'guest';
 	    }
 
 	    function updateProfileTabButtonAccess(role) {
@@ -1526,7 +1526,7 @@
 
     const savedRole = localStorage.getItem(ROLE_STORAGE_KEY);
     const savedActiveTab = localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
-    const initialRole = ['driver', 'passenger', 'guest'].includes(savedRole) ? savedRole : 'driver';
+    const initialRole = ['driver', 'passenger', 'guest'].includes(savedRole) ? savedRole : 'guest';
     const initialTab = VALID_MAIN_TABS.includes(savedActiveTab) ? savedActiveTab : 'feed';
 
     ensureFeedInfiniteScroll();
