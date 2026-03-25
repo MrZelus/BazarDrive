@@ -1121,6 +1121,12 @@ components:
       properties:
         author: { type: string, minLength: 2, maxLength: 40 }
         text: { type: string }
+        image_base64:
+          type: string
+          description: Base64-строка изображения или data URL (single image)
+        image_mime_type:
+          type: string
+          description: MIME-тип изображения; обязателен для image_base64 без data URL
         image_url:
           type: string
           nullable: true
@@ -1158,6 +1164,12 @@ components:
           description: Требуется для автора (не модератора) при object-level проверке прав
         author: { type: string, minLength: 2, maxLength: 40 }
         text: { type: string }
+        image_base64:
+          type: string
+          description: Base64-строка изображения или data URL
+        image_mime_type:
+          type: string
+          description: MIME-тип изображения; используется вместе с image_base64
         image_url:
           type: string
           nullable: true
