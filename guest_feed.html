@@ -180,6 +180,11 @@
               <button id="addDocumentBtn" type="button" class="ui-btn ui-btn--primary h-10 rounded-xl px-4 text-sm font-medium">Добавить документ</button>
             </div>
             <div id="documentsApiAlert" class="hidden rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning"></div>
+            <div id="driverDocumentsLoadingState" class="hidden space-y-2" aria-live="polite" aria-hidden="true">
+              <p class="text-xs text-textSoft">Загружаем документы...</p>
+              <div class="h-12 rounded-xl border border-textSoft/20 bg-panelSoft animate-pulse"></div>
+              <div class="h-12 rounded-xl border border-textSoft/20 bg-panelSoft animate-pulse"></div>
+            </div>
             <form id="addDocumentForm" class="hidden space-y-2 rounded-xl border border-textSoft/25 bg-panelSoft p-3">
             <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <div class="space-y-1">
