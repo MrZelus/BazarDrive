@@ -159,7 +159,10 @@ class FeedService:
     @classmethod
     def validate_post_media_payload(cls, payload: dict[str, object]) -> tuple[list[dict[str, object]], str | None]:
         media_payload = payload.get("media")
-        legacy_image_url = str(payload.get("image_url", "")).strip() or None
+        raw_legacy_image_url = payload.get("image_url")
+        legacy_image_url = str(raw_legacy_image_url).strip() if raw_legacy_image_url is not None else None
+        if legacy_image_url and legacy_image_url.lower() in {"none", "null"}:
+            legacy_image_url = None
 
         if media_payload is None:
             if legacy_image_url:
