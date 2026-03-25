@@ -157,12 +157,19 @@
         </div>
 
         <div id="profile-tab-documents" class="profile-tab-screen hidden bg-panel rounded-2xl p-4 border border-textSoft/20 space-y-3" role="tabpanel" aria-labelledby="profile-tab-btn-documents" hidden aria-hidden="true" inert>
-          <div class="flex items-center justify-between gap-2">
-            <p class="text-base font-semibold">Документы водителя</p>
-            <button id="addDocumentBtn" type="button" class="ui-btn ui-btn--primary h-10 rounded-xl px-4 text-sm font-medium">Добавить документ</button>
+          <div class="rounded-xl border border-textSoft/25 bg-panelSoft p-3">
+            <p class="text-sm font-semibold">Статус профиля публикации</p>
+            <p id="guestProfileStatus" class="mt-2 text-sm text-textSoft">Профиль не проверен</p>
           </div>
-          <div id="documentsApiAlert" class="hidden rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning"></div>
-          <form id="addDocumentForm" class="hidden space-y-2 rounded-xl border border-textSoft/25 bg-panelSoft p-3">
+          <p class="text-sm text-textSoft">Профиль гостя: обязательное условие для публикации постов в ленте.</p>
+          <div id="driverDocumentsSection" class="space-y-3">
+            <hr class="border-textSoft/25 my-2" />
+            <div class="flex items-center justify-between gap-2">
+              <p class="text-base font-semibold">Документы водителя</p>
+              <button id="addDocumentBtn" type="button" class="ui-btn ui-btn--primary h-10 rounded-xl px-4 text-sm font-medium">Добавить документ</button>
+            </div>
+            <div id="documentsApiAlert" class="hidden rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning"></div>
+            <form id="addDocumentForm" class="hidden space-y-2 rounded-xl border border-textSoft/25 bg-panelSoft p-3">
             <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <div class="space-y-1">
                 <label class="block text-xs text-textSoft" for="documentType">Тип документа</label>
@@ -195,11 +202,10 @@
               <button id="submitDocumentBtn" type="submit" class="ui-btn ui-btn--primary h-10 rounded-xl px-4 text-sm font-medium">Сохранить</button>
               <button id="cancelDocumentBtn" type="button" class="ui-btn ui-btn--secondary h-10 rounded-xl px-4 text-sm">Отмена</button>
             </div>
-          </form>
-          <div id="driverDocumentsList" class="space-y-2"></div>
+            </form>
+            <div id="driverDocumentsList" class="space-y-2"></div>
+          </div>
 
-          <hr class="border-textSoft/25 my-2" />
-          <p class="text-sm text-textSoft">Профиль гостя: обязательное условие для публикации постов в ленте.</p>
           <div class="space-y-2">
             <label class="block text-xs text-textSoft" for="profileName">Отображаемое имя</label>
             <input id="profileName" type="text" maxlength="60" placeholder="Например: Алексей Петров" class="h-11 w-full rounded-xl border border-textSoft/20 bg-panelSoft px-3 text-sm outline-none transition focus:border-accent" />
@@ -235,10 +241,6 @@
         </div>
 
         <div id="profile-tab-security" class="profile-tab-screen hidden space-y-3" role="tabpanel" aria-labelledby="profile-tab-btn-security" hidden aria-hidden="true" inert>
-          <div class="bg-panel rounded-2xl p-4 border border-textSoft/20">
-            <p class="font-semibold">Статус профиля публикации</p>
-            <p id="guestProfileStatus" class="mt-2 text-sm text-textSoft">Профиль не проверен</p>
-          </div>
           <div class="bg-panel rounded-2xl p-4 border border-textSoft/20">
             <p class="font-semibold">Рекомендации по безопасности</p>
             <ul class="mt-2 text-sm text-textSoft space-y-1 list-disc pl-5">

@@ -164,10 +164,11 @@
     const profileNameInput = document.getElementById('profileName');
     const profileEmailInput = document.getElementById('profileEmail');
     const profilePhoneInput = document.getElementById('profilePhone');
-    const profileAboutInput = document.getElementById('profileAbout');
-    const saveProfileBtn = document.getElementById('saveProfileBtn');
-    const guestProfileStatus = document.getElementById('guestProfileStatus');
-    const addDocumentBtn = document.getElementById('addDocumentBtn');
+	    const profileAboutInput = document.getElementById('profileAbout');
+	    const saveProfileBtn = document.getElementById('saveProfileBtn');
+	    const guestProfileStatus = document.getElementById('guestProfileStatus');
+    const driverDocumentsSection = document.getElementById('driverDocumentsSection');
+	    const addDocumentBtn = document.getElementById('addDocumentBtn');
     const addDocumentForm = document.getElementById('addDocumentForm');
     const submitDocumentBtn = document.getElementById('submitDocumentBtn');
     const cancelDocumentBtn = document.getElementById('cancelDocumentBtn');
@@ -1389,6 +1390,15 @@
 	        roleCommon.classList.remove('hidden');
 	      }
 	      localStorage.setItem(ROLE_STORAGE_KEY, role);
+      if (driverDocumentsSection) {
+        const showDriverDocuments = role === 'driver';
+        driverDocumentsSection.classList.toggle('hidden', !showDriverDocuments);
+        driverDocumentsSection.toggleAttribute('hidden', !showDriverDocuments);
+        driverDocumentsSection.setAttribute('aria-hidden', String(!showDriverDocuments));
+        if (!showDriverDocuments) {
+          toggleDocumentForm(false);
+        }
+      }
 	      updateProfileTabButtonAccess(role);
 	      const allowedTabs = new Set(getAllowedProfileTabs(role));
 	      const currentActiveTab = getActiveProfileTab();
