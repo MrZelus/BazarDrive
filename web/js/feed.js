@@ -1653,7 +1653,6 @@
         setRole(btn.dataset.role);
       });
     });
-
     publishBtn.addEventListener('click', addNewPost);
     newPostImageInput?.addEventListener('change', handlePostImageChange);
     clearPostImageBtn?.addEventListener('click', clearSelectedPostImage);
