@@ -20,11 +20,16 @@
  * page background to bleed through. By explicitly setting a background on
  * `html` and `body` using our dark color token we ensure the page
  * stays dark even if Tailwind fails to generate the utility classes.
+ *
+ * We also set the base text color here because `text-text` can fail to
+ * generate in the same scenario. That prevents browser-default black text
+ * from rendering on the dark fallback background.
  */
 html,
 body {
-  /* Compose an opaque RGB color from the feed background token. */
+  /* Compose opaque RGB colors from the feed theme tokens. */
   background-color: rgb(var(--feed-bg-rgb));
+  color: rgb(var(--feed-text-rgb));
 }
 
 .screen {
