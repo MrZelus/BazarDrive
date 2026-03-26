@@ -25,6 +25,9 @@ class DocumentsTrustDocsSyncTests(unittest.TestCase):
         self.assertIn("## CI-проверки для #172", self.plan_doc)
         self.assertIn("## Проект и подзадачи", self.plan_doc)
         self.assertIn("## Автообновление Project", self.plan_doc)
+        self.assertIn("## Зависимости между issues (blocked / blocking)", self.plan_doc)
+        self.assertIn("Пометить как заблокированный", self.plan_doc)
+        self.assertIn("Пометить как блокировку", self.plan_doc)
         self.assertIn("## Еженедельный отчёт", self.plan_doc)
 
 
