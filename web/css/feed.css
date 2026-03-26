@@ -167,9 +167,9 @@ body {
   background-color: rgb(var(--feed-panel-rgb));
 }
 
-input,
-textarea,
-select {
+input:not(:focus):not(:focus-visible),
+textarea:not(:focus):not(:focus-visible),
+select:not(:focus):not(:focus-visible) {
   border-color: rgb(var(--feed-border-rgb));
 }
 
