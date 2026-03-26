@@ -30,6 +30,7 @@
 html,
 body {
   background-color: rgb(var(--feed-bg-rgb));
+  background-image: var(--feed-bg-gradient);
   color: rgb(var(--feed-text-rgb));
   font-family: var(--feed-font-family);
   letter-spacing: 0.2px;
