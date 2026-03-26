@@ -7,6 +7,23 @@
   --feed-text-soft-rgb: 179 190 219;
   --feed-success-rgb: 52 211 153;
   --feed-warning-rgb: 251 191 36;
+  --feed-font-family: "Manrope", "Segoe UI", "Inter", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  --feed-bg-gradient:
+    radial-gradient(circle at 16% -8%, rgb(111 76 255 / 0.28) 0%, transparent 42%),
+    radial-gradient(circle at 100% 18%, rgb(22 163 74 / 0.15) 0%, transparent 34%),
+    radial-gradient(circle at 48% 100%, rgb(59 130 246 / 0.2) 0%, transparent 40%);
+}
+
+[data-theme-style='aurora'] {
+  --feed-panel-rgb: 17 45 61;
+  --feed-panel-soft-rgb: 21 62 78;
+  --feed-accent-rgb: 56 189 248;
+  --feed-text-rgb: 232 251 255;
+  --feed-text-soft-rgb: 161 219 230;
+  --feed-bg-gradient:
+    radial-gradient(circle at 0% 0%, rgb(16 185 129 / 0.32) 0%, transparent 38%),
+    radial-gradient(circle at 100% 18%, rgb(14 116 144 / 0.26) 0%, transparent 46%),
+    radial-gradient(circle at 52% 100%, rgb(56 189 248 / 0.18) 0%, transparent 40%);
 }
 
 
@@ -29,7 +46,14 @@ html,
 body {
   /* Compose opaque RGB colors from the feed theme tokens. */
   background-color: rgb(var(--feed-bg-rgb));
+  background-image: var(--feed-bg-gradient);
   color: rgb(var(--feed-text-rgb));
+  font-family: var(--feed-font-family);
+}
+
+body {
+  min-height: 100vh;
+  background-attachment: fixed;
 }
 
 .screen {
@@ -199,6 +223,40 @@ button.is-loading::after {
 .app-notification--error {
   background-color: rgb(var(--feed-warning-rgb) / 0.16);
   border-color: rgb(var(--feed-warning-rgb) / 0.45);
+}
+
+.theme-style-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px;
+  border: 1px solid rgb(var(--feed-text-soft-rgb) / 0.26);
+  border-radius: 12px;
+  background-color: rgb(var(--feed-panel-soft-rgb) / 0.42);
+}
+
+.theme-style-btn {
+  min-width: 88px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgb(var(--feed-text-soft-rgb));
+  transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease;
+}
+
+.theme-style-btn:hover,
+.theme-style-btn:focus-visible {
+  color: rgb(var(--feed-text-rgb));
+  border-color: rgb(var(--feed-accent-rgb) / 0.45);
+}
+
+.theme-style-btn.active {
+  color: rgb(var(--feed-bg-rgb));
+  background-color: rgb(var(--feed-accent-rgb));
+  border-color: rgb(var(--feed-text-rgb) / 0.58);
 }
 
 @keyframes fade-in-notification {

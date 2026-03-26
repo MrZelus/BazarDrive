@@ -50,6 +50,9 @@
     const PROFILE_STORAGE_KEY = 'bazardrive_profile';
     const FEED_API_BASE_STORAGE_KEY = 'bazardrive_feed_api_base';
     const PENDING_POST_DRAFT_STORAGE_KEY = 'bazardrive_pending_post_draft';
+    const THEME_STYLE_STORAGE_KEY = 'bazardrive_theme_style';
+    const THEME_STYLE_DEFAULT = 'nebula';
+    const VALID_THEME_STYLES = new Set(['nebula', 'aurora']);
 
     function normalizeApiBase(url) {
       return String(url || '').trim().replace(/\/+$/, '');
@@ -119,6 +122,33 @@
     const docsList = document.getElementById('docsList');
     const docsSearch = document.getElementById('docsSearch');
     const docsSearchStatus = document.getElementById('docsSearchStatus');
+    const themeStyleButtons = document.querySelectorAll('[data-theme-style]');
+
+    function normalizeThemeStyle(style) {
+      const normalized = String(style || '').trim().toLowerCase();
+      return VALID_THEME_STYLES.has(normalized) ? normalized : THEME_STYLE_DEFAULT;
+    }
+
+    function applyThemeStyle(style) {
+      const normalized = normalizeThemeStyle(style);
+      document.documentElement.setAttribute('data-theme-style', normalized);
+      themeStyleButtons.forEach((button) => {
+        const isActive = button.dataset.themeStyle === normalized;
+        button.classList.toggle('active', isActive);
+        button.setAttribute('aria-pressed', String(isActive));
+      });
+      return normalized;
+    }
+
+    function setThemeStyle(style) {
+      const normalized = applyThemeStyle(style);
+      localStorage.setItem(THEME_STYLE_STORAGE_KEY, normalized);
+    }
+
+    function hydrateThemeStyle() {
+      const styleFromStorage = normalizeThemeStyle(localStorage.getItem(THEME_STYLE_STORAGE_KEY));
+      applyThemeStyle(styleFromStorage);
+    }
 
     const tabButtons = document.querySelectorAll('.tab-btn');
 	    const profileMenuButtons = document.querySelectorAll('.profile-menu-btn');
@@ -1653,6 +1683,11 @@
         setRole(btn.dataset.role);
       });
     });
+    themeStyleButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        setThemeStyle(button.dataset.themeStyle);
+      });
+    });
 
     publishBtn.addEventListener('click', addNewPost);
     newPostImageInput?.addEventListener('change', handlePostImageChange);
@@ -1701,6 +1736,7 @@
     renderDocs();
     loadDriverDocuments();
     hydrateProfileForm();
+    hydrateThemeStyle();
     setRole(initialRole);
     setActiveProfileTab('overview');
     setActiveScreen(initialTab);
