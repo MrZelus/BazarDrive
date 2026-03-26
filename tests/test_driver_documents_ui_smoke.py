@@ -39,6 +39,16 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
             ),
         )
 
+    def test_documents_tab_has_trust_signals_prepared_for_verification_states(self) -> None:
+        html = Path('guest_feed.html').read_text(encoding='utf-8')
+        script = Path('web/js/feed.js').read_text(encoding='utf-8')
+        self.assertIn('id="profileVerificationBadge"', html)
+        self.assertIn('id="profileTrustBadge"', html)
+        self.assertIn('function resolveVerificationState(profile)', script)
+        self.assertIn('function renderProfileTrustSignals(profile)', script)
+        self.assertIn('pending_verification', script)
+        self.assertIn('verification_state', script)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -171,6 +171,10 @@
           <div class="rounded-xl border border-textSoft/25 bg-panelSoft p-3">
             <p class="text-sm font-semibold">Статус профиля публикации</p>
             <p id="guestProfileStatus" class="mt-2 text-sm text-textSoft">Профиль не проверен</p>
+            <div id="profileTrustSignals" class="mt-2 flex flex-wrap gap-2" aria-live="polite">
+              <span id="profileVerificationBadge" class="inline-flex items-center rounded-full border border-textSoft/30 px-2 py-1 text-xs text-textSoft">Верификация: не начата</span>
+              <span id="profileTrustBadge" class="inline-flex items-center rounded-full border border-textSoft/30 px-2 py-1 text-xs text-textSoft">Trust badge: базовый</span>
+            </div>
           </div>
           <p class="text-sm text-textSoft">Профиль публикации: обязательное условие для публикации постов в ленте.</p>
           <div id="driverDocumentsSection" class="space-y-3">

@@ -218,8 +218,10 @@
     const profileEmailInput = document.getElementById('profileEmail');
     const profilePhoneInput = document.getElementById('profilePhone');
 	    const profileAboutInput = document.getElementById('profileAbout');
-	    const saveProfileBtn = document.getElementById('saveProfileBtn');
+    const saveProfileBtn = document.getElementById('saveProfileBtn');
 	    const guestProfileStatus = document.getElementById('guestProfileStatus');
+    const profileVerificationBadge = document.getElementById('profileVerificationBadge');
+    const profileTrustBadge = document.getElementById('profileTrustBadge');
     const driverDocumentsSection = document.getElementById('driverDocumentsSection');
 	    const addDocumentBtn = document.getElementById('addDocumentBtn');
     const addDocumentForm = document.getElementById('addDocumentForm');
@@ -787,7 +789,8 @@
         phone: phone || null,
         about: about || null,
         status: 'active',
-        is_verified: false
+        is_verified: Boolean(stored.isVerified),
+        verification_state: String(stored.verificationState || '').trim() || null,
       };
     }
 
@@ -796,6 +799,32 @@
       const hasName = String(normalizedProfile.display_name || '').trim().length >= 2;
       const hasContact = Boolean(String(normalizedProfile.email || '').trim() || String(normalizedProfile.phone || '').trim());
       return hasName && hasContact;
+    }
+
+    function resolveVerificationState(profile) {
+      const rawState = String(profile?.verification_state || profile?.verificationState || '').trim();
+      if (rawState) return rawState;
+      if (profile?.is_verified || profile?.isVerified) return 'verified';
+      return 'unverified';
+    }
+
+    function renderProfileTrustSignals(profile) {
+      const verificationState = resolveVerificationState(profile);
+      const verificationLabels = {
+        unverified: 'не начата',
+        pending_verification: 'на проверке',
+        verified: 'подтверждена',
+        rejected: 'отклонена',
+        blocked: 'заблокирована',
+      };
+
+      if (profileVerificationBadge) {
+        profileVerificationBadge.textContent = `Верификация: ${verificationLabels[verificationState] || verificationState}`;
+      }
+      if (profileTrustBadge) {
+        const trustLabel = verificationState === 'verified' ? 'подтверждённый' : 'базовый';
+        profileTrustBadge.textContent = `Trust badge: ${trustLabel}`;
+      }
     }
     
     function formatPostDate(createdAt) {
@@ -1620,6 +1649,8 @@
           email: payload.email || profile.email || '',
           phone: payload.phone || profile.phone || '',
           about: payload.about || profile.about || '',
+          isVerified: Boolean(payload.is_verified),
+          verificationState: String(payload.verification_state || '').trim(),
         };
         localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(localProfile));
         updateGuestProfileStatus();
@@ -1651,6 +1682,7 @@
 
     function updateGuestProfileStatus() {
       if (!guestProfileStatus) return;
+      const storedProfile = getStoredGuestProfile();
       const profile = makeGuestProfilePayload();
       const hasName = profile.display_name.length >= 2;
       const hasContact = Boolean(profile.email || profile.phone);
@@ -1664,6 +1696,7 @@
         guestProfileStatus.classList.remove('text-success');
         guestProfileStatus.classList.add('text-warning');
       }
+      renderProfileTrustSignals(storedProfile);
     }
 
     tabButtons.forEach((btn) => {
