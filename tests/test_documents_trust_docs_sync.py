@@ -18,6 +18,8 @@ class DocumentsTrustDocsSyncTests(unittest.TestCase):
     def test_publish_flow_doc_covers_role_visibility_requirements(self) -> None:
         self.assertIn("блок профиля публикации для всех ролей", self.publish_flow_doc)
         self.assertIn("Блок документов водителя отображается только для роли `driver`", self.publish_flow_doc)
+        self.assertIn("profileVerificationBadge", self.publish_flow_doc)
+        self.assertIn("profileTrustBadge", self.publish_flow_doc)
 
     def test_automation_plan_has_ci_project_and_reporting_sections(self) -> None:
         self.assertIn("## CI-проверки для #172", self.plan_doc)
