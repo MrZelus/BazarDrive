@@ -170,7 +170,17 @@ body {
 input,
 textarea,
 select {
-  border-color: rgb(var(--feed-border-rgb)) !important;
+  border-color: rgb(var(--feed-border-rgb));
+}
+
+input:focus,
+textarea:focus,
+select:focus,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  border-color: rgb(var(--feed-accent-rgb));
+  box-shadow: 0 0 0 2px rgb(var(--feed-accent-rgb) / 0.24);
 }
 
 button:disabled,
