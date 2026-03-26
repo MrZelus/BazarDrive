@@ -189,6 +189,12 @@
               <div class="h-12 rounded-xl border border-textSoft/20 bg-panelSoft animate-pulse"></div>
               <div class="h-12 rounded-xl border border-textSoft/20 bg-panelSoft animate-pulse"></div>
             </div>
+            <div id="driverDocumentsEmptyState" class="hidden rounded-xl border border-textSoft/20 bg-panelSoft px-3 py-2 text-sm text-textSoft" aria-live="polite" aria-hidden="true">
+              Документы пока не добавлены.
+            </div>
+            <div id="driverDocumentsErrorState" class="hidden rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-warning" aria-live="assertive" aria-hidden="true">
+              Не удалось загрузить список документов.
+            </div>
             <form id="addDocumentForm" class="hidden space-y-2 rounded-xl border border-textSoft/25 bg-panelSoft p-3">
             <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <div class="space-y-1">

@@ -229,6 +229,8 @@
     const cancelDocumentBtn = document.getElementById('cancelDocumentBtn');
     const driverDocumentsList = document.getElementById('driverDocumentsList');
     const driverDocumentsLoadingState = document.getElementById('driverDocumentsLoadingState');
+    const driverDocumentsEmptyState = document.getElementById('driverDocumentsEmptyState');
+    const driverDocumentsErrorState = document.getElementById('driverDocumentsErrorState');
     const documentsApiAlert = document.getElementById('documentsApiAlert');
     const documentTypeInput = document.getElementById('documentType');
     const documentNumberInput = document.getElementById('documentNumber');
@@ -564,14 +566,45 @@
       });
     }
 
+    function setDriverDocumentsListState(state, errorMessage = '') {
+      const normalizedState = ['loading', 'empty', 'error', 'ready'].includes(state) ? state : 'ready';
+      const isLoading = normalizedState === 'loading';
+      const isEmpty = normalizedState === 'empty';
+      const isError = normalizedState === 'error';
+
+      if (driverDocumentsLoadingState) {
+        driverDocumentsLoadingState.classList.toggle('hidden', !isLoading);
+        driverDocumentsLoadingState.setAttribute('aria-hidden', String(!isLoading));
+      }
+      if (driverDocumentsEmptyState) {
+        driverDocumentsEmptyState.classList.toggle('hidden', !isEmpty);
+        driverDocumentsEmptyState.setAttribute('aria-hidden', String(!isEmpty));
+      }
+      if (driverDocumentsErrorState) {
+        driverDocumentsErrorState.classList.toggle('hidden', !isError);
+        driverDocumentsErrorState.setAttribute('aria-hidden', String(!isError));
+        if (isError) {
+          driverDocumentsErrorState.textContent = String(errorMessage || 'Не удалось загрузить список документов.');
+        }
+      }
+      if (driverDocumentsList) {
+        driverDocumentsList.setAttribute('aria-busy', String(isLoading));
+        if (isLoading || isError) {
+          clearChildren(driverDocumentsList);
+        }
+      }
+    }
+
     function renderDriverDocuments(items = []) {
       if (!driverDocumentsList) return;
       clearChildren(driverDocumentsList);
       if (!Array.isArray(items) || items.length === 0) {
-        driverDocumentsList.appendChild(buildInfoCard('Документы пока не добавлены.'));
+        setDriverDocumentsListState('empty');
         renderDriverOverviewDocuments([]);
         return;
       }
+
+      setDriverDocumentsListState('ready');
 
       const labels = {
         passport: 'Паспорт', inn: 'ИНН', ogrnip: 'ОГРНИП', taxi_license: 'Разрешение на такси',
@@ -650,22 +683,8 @@
       renderDriverOverviewDocuments(normalizedItems);
     }
 
-    function setDriverDocumentsListLoading(isLoading) {
-      const loading = Boolean(isLoading);
-      if (driverDocumentsLoadingState) {
-        driverDocumentsLoadingState.classList.toggle('hidden', !loading);
-        driverDocumentsLoadingState.setAttribute('aria-hidden', String(!loading));
-      }
-      if (driverDocumentsList) {
-        driverDocumentsList.setAttribute('aria-busy', String(loading));
-      }
-      if (loading && driverDocumentsList) {
-        clearChildren(driverDocumentsList);
-      }
-    }
-
     async function loadDriverDocuments() {
-      setDriverDocumentsListLoading(true);
+      setDriverDocumentsListState('loading');
       try {
         const response = await fetch(`${FEED_API_BASE}/api/driver/documents?profile_id=driver-main`);
         const payload = await response.json().catch(() => ({}));
@@ -676,9 +695,13 @@
       } catch (error) {
         console.error(error);
         renderDriverOverviewDocuments([]);
-        setDocumentAlert(error.message || 'Не удалось загрузить список документов');
+        const errorMessage = error.message || 'Не удалось загрузить список документов';
+        setDocumentAlert(errorMessage);
+        setDriverDocumentsListState('error', errorMessage);
       } finally {
-        setDriverDocumentsListLoading(false);
+        if (driverDocumentsList?.getAttribute('aria-busy') === 'true') {
+          setDriverDocumentsListState('ready');
+        }
       }
     }
 
