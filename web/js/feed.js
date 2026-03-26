@@ -1683,12 +1683,6 @@
         setRole(btn.dataset.role);
       });
     });
-    themeStyleButtons.forEach((button) => {
-      button.addEventListener('click', () => {
-        setThemeStyle(button.dataset.themeStyle);
-      });
-    });
-
     publishBtn.addEventListener('click', addNewPost);
     newPostImageInput?.addEventListener('change', handlePostImageChange);
     clearPostImageBtn?.addEventListener('click', clearSelectedPostImage);
