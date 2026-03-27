@@ -799,6 +799,61 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertIsNone(delete_payload["my_reaction"])
         self.assertEqual(delete_payload["reactions"], {})
 
+    def test_reactions_plural_endpoint_and_get_snapshot(self) -> None:
+        post_status, post_payload, _ = self._post(
+            "/api/feed/posts",
+            {"author": "Valid Author", "text": "Пост для reactions endpoint"},
+        )
+        self.assertEqual(post_status, 201)
+        post_id = post_payload["id"]
+
+        set_status, set_payload, _ = self._post(
+            f"/api/feed/posts/{post_id}/reactions",
+            {"guest_profile_id": "guest-react-4", "type": "like"},
+        )
+        self.assertEqual(set_status, 200)
+        self.assertEqual(set_payload["likes"], 1)
+        self.assertEqual(set_payload["my_reaction"], "like")
+
+        get_status, get_payload, _ = self._get(
+            f"/api/feed/posts/{post_id}/reactions?guest_profile_id=guest-react-4"
+        )
+        self.assertEqual(get_status, 200)
+        self.assertEqual(get_payload["likes"], 1)
+        self.assertEqual(get_payload["my_reaction"], "like")
+        self.assertEqual(get_payload["reactions"].get("like"), 1)
+
+        delete_status, delete_payload, _ = self._delete(
+            f"/api/feed/posts/{post_id}/reactions",
+            {"guest_profile_id": "guest-react-4"},
+        )
+        self.assertEqual(delete_status, 200)
+        self.assertIsNone(delete_payload["my_reaction"])
+        self.assertEqual(delete_payload["reactions"], {})
+
+    def test_legacy_react_endpoint_still_supported_for_backward_compatibility(self) -> None:
+        post_status, post_payload, _ = self._post(
+            "/api/feed/posts",
+            {"author": "Valid Author", "text": "Пост для legacy react"},
+        )
+        self.assertEqual(post_status, 201)
+        post_id = post_payload["id"]
+
+        set_status, set_payload, _ = self._post(
+            f"/api/feed/posts/{post_id}/react",
+            {"guest_profile_id": "guest-react-legacy", "type": "like"},
+        )
+        self.assertEqual(set_status, 200)
+        self.assertEqual(set_payload["likes"], 1)
+
+        delete_status, delete_payload, _ = self._delete(
+            f"/api/feed/posts/{post_id}/react",
+            {"guest_profile_id": "guest-react-legacy"},
+        )
+        self.assertEqual(delete_status, 200)
+        self.assertEqual(delete_payload["likes"], 0)
+        self.assertEqual(delete_payload["reactions"], {})
+
     def test_reactions_negative_invalid_and_not_found(self) -> None:
         post_status, post_payload, _ = self._post(
             "/api/feed/posts",
