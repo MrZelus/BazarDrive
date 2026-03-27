@@ -6,6 +6,7 @@ import unittest
 from base64 import urlsafe_b64encode
 from http.client import HTTPConnection
 from http.server import ThreadingHTTPServer
+from urllib.parse import quote
 
 from app.api.http_handlers import FeedAPIHandler
 from app.db import repository
@@ -899,7 +900,7 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertEqual(payload["likes"], 1)
         self.assertEqual(payload["my_reaction"], "like")
 
-    def test_feed_cursor_pagination_returns_stable_non_duplicated_sequence(self) -> None:
+    def test_feed_cursor_pagination_returns_stable_non_duplicated_sequence_full_regression(self) -> None:
         expected_ids: list[int] = []
         for idx in range(7):
             created = repository.create_guest_feed_post(
@@ -938,12 +939,12 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertEqual(payload_page2["total"], 7)
         self.assertEqual(payload_page3["total"], 7)
 
-    def test_feed_cursor_pagination_respects_search_query(self) -> None:
+    def test_feed_cursor_pagination_respects_search_query_full_regression(self) -> None:
         matching_ids: list[int] = []
         for idx in range(5):
             matching = repository.create_guest_feed_post(
                 author="Search Match",
-                text=f"Вакансия для поиска {idx}",
+                text=f"vacancy keyword {idx}",
                 guest_profile_id=f"guest-search-match-{idx}",
             )
             matching_ids.append(matching["id"])
@@ -955,7 +956,8 @@ class FeedAPIValidationTests(unittest.TestCase):
             )
         matching_ids.sort(reverse=True)
 
-        first_status, first_payload, _ = self._get("/api/feed/posts?limit=2&q=вакансия")
+        query = quote("vacancy")
+        first_status, first_payload, _ = self._get(f"/api/feed/posts?limit=2&q={query}")
         self.assertEqual(first_status, 200)
         self.assertEqual([item["id"] for item in first_payload["items"]], matching_ids[:2])
         self.assertEqual(first_payload["total"], 5)
@@ -963,7 +965,7 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertIsNotNone(first_payload["next_cursor"])
 
         second_status, second_payload, _ = self._get(
-            f"/api/feed/posts?limit=2&q=вакансия&cursor={first_payload['next_cursor']}"
+            f"/api/feed/posts?limit=2&q={query}&cursor={first_payload['next_cursor']}"
         )
         self.assertEqual(second_status, 200)
         self.assertEqual([item["id"] for item in second_payload["items"]], matching_ids[2:4])
@@ -972,7 +974,7 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertIsNotNone(second_payload["next_cursor"])
 
         third_status, third_payload, _ = self._get(
-            f"/api/feed/posts?limit=2&q=вакансия&cursor={second_payload['next_cursor']}"
+            f"/api/feed/posts?limit=2&q={query}&cursor={second_payload['next_cursor']}"
         )
         self.assertEqual(third_status, 200)
         self.assertEqual([item["id"] for item in third_payload["items"]], matching_ids[4:])
