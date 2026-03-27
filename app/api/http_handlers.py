@@ -577,6 +577,9 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             if not profile_id:
                 self._send_json(400, {"error": "Некорректный id профиля"})
                 return
+            if not (getattr(self, "write_auth_context", None) and self.write_auth_context.is_moderator):
+                self._send_json(403, {"error": "Недостаточно прав: требуется модератор"})
+                return
             actor = str(payload.get("actor", getattr(self, "write_auth_context", None).subject if getattr(self, "write_auth_context", None) else "anonymous")).strip() or "anonymous"
             reason = str(payload.get("reason", "")).strip() or None
             try:
