@@ -633,6 +633,7 @@ class FeedAPIValidationTests(unittest.TestCase):
         )
         self.assertEqual(bad_request_status, 400)
         self.assertIn("error", bad_request_payload)
+        self.assertEqual(bad_request_payload.get("error_code"), "comment_text_required")
 
         create_status, create_payload, _ = self._post(
             f"/api/feed/posts/{post_id}/comments",
@@ -641,23 +642,26 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertEqual(create_status, 201)
         comment_id = create_payload["id"]
 
-        forbidden_patch_status, _, _ = self._patch(
+        forbidden_patch_status, forbidden_patch_payload, _ = self._patch(
             f"/api/feed/posts/{post_id}/comments/{comment_id}",
             {"guest_profile_id": "guest-9999", "text": "Попытка изменить чужой комментарий"},
         )
         self.assertEqual(forbidden_patch_status, 403)
+        self.assertEqual(forbidden_patch_payload.get("error_code"), "comment_edit_forbidden")
 
-        forbidden_delete_status, _, _ = self._delete(
+        forbidden_delete_status, forbidden_delete_payload, _ = self._delete(
             f"/api/feed/posts/{post_id}/comments/{comment_id}",
             {"guest_profile_id": "guest-9999"},
         )
         self.assertEqual(forbidden_delete_status, 403)
+        self.assertEqual(forbidden_delete_payload.get("error_code"), "comment_delete_forbidden")
 
-        not_found_comment_status, _, _ = self._patch(
+        not_found_comment_status, not_found_comment_payload, _ = self._patch(
             f"/api/feed/posts/{post_id}/comments/999999",
             {"guest_profile_id": "guest-0001", "text": "missing"},
         )
         self.assertEqual(not_found_comment_status, 404)
+        self.assertEqual(not_found_comment_payload.get("error_code"), "comment_not_found")
 
     def test_delete_post_by_author_success_with_comment_cascade(self) -> None:
         created_post = repository.create_guest_feed_post(
@@ -889,6 +893,124 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertIsNone(delete_payload["my_reaction"])
         self.assertEqual(delete_payload["reactions"], {})
 
+    def test_reactions_snapshot_stays_consistent_across_cursor_pages_for_guest(self) -> None:
+        created_post_ids: list[int] = []
+        for idx in range(4):
+            post = repository.create_guest_feed_post(
+                author=f"Reaction Author {idx}",
+                text=f"Пост для реакций в cursor-страницах #{idx}",
+                guest_profile_id=f"guest-react-seq-{idx}",
+            )
+            created_post_ids.append(post["id"])
+
+        first_reacted_id = created_post_ids[0]
+        second_reacted_id = created_post_ids[1]
+
+        first_set_status, _, _ = self._post(
+            f"/api/feed/posts/{first_reacted_id}/reactions",
+            {"guest_profile_id": "guest-react-cursor-a", "type": "like"},
+        )
+        self.assertEqual(first_set_status, 200)
+
+        second_set_status, _, _ = self._post(
+            f"/api/feed/posts/{second_reacted_id}/reactions",
+            {"guest_profile_id": "guest-react-cursor-a", "type": "dislike"},
+        )
+        self.assertEqual(second_set_status, 200)
+
+        second_post_other_guest_status, _, _ = self._post(
+            f"/api/feed/posts/{second_reacted_id}/reactions",
+            {"guest_profile_id": "guest-react-cursor-b", "type": "like"},
+        )
+        self.assertEqual(second_post_other_guest_status, 200)
+
+        expected_by_post_id: dict[int, dict] = {
+            created_post_ids[0]: {"my_reaction": "like", "reactions": {"like": 1}, "likes": 1},
+            created_post_ids[1]: {"my_reaction": "dislike", "reactions": {"dislike": 1, "like": 1}, "likes": 1},
+            created_post_ids[2]: {"my_reaction": None, "reactions": {}, "likes": 0},
+            created_post_ids[3]: {"my_reaction": None, "reactions": {}, "likes": 0},
+        }
+
+        next_cursor: str | None = None
+        seen_items: dict[int, dict] = {}
+        while True:
+            query = "/api/feed/posts?limit=2&guest_profile_id=guest-react-cursor-a"
+            if next_cursor:
+                query = f"{query}&cursor={next_cursor}"
+            status, payload, _ = self._get(query)
+            self.assertEqual(status, 200)
+
+            for item in payload["items"]:
+                seen_items[item["id"]] = item
+
+            if not payload["has_more"]:
+                self.assertIsNone(payload["next_cursor"])
+                break
+
+            self.assertTrue(payload["next_cursor"])
+            next_cursor = payload["next_cursor"]
+
+        self.assertEqual(set(seen_items.keys()), set(created_post_ids))
+        for post_id, expected in expected_by_post_id.items():
+            self.assertEqual(seen_items[post_id]["my_reaction"], expected["my_reaction"])
+            self.assertEqual(seen_items[post_id]["likes"], expected["likes"])
+            self.assertEqual(seen_items[post_id]["reactions"], expected["reactions"])
+
+    def test_reactions_plural_endpoint_and_get_snapshot(self) -> None:
+        post_status, post_payload, _ = self._post(
+            "/api/feed/posts",
+            {"author": "Valid Author", "text": "Пост для reactions endpoint"},
+        )
+        self.assertEqual(post_status, 201)
+        post_id = post_payload["id"]
+
+        set_status, set_payload, _ = self._post(
+            f"/api/feed/posts/{post_id}/reactions",
+            {"guest_profile_id": "guest-react-4", "type": "like"},
+        )
+        self.assertEqual(set_status, 200)
+        self.assertEqual(set_payload["likes"], 1)
+        self.assertEqual(set_payload["my_reaction"], "like")
+
+        get_status, get_payload, _ = self._get(
+            f"/api/feed/posts/{post_id}/reactions?guest_profile_id=guest-react-4"
+        )
+        self.assertEqual(get_status, 200)
+        self.assertEqual(get_payload["likes"], 1)
+        self.assertEqual(get_payload["my_reaction"], "like")
+        self.assertEqual(get_payload["reactions"].get("like"), 1)
+
+        delete_status, delete_payload, _ = self._delete(
+            f"/api/feed/posts/{post_id}/reactions",
+            {"guest_profile_id": "guest-react-4"},
+        )
+        self.assertEqual(delete_status, 200)
+        self.assertIsNone(delete_payload["my_reaction"])
+        self.assertEqual(delete_payload["reactions"], {})
+
+    def test_legacy_react_endpoint_still_supported_for_backward_compatibility(self) -> None:
+        post_status, post_payload, _ = self._post(
+            "/api/feed/posts",
+            {"author": "Valid Author", "text": "Пост для legacy react"},
+        )
+        self.assertEqual(post_status, 201)
+        post_id = post_payload["id"]
+
+        set_status, set_payload, _ = self._post(
+            f"/api/feed/posts/{post_id}/react",
+            {"guest_profile_id": "guest-react-legacy", "type": "like"},
+        )
+        self.assertEqual(set_status, 200)
+        self.assertEqual(set_payload["likes"], 1)
+
+        delete_status, delete_payload, _ = self._delete(
+            f"/api/feed/posts/{post_id}/react",
+            {"guest_profile_id": "guest-react-legacy"},
+        )
+        self.assertEqual(delete_status, 200)
+        self.assertEqual(delete_payload["likes"], 0)
+        self.assertEqual(delete_payload["reactions"], {})
+
     def test_reactions_negative_invalid_and_not_found(self) -> None:
         post_status, post_payload, _ = self._post(
             "/api/feed/posts",
@@ -903,12 +1025,14 @@ class FeedAPIValidationTests(unittest.TestCase):
         )
         self.assertEqual(bad_status, 400)
         self.assertIn("Некорректный тип реакции", bad_payload.get("error", ""))
+        self.assertEqual(bad_payload.get("error_code"), "reaction_type_invalid")
 
-        not_found_status, _, _ = self._post(
+        not_found_status, not_found_payload, _ = self._post(
             "/api/feed/posts/999999/react",
             {"guest_profile_id": "guest-react-2", "type": "like"},
         )
         self.assertEqual(not_found_status, 404)
+        self.assertEqual(not_found_payload.get("error_code"), "post_not_found")
 
     def test_reactions_concurrency_is_idempotent(self) -> None:
         post = repository.create_guest_feed_post(author="Owner", text="Concurrent post", guest_profile_id="owner-1")
@@ -933,6 +1057,88 @@ class FeedAPIValidationTests(unittest.TestCase):
         payload = FeedService.get_post_reactions(post_id=post_id, guest_profile_id="guest-react-3")
         self.assertEqual(payload["likes"], 1)
         self.assertEqual(payload["my_reaction"], "like")
+
+    def test_feed_cursor_pagination_returns_stable_non_duplicated_sequence_full_regression(self) -> None:
+        expected_ids: list[int] = []
+        for idx in range(7):
+            created = repository.create_guest_feed_post(
+                author=f"Author {idx}",
+                text=f"Пост для cursor pagination #{idx}",
+                guest_profile_id=f"guest-cursor-{idx}",
+            )
+            expected_ids.append(created["id"])
+        expected_ids.sort(reverse=True)
+
+        status_page1, payload_page1, _ = self._get("/api/feed/posts?limit=3")
+        self.assertEqual(status_page1, 200)
+        page1_ids = [item["id"] for item in payload_page1["items"]]
+        self.assertEqual(page1_ids, expected_ids[:3])
+        self.assertTrue(payload_page1["has_more"])
+        self.assertIsNotNone(payload_page1["next_cursor"])
+
+        status_page2, payload_page2, _ = self._get(f"/api/feed/posts?limit=3&cursor={payload_page1['next_cursor']}")
+        self.assertEqual(status_page2, 200)
+        page2_ids = [item["id"] for item in payload_page2["items"]]
+        self.assertEqual(page2_ids, expected_ids[3:6])
+        self.assertTrue(payload_page2["has_more"])
+        self.assertIsNotNone(payload_page2["next_cursor"])
+
+        status_page3, payload_page3, _ = self._get(f"/api/feed/posts?limit=3&cursor={payload_page2['next_cursor']}")
+        self.assertEqual(status_page3, 200)
+        page3_ids = [item["id"] for item in payload_page3["items"]]
+        self.assertEqual(page3_ids, expected_ids[6:])
+        self.assertFalse(payload_page3["has_more"])
+        self.assertIsNone(payload_page3["next_cursor"])
+
+        merged_ids = page1_ids + page2_ids + page3_ids
+        self.assertEqual(merged_ids, expected_ids)
+        self.assertEqual(len(set(merged_ids)), len(merged_ids))
+        self.assertEqual(payload_page1["total"], 7)
+        self.assertEqual(payload_page2["total"], 7)
+        self.assertEqual(payload_page3["total"], 7)
+
+    def test_feed_cursor_pagination_respects_search_query_full_regression(self) -> None:
+        matching_ids: list[int] = []
+        for idx in range(5):
+            matching = repository.create_guest_feed_post(
+                author="Search Match",
+                text=f"vacancy keyword {idx}",
+                guest_profile_id=f"guest-search-match-{idx}",
+            )
+            matching_ids.append(matching["id"])
+        for idx in range(3):
+            repository.create_guest_feed_post(
+                author="Other",
+                text=f"Нерелевантный пост {idx}",
+                guest_profile_id=f"guest-search-other-{idx}",
+            )
+        matching_ids.sort(reverse=True)
+
+        query = quote("vacancy")
+        first_status, first_payload, _ = self._get(f"/api/feed/posts?limit=2&q={query}")
+        self.assertEqual(first_status, 200)
+        self.assertEqual([item["id"] for item in first_payload["items"]], matching_ids[:2])
+        self.assertEqual(first_payload["total"], 5)
+        self.assertTrue(first_payload["has_more"])
+        self.assertIsNotNone(first_payload["next_cursor"])
+
+        second_status, second_payload, _ = self._get(
+            f"/api/feed/posts?limit=2&q={query}&cursor={first_payload['next_cursor']}"
+        )
+        self.assertEqual(second_status, 200)
+        self.assertEqual([item["id"] for item in second_payload["items"]], matching_ids[2:4])
+        self.assertEqual(second_payload["total"], 5)
+        self.assertTrue(second_payload["has_more"])
+        self.assertIsNotNone(second_payload["next_cursor"])
+
+        third_status, third_payload, _ = self._get(
+            f"/api/feed/posts?limit=2&q={query}&cursor={second_payload['next_cursor']}"
+        )
+        self.assertEqual(third_status, 200)
+        self.assertEqual([item["id"] for item in third_payload["items"]], matching_ids[4:])
+        self.assertEqual(third_payload["total"], 5)
+        self.assertFalse(third_payload["has_more"])
+        self.assertIsNone(third_payload["next_cursor"])
 
     def test_create_post_with_multiple_media_and_legacy_fallback(self) -> None:
         status, payload, _ = self._post(
@@ -1033,6 +1239,64 @@ class FeedAPIValidationTests(unittest.TestCase):
         first_ids = {int(item["id"]) for item in first_payload["items"]}
         second_ids = {int(item["id"]) for item in second_payload["items"]}
         self.assertEqual(len(first_ids.intersection(second_ids)), 0)
+
+    def test_feed_list_supports_search_query_with_offset(self) -> None:
+        repository.create_guest_feed_post(author="Taxi Expert", text="Москва аэропорт", guest_profile_id="guest-search")
+        repository.create_guest_feed_post(author="Food Lover", text="Лучшие рестораны", guest_profile_id="guest-search")
+        repository.create_guest_feed_post(author="Taxi Helper", text="Поездка в центр", guest_profile_id="guest-search")
+
+        status, payload, _ = self._get("/api/feed/posts?limit=10&offset=0&q=taxi")
+        self.assertEqual(status, 200)
+        self.assertEqual(payload.get("q"), "taxi")
+        self.assertEqual(payload.get("total"), 2)
+        self.assertEqual(len(payload.get("items", [])), 2)
+        for item in payload["items"]:
+            haystack = f"{item.get('author', '')} {item.get('text', '')}".lower()
+            self.assertIn("taxi", haystack)
+
+    def test_feed_cursor_pagination_respects_search_query(self) -> None:
+        repository.create_guest_feed_post(author="Search One", text="alpha keyword", guest_profile_id="guest-search-cursor")
+        repository.create_guest_feed_post(author="Search Two", text="beta keyword", guest_profile_id="guest-search-cursor")
+        repository.create_guest_feed_post(author="Search Three", text="alpha second", guest_profile_id="guest-search-cursor")
+
+        first_status, first_payload, _ = self._get("/api/feed/posts?limit=1&q=alpha")
+        self.assertEqual(first_status, 200)
+        self.assertEqual(first_payload.get("q"), "alpha")
+        self.assertEqual(first_payload.get("total"), 2)
+        self.assertEqual(len(first_payload.get("items", [])), 1)
+        self.assertTrue(first_payload.get("next_cursor"))
+
+        next_cursor = first_payload["next_cursor"]
+        second_status, second_payload, _ = self._get(f"/api/feed/posts?limit=1&q=alpha&cursor={next_cursor}")
+        self.assertEqual(second_status, 200)
+        self.assertEqual(second_payload.get("q"), "alpha")
+        self.assertEqual(len(second_payload.get("items", [])), 1)
+        self.assertFalse(second_payload.get("has_more"))
+        self.assertIsNone(second_payload.get("next_cursor"))
+
+        first_ids = {int(item["id"]) for item in first_payload["items"]}
+        second_ids = {int(item["id"]) for item in second_payload["items"]}
+        self.assertEqual(len(first_ids.intersection(second_ids)), 0)
+        for item in [*first_payload["items"], *second_payload["items"]]:
+            haystack = f"{item.get('author', '')} {item.get('text', '')}".lower()
+            self.assertIn("alpha", haystack)
+
+    def test_feed_search_is_case_insensitive_for_cyrillic(self) -> None:
+        repository.create_guest_feed_post(author="ИВАН", text="Поездка в МОСКВА", guest_profile_id="guest-search-ru")
+        repository.create_guest_feed_post(author="Пётр", text="Маршрут до Казань", guest_profile_id="guest-search-ru")
+        repository.create_guest_feed_post(author="Мария", text="Без совпадений", guest_profile_id="guest-search-ru")
+
+        status, payload, _ = self._get("/api/feed/posts?limit=10&q=%D0%B8%D0%B2%D0%B0%D0%BD")
+        self.assertEqual(status, 200)
+        self.assertEqual(payload.get("total"), 1)
+        self.assertEqual(len(payload.get("items", [])), 1)
+        self.assertEqual(payload["items"][0]["author"], "ИВАН")
+
+        status_city, payload_city, _ = self._get("/api/feed/posts?limit=10&q=%D0%BC%D0%BE%D1%81%D0%BA%D0%B2%D0%B0")
+        self.assertEqual(status_city, 200)
+        self.assertEqual(payload_city.get("total"), 1)
+        self.assertEqual(len(payload_city.get("items", [])), 1)
+        self.assertIn("МОСКВА", payload_city["items"][0]["text"])
 
     def test_feed_cursor_pagination_invalid_cursor_returns_400(self) -> None:
         repository.create_guest_feed_post(author="Author", text="Post", guest_profile_id="guest-cursor")

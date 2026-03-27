@@ -181,6 +181,46 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             },
         )
 
+    def _send_interaction_error(self, status: int, message: str, default_code: str) -> None:
+        self._send_json(
+            status,
+            {
+                "error": message,
+                "error_code": self._resolve_interaction_error_code(message, default=default_code),
+            },
+        )
+
+    @staticmethod
+    def _resolve_interaction_error_code(message: str, default: str) -> str:
+        normalized = str(message or "").strip().lower()
+        if not normalized:
+            return default
+        if "guest_profile_id" in normalized and "обязательно" in normalized:
+            return "guest_profile_required"
+        if "тип реакции" in normalized and "допустимые значения" in normalized:
+            return "reaction_type_invalid"
+        if "некорректный id поста" in normalized:
+            return "post_id_invalid"
+        if "некорректный id комментария" in normalized:
+            return "comment_id_invalid"
+        if "пост не найден" in normalized:
+            return "post_not_found"
+        if "комментарий не найден" in normalized:
+            return "comment_not_found"
+        if "недостаточно прав для изменения комментария" in normalized:
+            return "comment_edit_forbidden"
+        if "недостаточно прав для удаления комментария" in normalized:
+            return "comment_delete_forbidden"
+        if "поле text обязательно" in normalized:
+            return "comment_text_required"
+        if "поля author и text обязательны" in normalized:
+            return "comment_text_required"
+        if "комментарий слишком длинный" in normalized:
+            return "comment_text_too_long"
+        if "комментарий должен содержать минимум" in normalized:
+            return "comment_text_too_short"
+        return default
+
     def _payload_too_large_error(self, max_request_bytes: int) -> dict[str, object]:
         return {
             "error": {
@@ -396,6 +436,7 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             limit = max(1, min(100, _parse_int("limit", 20)))
             offset = max(0, _parse_int("offset", 0))
             guest_profile_id = str(params.get("guest_profile_id", [""])[0]).strip()
+            search_query = str(params.get("q", [""])[0]).strip()
             cursor = str(params.get("cursor", [""])[0]).strip()
             use_cursor = bool(cursor)
             if use_cursor and "offset" in params:
@@ -412,14 +453,15 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
                     limit=limit + 1,
                     cursor_created_at=cursor_created_at,
                     cursor_id=cursor_id,
+                    search_query=search_query,
                 )
                 has_more = len(cursor_batch) > limit
                 posts = cursor_batch[:limit]
             else:
-                posts = repository.list_guest_feed_posts(limit=limit, offset=offset)
+                posts = repository.list_guest_feed_posts(limit=limit, offset=offset, search_query=search_query)
                 has_more = False
             enriched_posts = FeedService.enrich_posts_with_reactions(posts, guest_profile_id=guest_profile_id)
-            total = repository.count_guest_feed_posts()
+            total = repository.count_guest_feed_posts(search_query=search_query)
             if not use_cursor:
                 has_more = (offset + len(enriched_posts)) < total
             next_cursor = self._encode_posts_cursor(enriched_posts[-1]) if enriched_posts else None
@@ -429,11 +471,28 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
                     "items": enriched_posts,
                     "limit": limit,
                     "offset": offset,
+                    "q": search_query,
                     "total": total,
                     "next_cursor": next_cursor if has_more else None,
                     "has_more": has_more,
                 },
             )
+            return
+
+        reactions_prefix = "/api/feed/posts/"
+        if path.startswith(reactions_prefix) and path.endswith("/reactions"):
+            post_id_raw = path[len(reactions_prefix) : -len("/reactions")]
+            if not post_id_raw.isdigit() or int(post_id_raw) <= 0:
+                self._send_json(400, {"error": "Некорректный id поста"})
+                return
+            params = parse_qs(parsed.query)
+            guest_profile_id = str(params.get("guest_profile_id", [""])[0]).strip() or None
+            try:
+                item = FeedService.get_post_reactions(post_id=int(post_id_raw), guest_profile_id=guest_profile_id)
+            except LookupError as error:
+                self._send_json(404, {"error": str(error)})
+                return
+            self._send_json(200, item)
             return
 
         comments_prefix = "/api/feed/posts/"
@@ -472,6 +531,16 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
                 return
             history = repository.get_guest_profile_verification_history(profile_id)
             self._send_json(200, {"items": history, "total": len(history)})
+            return
+
+        verification_metrics_suffix = "/verification/metrics"
+        if path.startswith("/api/feed/profiles/") and path.endswith(verification_metrics_suffix):
+            profile_id = path[len("/api/feed/profiles/") : -len(verification_metrics_suffix)].strip()
+            if not profile_id:
+                self._send_json(400, {"error": "Некорректный id профиля"})
+                return
+            metrics = repository.get_guest_profile_verification_metrics(profile_id)
+            self._send_json(200, metrics)
             return
 
         if path.startswith("/api/feed/profiles/"):
@@ -567,6 +636,16 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             if not updated:
                 self._send_json(404, {"error": "Профиль не найден"})
                 return
+            logger.info(
+                "verification.transition",
+                extra={
+                    **self._request_log_extra(),
+                    "verification_action": "submit",
+                    "verification_profile_id": profile_id,
+                    "verification_actor": actor,
+                    "verification_to_state": str(updated.get("verification_state", "")),
+                },
+            )
             self._send_json(200, updated)
             return
 
@@ -595,23 +674,39 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             if not updated:
                 self._send_json(404, {"error": "Профиль не найден"})
                 return
+            logger.info(
+                "verification.transition",
+                extra={
+                    **self._request_log_extra(),
+                    "verification_action": action,
+                    "verification_profile_id": profile_id,
+                    "verification_actor": actor,
+                    "verification_reason_present": bool(reason),
+                    "verification_to_state": str(updated.get("verification_state", "")),
+                },
+            )
             self._send_json(200, updated)
             return
 
         react_prefix = "/api/feed/posts/"
-        if path.startswith(react_prefix) and path.endswith("/react"):
+        react_path_suffix = "/react"
+        reactions_path_suffix = "/reactions"
+        if path.startswith(react_prefix) and (path.endswith(react_path_suffix) or path.endswith(reactions_path_suffix)):
             suffix = path[len(react_prefix) :]
-            post_id_raw = suffix[: -len("/react")]
+            if suffix.endswith(reactions_path_suffix):
+                post_id_raw = suffix[: -len(reactions_path_suffix)]
+            else:
+                post_id_raw = suffix[: -len(react_path_suffix)]
             if not post_id_raw.isdigit() or int(post_id_raw) <= 0:
-                self._send_json(400, {"error": "Некорректный id поста"})
+                self._send_interaction_error(400, "Некорректный id поста", "post_id_invalid")
                 return
             try:
                 item = FeedService.set_post_reaction(post_id=int(post_id_raw), payload=payload)
             except LookupError as error:
-                self._send_json(404, {"error": str(error)})
+                self._send_interaction_error(404, str(error), "post_not_found")
                 return
             except ValueError as error:
-                self._send_json(400, {"error": str(error)})
+                self._send_interaction_error(400, str(error), "reaction_payload_invalid")
                 return
             self._send_json(200, item)
             return
@@ -621,15 +716,15 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             suffix = path[len(comments_prefix) :]
             post_id_raw = suffix[: -len("/comments")]
             if not post_id_raw.isdigit() or int(post_id_raw) <= 0:
-                self._send_json(400, {"error": "Некорректный id поста"})
+                self._send_interaction_error(400, "Некорректный id поста", "post_id_invalid")
                 return
             try:
                 item = FeedService.create_guest_comment(post_id=int(post_id_raw), payload=payload)
             except LookupError as error:
-                self._send_json(404, {"error": str(error)})
+                self._send_interaction_error(404, str(error), "post_not_found")
                 return
             except ValueError as error:
-                self._send_json(400, {"error": str(error)})
+                self._send_interaction_error(400, str(error), "comment_payload_invalid")
                 return
             self._send_json(201, item)
             return
@@ -673,10 +768,10 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
                 self._send_json(404, {"error": "Not found"})
                 return
             if not post_id_raw.isdigit() or int(post_id_raw) <= 0:
-                self._send_json(400, {"error": "Некорректный id поста"})
+                self._send_interaction_error(400, "Некорректный id поста", "post_id_invalid")
                 return
             if not comment_id_raw.isdigit() or int(comment_id_raw) <= 0:
-                self._send_json(400, {"error": "Некорректный id комментария"})
+                self._send_interaction_error(400, "Некорректный id комментария", "comment_id_invalid")
                 return
 
             payload, error_payload, error_status = self._parse_feed_request_payload()
@@ -695,13 +790,13 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
                     payload=payload,
                 )
             except LookupError as error:
-                self._send_json(404, {"error": str(error)})
+                self._send_interaction_error(404, str(error), "comment_not_found")
                 return
             except FeedAccessDeniedError as error:
-                self._send_json(403, {"error": str(error)})
+                self._send_interaction_error(403, str(error), "comment_edit_forbidden")
                 return
             except ValueError as error:
-                self._send_json(400, {"error": str(error)})
+                self._send_interaction_error(400, str(error), "comment_payload_invalid")
                 return
 
             self._send_json(200, updated)
@@ -777,10 +872,15 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
     def _handle_delete(self) -> None:
         path = urlparse(self.path).path
         posts_prefix = "/api/feed/posts/"
-        if path.startswith(posts_prefix) and path.endswith("/react"):
-            post_id_raw = path[len(posts_prefix) : -len("/react")]
+        react_path_suffix = "/react"
+        reactions_path_suffix = "/reactions"
+        if path.startswith(posts_prefix) and (path.endswith(react_path_suffix) or path.endswith(reactions_path_suffix)):
+            if path.endswith(reactions_path_suffix):
+                post_id_raw = path[len(posts_prefix) : -len(reactions_path_suffix)]
+            else:
+                post_id_raw = path[len(posts_prefix) : -len(react_path_suffix)]
             if not post_id_raw.isdigit() or int(post_id_raw) <= 0:
-                self._send_json(400, {"error": "Некорректный id поста"})
+                self._send_interaction_error(400, "Некорректный id поста", "post_id_invalid")
                 return
 
             payload, error_payload, error_status = self._parse_feed_request_payload()
@@ -794,10 +894,10 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             try:
                 item = FeedService.delete_post_reaction(post_id=int(post_id_raw), payload=payload)
             except LookupError as error:
-                self._send_json(404, {"error": str(error)})
+                self._send_interaction_error(404, str(error), "post_not_found")
                 return
             except ValueError as error:
-                self._send_json(400, {"error": str(error)})
+                self._send_interaction_error(400, str(error), "reaction_payload_invalid")
                 return
 
             self._send_json(200, item)
@@ -810,10 +910,10 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
                 self._send_json(404, {"error": "Not found"})
                 return
             if not post_id_raw.isdigit() or int(post_id_raw) <= 0:
-                self._send_json(400, {"error": "Некорректный id поста"})
+                self._send_interaction_error(400, "Некорректный id поста", "post_id_invalid")
                 return
             if not comment_id_raw.isdigit() or int(comment_id_raw) <= 0:
-                self._send_json(400, {"error": "Некорректный id комментария"})
+                self._send_interaction_error(400, "Некорректный id комментария", "comment_id_invalid")
                 return
 
             payload, error_payload, error_status = self._parse_feed_request_payload()
@@ -828,10 +928,10 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             try:
                 FeedService.delete_guest_comment(post_id=int(post_id_raw), comment_id=int(comment_id_raw), payload=payload)
             except LookupError as error:
-                self._send_json(404, {"error": str(error)})
+                self._send_interaction_error(404, str(error), "comment_not_found")
                 return
             except FeedAccessDeniedError as error:
-                self._send_json(403, {"error": str(error)})
+                self._send_interaction_error(403, str(error), "comment_delete_forbidden")
                 return
 
             self._send_json(200, {"ok": True})

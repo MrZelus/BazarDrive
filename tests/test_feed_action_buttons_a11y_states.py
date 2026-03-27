@@ -4,7 +4,7 @@ from pathlib import Path
 
 class FeedActionButtonsA11yStateTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.script = Path("web/js/feed.js").read_text(encoding="utf-8")
+        self.script = Path("public/web/js/feed.js").read_text(encoding="utf-8")
 
     def test_busy_state_helper_is_used_for_long_running_actions(self) -> None:
         self.assertIn("function setButtonBusyState(button, isBusy, busyText = '', idleText = '') {", self.script)

@@ -3,7 +3,7 @@
 Дата обновления: **2026-03-22**
 
 ## Подготовка
-- Открыть `guest_feed.html` на ширине 360–430 px (devtools mobile viewport).
+- Открыть `public/guest_feed.html` на ширине 360–430 px (devtools mobile viewport).
 - Убедиться, что активен пункт нижнего меню **«Правила»**.
 
 ## UX-проверки

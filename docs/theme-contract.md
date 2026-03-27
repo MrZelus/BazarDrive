@@ -21,7 +21,7 @@ Out of scope for this contract rollout:
 
 ## 2) Canonical token set (source of truth)
 
-Token source of truth is `web/js/tailwind-config.js`.
+Token source of truth is `public/web/js/tailwind-config.js`.
 
 Allowed semantic tokens:
 - `bg`
@@ -88,7 +88,7 @@ For any PR that touches themed UI in scope, include:
 
 Suggested verification commands:
 - `pytest -q tests/test_feed_docs_bundle.py`
-- `rg -n "text-white|text-black|bg-black|border-white/|white/|#[0-9A-Fa-f]{3,8}|rgba\(" guest_feed.html web/css/feed.css web/js/feed.js web/js/tailwind-config.js`
+- `rg -n "text-white|text-black|bg-black|border-white/|white/|#[0-9A-Fa-f]{3,8}|rgba\(" public/guest_feed.html public/web/css/feed.css public/web/js/feed.js public/web/js/tailwind-config.js`
 
 ---
 

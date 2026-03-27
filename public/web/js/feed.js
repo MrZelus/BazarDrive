@@ -6,6 +6,9 @@
     let feedHasMore = true;
     let feedIsLoading = false;
     let feedObserver = null;
+    let feedSearchQuery = '';
+    let feedSearchDebounceTimer = null;
+    let feedPendingReset = false;
 
     const docs = [
       {
@@ -110,6 +113,8 @@
     const clearPostImageBtn = document.getElementById('clearPostImageBtn');
     const selectedPostImageName = document.getElementById('selectedPostImageName');
     const publishFileError = document.getElementById('publishFileError');
+    const feedSearch = document.getElementById('feedSearch');
+    const feedSearchStatus = document.getElementById('feedSearchStatus');
     const appNotification = document.getElementById('appNotification');
     let notificationTimer = null;
     const POST_IMAGE_MAX_BYTES = 3 * 1024 * 1024;
@@ -248,6 +253,15 @@
       too_short: 'Текст слишком короткий: напишите минимум 5 символов.',
       generic: 'Публикация отклонена правилами модерации. Исправьте текст и попробуйте снова.',
     };
+    const INTERACTION_ERROR_COPY = {
+      profileRequired: 'Сначала заполните и сохраните профиль публикации.',
+      forbiddenCommentEdit: 'Можно редактировать только свои комментарии.',
+      forbiddenCommentDelete: 'Можно удалять только свои комментарии.',
+      postNotFound: 'Пост не найден или уже удалён.',
+      commentNotFound: 'Комментарий не найден или уже удалён.',
+      commentValidation: 'Проверьте текст комментария и попробуйте снова.',
+      reactionValidation: 'Некорректная реакция. Попробуйте обновить страницу.',
+    };
 
     function storePendingPostDraft(text = '') {
       const normalized = String(text || '').trim();
@@ -322,6 +336,46 @@
       if (normalized.includes('спам')) return MODERATION_ERROR_COPY.spam;
       if (normalized.includes('минимум 5 символ')) return MODERATION_ERROR_COPY.too_short;
       if (normalized.includes('правила')) return MODERATION_ERROR_COPY.generic;
+      return source;
+    }
+
+    function resolveInteractionErrorMessage(rawMessage = '', rawCode = '', fallbackMessage = 'Не удалось выполнить действие.') {
+      const source = String(rawMessage || '').trim();
+      const code = String(rawCode || '').trim().toLowerCase();
+      if (!source) return String(fallbackMessage || '').trim() || 'Не удалось выполнить действие.';
+      if (code === 'guest_profile_required') return INTERACTION_ERROR_COPY.profileRequired;
+      if (code === 'comment_edit_forbidden') return INTERACTION_ERROR_COPY.forbiddenCommentEdit;
+      if (code === 'comment_delete_forbidden') return INTERACTION_ERROR_COPY.forbiddenCommentDelete;
+      if (code === 'comment_not_found') return INTERACTION_ERROR_COPY.commentNotFound;
+      if (code === 'post_not_found') return INTERACTION_ERROR_COPY.postNotFound;
+      if (code === 'comment_text_required' || code === 'comment_text_too_long' || code === 'comment_text_too_short') {
+        return INTERACTION_ERROR_COPY.commentValidation;
+      }
+      if (code === 'reaction_type_invalid') return INTERACTION_ERROR_COPY.reactionValidation;
+
+      const normalized = source.toLowerCase();
+      if (normalized.includes('guest_profile_id') && normalized.includes('обязательно')) {
+        return INTERACTION_ERROR_COPY.profileRequired;
+      }
+      if (normalized.includes('недостаточно прав для изменения комментария')) {
+        return INTERACTION_ERROR_COPY.forbiddenCommentEdit;
+      }
+      if (normalized.includes('недостаточно прав для удаления комментария')) {
+        return INTERACTION_ERROR_COPY.forbiddenCommentDelete;
+      }
+      if (normalized.includes('комментар') && normalized.includes('не найден')) {
+        return INTERACTION_ERROR_COPY.commentNotFound;
+      }
+      if (normalized.includes('пост') && normalized.includes('не найден')) {
+        return INTERACTION_ERROR_COPY.postNotFound;
+      }
+      if (normalized.includes('комментар') && (normalized.includes('обязательно') || normalized.includes('слишком длин') || normalized.includes('минимум'))) {
+        return INTERACTION_ERROR_COPY.commentValidation;
+      }
+      if (normalized.includes('тип реакции') || normalized.includes('реакц') && normalized.includes('допустимые значения')) {
+        return INTERACTION_ERROR_COPY.reactionValidation;
+      }
+
       return source;
     }
 
@@ -1006,27 +1060,27 @@
     }
 
     async function setPostReaction(postId, actorId, reactionType) {
-      const response = await fetch(`${FEED_API_BASE}/api/feed/posts/${postId}/react`, {
+      const response = await fetch(`${FEED_API_BASE}/api/feed/posts/${postId}/reactions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ guest_profile_id: actorId, type: reactionType }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(payload.error || `Не удалось установить реакцию (HTTP ${response.status})`);
+        throw new Error(resolveInteractionErrorMessage(payload.error, payload.error_code, `Не удалось установить реакцию (HTTP ${response.status})`));
       }
       return payload;
     }
 
     async function deletePostReaction(postId, actorId) {
-      const response = await fetch(`${FEED_API_BASE}/api/feed/posts/${postId}/react`, {
+      const response = await fetch(`${FEED_API_BASE}/api/feed/posts/${postId}/reactions`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ guest_profile_id: actorId }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(payload.error || `Не удалось снять реакцию (HTTP ${response.status})`);
+        throw new Error(resolveInteractionErrorMessage(payload.error, payload.error_code, `Не удалось снять реакцию (HTTP ${response.status})`));
       }
       return payload;
     }
@@ -1225,7 +1279,7 @@
                   body: JSON.stringify({ guest_profile_id: actor.id, text: cleaned }),
                 });
                 const payload = await response.json().catch(() => ({}));
-                if (!response.ok) throw new Error(payload.error || `Не удалось обновить комментарий (HTTP ${response.status})`);
+                if (!response.ok) throw new Error(resolveInteractionErrorMessage(payload.error, payload.error_code, `Не удалось обновить комментарий (HTTP ${response.status})`));
                 await loadCommentsForPost(post);
                 renderFeed();
                 showAppNotification('Комментарий обновлён.', 'success');
@@ -1248,7 +1302,7 @@
                   body: JSON.stringify({ guest_profile_id: actor.id }),
                 });
                 const payload = await response.json().catch(() => ({}));
-                if (!response.ok) throw new Error(payload.error || `Не удалось удалить комментарий (HTTP ${response.status})`);
+                if (!response.ok) throw new Error(resolveInteractionErrorMessage(payload.error, payload.error_code, `Не удалось удалить комментарий (HTTP ${response.status})`));
                 await loadCommentsForPost(post);
                 renderFeed();
                 showAppNotification('Комментарий удалён.', 'success');
@@ -1302,7 +1356,7 @@
               body: JSON.stringify({ guest_profile_id: actor.id, author: actor.fullName, text }),
             });
             const payload = await response.json().catch(() => ({}));
-            if (!response.ok) throw new Error(payload.error || `Не удалось добавить комментарий (HTTP ${response.status})`);
+            if (!response.ok) throw new Error(resolveInteractionErrorMessage(payload.error, payload.error_code, `Не удалось добавить комментарий (HTTP ${response.status})`));
             input.value = '';
             await loadCommentsForPost(post);
             renderFeed();
@@ -1363,6 +1417,20 @@
       }
     }
 
+    function updateFeedSearchStatus(total = null) {
+      if (!feedSearchStatus) return;
+      const query = String(feedSearchQuery || '').trim();
+      if (!query) {
+        feedSearchStatus.textContent = '';
+        return;
+      }
+      if (!Number.isFinite(Number(total))) {
+        feedSearchStatus.textContent = `Поиск: «${query}».`;
+        return;
+      }
+      feedSearchStatus.textContent = `Поиск: «${query}». Найдено постов: ${Math.max(0, Number(total))}.`;
+    }
+
     function ensureFeedInfiniteScroll() {
       if (!feedSentinelEl || feedObserver || !window.IntersectionObserver) return;
       feedObserver = new IntersectionObserver((entries) => {
@@ -1374,9 +1442,17 @@
     }
 
     async function loadPosts({ reset = false } = {}) {
-      if (feedIsLoading) return;
+      if (feedIsLoading) {
+        if (reset) {
+          feedPendingReset = true;
+        }
+        return;
+      }
       if (!reset && !feedHasMore) return;
       feedIsLoading = true;
+      if (reset) {
+        feedPendingReset = false;
+      }
       if (reset) {
         feedNextCursor = null;
         feedHasMore = true;
@@ -1398,6 +1474,9 @@
         if (actor.id) {
           params.set('guest_profile_id', actor.id);
         }
+        if (feedSearchQuery) {
+          params.set('q', feedSearchQuery);
+        }
         const query = `?${params.toString()}`;
         const response = await fetch(`${FEED_API_BASE}/api/feed/posts${query}`);
         if (!response.ok) {
@@ -1416,6 +1495,7 @@
         posts.push(...freshPosts);
         feedNextCursor = String(payload.next_cursor || '').trim() || null;
         feedHasMore = Boolean(payload.has_more) && Boolean(feedNextCursor);
+        updateFeedSearchStatus(payload.total);
 
         await Promise.all(freshPosts.map((post) => loadCommentsForPost(post).catch(() => {
           post.comments = [];
@@ -1426,11 +1506,16 @@
         }
       } catch (error) {
         console.error(error);
+        updateFeedSearchStatus();
         setFeedError(`Не удалось загрузить посты. Проверьте доступность API: ${FEED_API_BASE}.`);
         showAppNotification(error.message || 'Ошибка загрузки ленты.', 'error');
       } finally {
         setFeedLoadingSkeleton(false);
         feedIsLoading = false;
+        if (feedPendingReset) {
+          feedPendingReset = false;
+          loadPosts({ reset: true });
+        }
       }
     }
 
@@ -1801,6 +1886,24 @@
 
     docsSearch.addEventListener('input', (event) => {
       renderDocs(event.target.value);
+    });
+    feedSearch?.addEventListener('input', (event) => {
+      const raw = String(event?.target?.value || '').trim();
+      if (raw && raw.length < 2) {
+        feedSearchQuery = '';
+        if (feedSearchStatus) {
+          feedSearchStatus.textContent = `Введите ещё ${2 - raw.length} символ(а), чтобы включить поиск.`;
+        }
+      } else {
+        feedSearchQuery = raw;
+      }
+
+      if (feedSearchDebounceTimer) {
+        window.clearTimeout(feedSearchDebounceTimer);
+      }
+      feedSearchDebounceTimer = window.setTimeout(() => {
+        loadPosts({ reset: true });
+      }, 220);
     });
     saveProfileBtn.addEventListener('click', saveGuestProfile);
     profileVerificationResubmitBtn?.addEventListener('click', submitProfileForResubmission);
