@@ -110,6 +110,7 @@
 - QA-набор (smoke + регрессия): `docs/feed_qa_regression.md`.
 - CSV для импорта QA-кейсов в тест-менеджер: `docs/feed_qa_cases.csv`.
 - План автоматизации и декомпозиции по эпику #172: `docs/issues/172-documents-trust-automation-plan.md`.
+- Архив постановки по загрузке фото в ленту: `docs/issues/182-upload-photo-issue.md`.
 
 
 ### Миграции базы данных
@@ -117,28 +118,33 @@
 Перед запуском API/бота можно явно применить миграции:
 
 ```bash
-python -c "from app.db.migrator import apply_migrations; apply_migrations('bot.db')"
+python3 -c "from app.db.migrator import apply_migrations; apply_migrations('bot.db')"
 ```
 
 В CI/деплое добавьте отдельный шаг перед запуском приложения:
 
 ```bash
 # пример для CI/CD pipeline
-python -c "from app.db.migrator import apply_migrations; apply_migrations('bot.db')"
-python run_api.py
+python3 -c "from app.db.migrator import apply_migrations; apply_migrations('bot.db')"
+python3 run_api.py
 ```
+
+Правила нумерации миграций:
+- не переименовывайте уже применённые миграции;
+- если есть исторические совпадения по префиксу (например, несколько `006_*`), оставляйте их как есть;
+- для новых миграций используйте следующий свободный уникальный префикс (`010_*`, `011_*`, ...).
 
 ### Как запустить локально
 1. Запустите API-сервер:
 
 ```bash
-FEED_API_HOST=0.0.0.0 FEED_API_PORT=8001 python run_api.py
+FEED_API_HOST=0.0.0.0 FEED_API_PORT=8001 python3 run_api.py
 ```
 
 2. В отдельном терминале запустите статический сервер (с привязкой ко всем интерфейсам):
 
 ```bash
-python -m http.server 8000 --bind 0.0.0.0
+python3 -m http.server 8000 --bind 0.0.0.0
 ```
 
 3. На текущем устройстве откройте `http://localhost:8000/guest_feed.html`.
@@ -151,6 +157,13 @@ http://<LAN-IP-ВАШЕГО-ПК>:8000/guest_feed.html
 
 Если API находится на другом хосте/порту, можно передать его напрямую: `?apiBase=http://<host>:<port>`.
 Пример: `http://192.168.1.50:8000/guest_feed.html?apiBase=http://192.168.1.50:8001`.
+
+### Guardrails для «расхламления» структуры
+
+Чтобы упростить навигацию по проекту и не сломать текущий runtime/CI:
+- пока сохраняем `guest_feed.html` в корне и `web/**` в текущем месте, чтобы локальный запуск оставался прежним;
+- тесты читают фронтенд-файлы по путям из корня (например, `Path("guest_feed.html")`, `Path("web/js/feed.js")`, `Path("web/css/feed.css")`), поэтому перенос делать только отдельным PR с массовым обновлением тестов;
+- применённые SQL-миграции не переименовываем: `schema_migrations.version` хранит имя файла миграции.
 
 ### Как добавить в ваш репозиторий (шаги)
 Если вы переносите файл в другой проект:
@@ -183,7 +196,7 @@ ADMIN_IDS=123456789,987654321
 2. Запустите бота:
 
 ```bash
-python run_bot.py
+python3 run_bot.py
 ```
 
 `run_bot.py` и `run_api.py` автоматически подхватывают `.env`, поэтому дополнительно делать `export` не нужно.
@@ -206,6 +219,11 @@ migrations/                   # SQL-миграции (001_init.sql, 002_...sql, 
 ```
 
 Совместимость со старыми точками входа (`feed_api.py`, `bot.py`, `db.py`) сохранена через прокси-импорты в новые модули.
+
+### Точки входа: каноничные и legacy
+- **Каноничные entrypoints:** `run_api.py`, `run_bot.py`.
+- **Legacy aliases (backward compatibility):** `feed_api.py`, `bot.py`, `db.py`.
+- Для новой документации, скриптов и инструкций используйте каноничные entrypoints.
 
 ## Спецификация профиля водителя такси (ИП, УСН «Доходы»)
 
