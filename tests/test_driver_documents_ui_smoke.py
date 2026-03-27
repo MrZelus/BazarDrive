@@ -70,6 +70,17 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
             re.compile(r"const trustLabel = verificationState === 'verified' \? 'подтверждённый' : 'базовый';"),
         )
 
+    def test_verification_state_falls_back_to_verified_when_only_is_verified_flag_is_present(self) -> None:
+        script = Path('web/js/feed.js').read_text(encoding='utf-8')
+        self.assertRegex(
+            script,
+            re.compile(r"function resolveVerificationState\(profile\)\s*\{[\s\S]+const rawState = String\(profile\?\.verification_state \|\| profile\?\.verificationState \|\| ''\)\.trim\(\);"),
+        )
+        self.assertRegex(
+            script,
+            re.compile(r"if \(rawState\) return rawState;\s*if \(profile\?\.is_verified \|\| profile\?\.isVerified\) return 'verified';"),
+        )
+
 
 if __name__ == '__main__':
     unittest.main()
