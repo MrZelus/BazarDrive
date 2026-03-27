@@ -224,6 +224,43 @@ class GuestFeedRepositoryTests(unittest.TestCase):
         second_ids = {int(item["id"]) for item in second_page}
         self.assertEqual(len(first_ids.intersection(second_ids)), 0)
 
+    def test_list_guest_feed_posts_search_query_is_case_insensitive(self) -> None:
+        repository.create_guest_feed_post(author="Taxi Expert", text="Поездка в аэропорт", guest_profile_id="guest-search")
+        repository.create_guest_feed_post(author="Food Lover", text="Лучшие кафе", guest_profile_id="guest-search")
+        repository.create_guest_feed_post(author="City TAXI", text="Ночная смена", guest_profile_id="guest-search")
+
+        filtered = repository.list_guest_feed_posts(limit=10, offset=0, search_query="TaXi")
+        self.assertEqual(len(filtered), 2)
+        for item in filtered:
+            haystack = f"{item.get('author', '')} {item.get('text', '')}".lower()
+            self.assertIn("taxi", haystack)
+
+        self.assertEqual(repository.count_guest_feed_posts(search_query="TaXi"), 2)
+
+    def test_list_guest_feed_posts_by_cursor_respects_search_query(self) -> None:
+        repository.create_guest_feed_post(author="Alpha Driver", text="alpha ride", guest_profile_id="guest-search-cursor")
+        repository.create_guest_feed_post(author="Beta Driver", text="beta ride", guest_profile_id="guest-search-cursor")
+        repository.create_guest_feed_post(author="Alpha Courier", text="alpha delivery", guest_profile_id="guest-search-cursor")
+
+        first_page = repository.list_guest_feed_posts_by_cursor(limit=1, search_query="alpha")
+        self.assertEqual(len(first_page), 1)
+
+        cursor_post = first_page[-1]
+        second_page = repository.list_guest_feed_posts_by_cursor(
+            limit=1,
+            cursor_created_at=str(cursor_post["created_at"]),
+            cursor_id=int(cursor_post["id"]),
+            search_query="alpha",
+        )
+        self.assertEqual(len(second_page), 1)
+
+        first_ids = {int(item["id"]) for item in first_page}
+        second_ids = {int(item["id"]) for item in second_page}
+        self.assertEqual(len(first_ids.intersection(second_ids)), 0)
+        for item in [*first_page, *second_page]:
+            haystack = f"{item.get('author', '')} {item.get('text', '')}".lower()
+            self.assertIn("alpha", haystack)
+
 
 
 if __name__ == "__main__":
