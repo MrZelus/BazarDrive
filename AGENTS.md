@@ -42,4 +42,5 @@ The bot (`run_bot.py`) requires `BOT_TOKEN`, `ADMIN_CHAT_ID`, and `GROUP_CHAT_ID
 - `APP_ENV=dev` (default) allows all CORS origins and skips auth on write endpoints. Set `APP_ENV=prod` to test auth/CORS rules.
 - The guest feed UI requires a valid guest profile (name + email or phone) before allowing post creation — publishing redirects to profile completion if missing.
 - Canonical entrypoints for docs/scripts are `run_api.py` and `run_bot.py`; `feed_api.py`, `bot.py`, and `db.py` are legacy aliases kept for backward compatibility.
+- Keep `guest_feed.html` in repository root and `web/**` paths stable unless you also update all path-sensitive tests/scripts in the same PR.
 - Never rename already-applied SQL migration files; if historical duplicate prefixes exist (for example `006_*`), keep them unchanged and create new migrations with the next unique prefix.
