@@ -224,6 +224,43 @@ class GuestFeedRepositoryTests(unittest.TestCase):
         second_ids = {int(item["id"]) for item in second_page}
         self.assertEqual(len(first_ids.intersection(second_ids)), 0)
 
+    def test_guest_feed_search_case_insensitive_for_cyrillic_in_list_cursor_and_count(self) -> None:
+        repository.create_guest_feed_post(
+            author="ИВАН",
+            text="Поездка до МОСКВА",
+            guest_profile_id="guest-search-ru",
+        )
+        repository.create_guest_feed_post(
+            author="ПЕТР",
+            text="Поездка до СОЧИ",
+            guest_profile_id="guest-search-ru",
+        )
+        repository.create_guest_feed_post(
+            author="Мария",
+            text="Маршрут через Москва",
+            guest_profile_id="guest-search-ru",
+        )
+
+        listed_by_author = repository.list_guest_feed_posts(limit=10, offset=0, search_query="иван")
+        self.assertEqual(len(listed_by_author), 1)
+        self.assertEqual(str(listed_by_author[0]["author"]), "ИВАН")
+
+        listed_by_city = repository.list_guest_feed_posts(limit=10, offset=0, search_query="москва")
+        self.assertEqual(len(listed_by_city), 2)
+        self.assertEqual(repository.count_guest_feed_posts(search_query="москва"), 2)
+
+        first_page = repository.list_guest_feed_posts_by_cursor(limit=1, search_query="москва")
+        self.assertEqual(len(first_page), 1)
+        next_cursor = first_page[-1]
+
+        second_page = repository.list_guest_feed_posts_by_cursor(
+            limit=1,
+            cursor_created_at=str(next_cursor["created_at"]),
+            cursor_id=int(next_cursor["id"]),
+            search_query="москва",
+        )
+        self.assertEqual(len(second_page), 1)
+        self.assertNotEqual(int(first_page[0]["id"]), int(second_page[0]["id"]))
 
 
 if __name__ == "__main__":

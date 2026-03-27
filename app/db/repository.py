@@ -37,9 +37,11 @@ def _build_guest_feed_search_clause(search_query: Optional[str]) -> tuple[str, t
     normalized_query = str(search_query or "").strip().casefold()
     if not normalized_query:
         return "", ()
-    like_pattern = f"%{normalized_query}%"
-    clause = "unicode_casefold(author) LIKE ? OR unicode_casefold(text) LIKE ?"
-    return clause, (like_pattern, like_pattern)
+    clause = (
+        "instr(unicode_casefold(COALESCE(author, '')), ?) > 0 "
+        "OR instr(unicode_casefold(COALESCE(text, '')), ?) > 0"
+    )
+    return clause, (normalized_query, normalized_query)
 
 
 def init_db() -> None:
