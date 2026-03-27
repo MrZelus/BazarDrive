@@ -8,6 +8,7 @@ from base64 import urlsafe_b64encode
 from http.client import HTTPConnection
 from http.server import ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import quote
 
 from app.api.http_handlers import FeedAPIHandler
 from app.db import repository
@@ -254,6 +255,14 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertEqual(reject_denied_status, 403)
         self.assertIn("error", reject_denied_payload)
 
+        approve_denied_status, approve_denied_payload, _ = self._post(
+            "/api/feed/profiles/guest-verify-003/verification/approve",
+            {"actor": "writer-user"},
+            headers={"X-API-Key": "writer-key", "Origin": "https://app.example.com"},
+        )
+        self.assertEqual(approve_denied_status, 403)
+        self.assertIn("error", approve_denied_payload)
+
         reject_status, reject_payload, _ = self._post(
             "/api/feed/profiles/guest-verify-003/verification/reject",
             {"actor": "moderator-1", "reason": "Недостаточно данных"},
@@ -261,6 +270,58 @@ class FeedAPIValidationTests(unittest.TestCase):
         )
         self.assertEqual(reject_status, 200)
         self.assertEqual(reject_payload.get("verification_state"), "rejected")
+
+    def test_migration_010_reconciles_verification_state_with_is_verified(self) -> None:
+        db_file = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        db_file.close()
+        try:
+            conn = sqlite3.connect(db_file.name)
+            try:
+                conn.execute(
+                    """
+                    CREATE TABLE guest_profiles (
+                        id TEXT PRIMARY KEY,
+                        role TEXT NOT NULL DEFAULT 'guest',
+                        display_name TEXT NOT NULL,
+                        email TEXT,
+                        phone TEXT,
+                        about TEXT,
+                        is_verified INTEGER NOT NULL DEFAULT 0,
+                        verification_state TEXT NOT NULL DEFAULT 'unverified',
+                        verification_rejection_reason TEXT,
+                        verification_decided_at DATETIME,
+                        verification_decided_by TEXT,
+                        status TEXT NOT NULL DEFAULT 'active',
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        last_seen_at DATETIME
+                    )
+                    """
+                )
+                conn.execute(
+                    """
+                    INSERT INTO guest_profiles (id, display_name, is_verified, verification_state)
+                    VALUES ('legacy-verified', 'Legacy Verified', 1, 'unverified')
+                    """
+                )
+                conn.commit()
+
+                migration_sql = (Path(__file__).resolve().parents[1] / "migrations" / "010_verification_state_backfill.sql").read_text(encoding="utf-8")
+                conn.executescript(migration_sql)
+                conn.commit()
+
+                state, decided_by = conn.execute(
+                    "SELECT verification_state, verification_decided_by FROM guest_profiles WHERE id = ?",
+                    ("legacy-verified",),
+                ).fetchone()
+            finally:
+                conn.close()
+
+            self.assertEqual(state, "verified")
+            self.assertEqual(decided_by, "legacy_backfill")
+        finally:
+            if os.path.exists(db_file.name):
+                os.unlink(db_file.name)
 
     def test_migration_006_backfills_verification_state_for_verified_profiles(self) -> None:
         db_file = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
