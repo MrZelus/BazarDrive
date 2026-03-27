@@ -81,6 +81,29 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
             re.compile(r"if \(rawState\) return rawState;\s*if \(profile\?\.is_verified \|\| profile\?\.isVerified\) return 'verified';"),
         )
 
+    def test_verified_verification_state_from_api_payload_maps_to_verified_trust_signals(self) -> None:
+        script = Path('web/js/feed.js').read_text(encoding='utf-8')
+        self.assertRegex(
+            script,
+            re.compile(r"verificationState: String\(payload\.verification_state \|\| ''\)\.trim\(\),"),
+        )
+        self.assertRegex(
+            script,
+            re.compile(r"verified:\s*'подтверждена'"),
+        )
+        self.assertRegex(
+            script,
+            re.compile(r"profileVerificationBadge\.textContent = `Верификация: \$\{verificationLabels\[verificationState\] \|\| verificationState\}`;"),
+        )
+        self.assertRegex(
+            script,
+            re.compile(r"const trustLabel = verificationState === 'verified' \? 'подтверждённый' : 'базовый';"),
+        )
+        self.assertRegex(
+            script,
+            re.compile(r"profileTrustBadge\.textContent = `Trust badge: \$\{trustLabel\}`;"),
+        )
+
 
 if __name__ == '__main__':
     unittest.main()
