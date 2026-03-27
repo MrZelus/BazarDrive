@@ -1045,7 +1045,7 @@
     }
 
     async function setPostReaction(postId, actorId, reactionType) {
-      const response = await fetch(`${FEED_API_BASE}/api/feed/posts/${postId}/react`, {
+      const response = await fetch(`${FEED_API_BASE}/api/feed/posts/${postId}/reactions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ guest_profile_id: actorId, type: reactionType }),
@@ -1058,7 +1058,7 @@
     }
 
     async function deletePostReaction(postId, actorId) {
-      const response = await fetch(`${FEED_API_BASE}/api/feed/posts/${postId}/react`, {
+      const response = await fetch(`${FEED_API_BASE}/api/feed/posts/${postId}/reactions`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ guest_profile_id: actorId }),
