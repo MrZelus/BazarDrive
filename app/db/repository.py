@@ -24,6 +24,15 @@ def get_db_path() -> str:
     return os.getenv(DB_PATH_ENV_VAR, DEFAULT_DB_PATH)
 
 
+def _register_unicode_casefold(conn: sqlite3.Connection) -> None:
+    conn.create_function(
+        "unicode_casefold",
+        1,
+        lambda value: str(value or "").casefold(),
+        deterministic=True,
+    )
+
+
 def init_db() -> None:
     from app.db.migrator import apply_migrations
 
@@ -186,16 +195,17 @@ def list_approved_posts(limit: int = 50, offset: int = 0, include_ads: bool = Tr
 
 def list_guest_feed_posts(limit: int = 20, offset: int = 0, search_query: Optional[str] = None) -> list[dict[str, Any]]:
     with closing(sqlite3.connect(get_db_path())) as conn:
+        _register_unicode_casefold(conn)
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
-        normalized_query = str(search_query or "").strip().lower()
+        normalized_query = str(search_query or "").strip().casefold()
         if normalized_query:
             like_pattern = f"%{normalized_query}%"
             cur.execute(
                 """
                 SELECT id, author, text, guest_profile_id, likes, image_url, created_at, updated_at
                 FROM guest_feed_posts
-                WHERE lower(author) LIKE ? OR lower(text) LIKE ?
+                WHERE unicode_casefold(author) LIKE ? OR unicode_casefold(text) LIKE ?
                 ORDER BY datetime(created_at) DESC, id DESC
                 LIMIT ? OFFSET ?
                 """,
@@ -222,9 +232,10 @@ def list_guest_feed_posts_by_cursor(
     search_query: Optional[str] = None,
 ) -> list[dict[str, Any]]:
     with closing(sqlite3.connect(get_db_path())) as conn:
+        _register_unicode_casefold(conn)
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
-        normalized_query = str(search_query or "").strip().lower()
+        normalized_query = str(search_query or "").strip().casefold()
         if cursor_created_at is None or cursor_id is None:
             if normalized_query:
                 like_pattern = f"%{normalized_query}%"
@@ -232,7 +243,7 @@ def list_guest_feed_posts_by_cursor(
                     """
                     SELECT id, author, text, guest_profile_id, likes, image_url, created_at, updated_at
                     FROM guest_feed_posts
-                    WHERE lower(author) LIKE ? OR lower(text) LIKE ?
+                    WHERE unicode_casefold(author) LIKE ? OR unicode_casefold(text) LIKE ?
                     ORDER BY datetime(created_at) DESC, id DESC
                     LIMIT ?
                     """,
@@ -255,7 +266,7 @@ def list_guest_feed_posts_by_cursor(
                     """
                     SELECT id, author, text, guest_profile_id, likes, image_url, created_at, updated_at
                     FROM guest_feed_posts
-                    WHERE (lower(author) LIKE ? OR lower(text) LIKE ?)
+                    WHERE (unicode_casefold(author) LIKE ? OR unicode_casefold(text) LIKE ?)
                       AND (
                         datetime(created_at) < datetime(?)
                         OR (datetime(created_at) = datetime(?) AND id < ?)
@@ -283,12 +294,13 @@ def list_guest_feed_posts_by_cursor(
 
 def count_guest_feed_posts(search_query: Optional[str] = None) -> int:
     with closing(sqlite3.connect(get_db_path())) as conn:
+        _register_unicode_casefold(conn)
         cur = conn.cursor()
-        normalized_query = str(search_query or "").strip().lower()
+        normalized_query = str(search_query or "").strip().casefold()
         if normalized_query:
             like_pattern = f"%{normalized_query}%"
             cur.execute(
-                "SELECT COUNT(*) FROM guest_feed_posts WHERE lower(author) LIKE ? OR lower(text) LIKE ?",
+                "SELECT COUNT(*) FROM guest_feed_posts WHERE unicode_casefold(author) LIKE ? OR unicode_casefold(text) LIKE ?",
                 (like_pattern, like_pattern),
             )
         else:

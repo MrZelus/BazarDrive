@@ -1040,6 +1040,23 @@ class FeedAPIValidationTests(unittest.TestCase):
             haystack = f"{item.get('author', '')} {item.get('text', '')}".lower()
             self.assertIn("alpha", haystack)
 
+    def test_feed_search_is_case_insensitive_for_cyrillic(self) -> None:
+        repository.create_guest_feed_post(author="ИВАН", text="Поездка в МОСКВА", guest_profile_id="guest-search-ru")
+        repository.create_guest_feed_post(author="Пётр", text="Маршрут до Казань", guest_profile_id="guest-search-ru")
+        repository.create_guest_feed_post(author="Мария", text="Без совпадений", guest_profile_id="guest-search-ru")
+
+        status, payload, _ = self._get("/api/feed/posts?limit=10&q=%D0%B8%D0%B2%D0%B0%D0%BD")
+        self.assertEqual(status, 200)
+        self.assertEqual(payload.get("total"), 1)
+        self.assertEqual(len(payload.get("items", [])), 1)
+        self.assertEqual(payload["items"][0]["author"], "ИВАН")
+
+        status_city, payload_city, _ = self._get("/api/feed/posts?limit=10&q=%D0%BC%D0%BE%D1%81%D0%BA%D0%B2%D0%B0")
+        self.assertEqual(status_city, 200)
+        self.assertEqual(payload_city.get("total"), 1)
+        self.assertEqual(len(payload_city.get("items", [])), 1)
+        self.assertIn("МОСКВА", payload_city["items"][0]["text"])
+
     def test_feed_cursor_pagination_invalid_cursor_returns_400(self) -> None:
         repository.create_guest_feed_post(author="Author", text="Post", guest_profile_id="guest-cursor")
         status, payload, _ = self._get("/api/feed/posts?limit=2&cursor=not-valid")
