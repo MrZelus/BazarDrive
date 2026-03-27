@@ -104,6 +104,19 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
             re.compile(r"profileTrustBadge\.textContent = `Trust badge: \$\{trustLabel\}`;"),
         )
 
+    def test_explicit_verification_state_has_priority_over_boolean_verified_flag(self) -> None:
+        script = Path('web/js/feed.js').read_text(encoding='utf-8')
+        self.assertRegex(
+            script,
+            re.compile(
+                r"function resolveVerificationState\(profile\)\s*\{[\s\S]+const rawState = String\(profile\?\.verification_state \|\| profile\?\.verificationState \|\| ''\)\.trim\(\);\s*if \(rawState\) return rawState;\s*if \(profile\?\.is_verified \|\| profile\?\.isVerified\) return 'verified';",
+            ),
+        )
+        self.assertRegex(
+            script,
+            re.compile(r"pending_verification:\s*'на проверке'"),
+        )
+
 
 if __name__ == '__main__':
     unittest.main()
