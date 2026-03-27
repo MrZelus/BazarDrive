@@ -51,6 +51,25 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
         self.assertIn('pending_verification', script)
         self.assertIn('verification_state', script)
 
+    def test_pending_verification_from_api_payload_is_wired_to_trust_signal_rendering(self) -> None:
+        script = Path('web/js/feed.js').read_text(encoding='utf-8')
+        self.assertRegex(
+            script,
+            re.compile(
+                r"const localProfile = \{[\s\S]+isVerified: Boolean\(payload\.is_verified\),[\s\S]+"
+                r"verificationState: String\(payload\.verification_state \|\| ''\)\.trim\(\),[\s\S]+\};",
+                re.MULTILINE,
+            ),
+        )
+        self.assertRegex(
+            script,
+            re.compile(r"pending_verification:\s*'на проверке'"),
+        )
+        self.assertRegex(
+            script,
+            re.compile(r"const trustLabel = verificationState === 'verified' \? 'подтверждённый' : 'базовый';"),
+        )
+
 
 if __name__ == '__main__':
     unittest.main()
