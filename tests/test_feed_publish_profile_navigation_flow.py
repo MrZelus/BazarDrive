@@ -29,6 +29,8 @@ class FeedPublishProfileNavigationFlowTests(unittest.TestCase):
     def test_publish_precheck_hint_and_local_moderation_guard_are_present(self) -> None:
         self.assertIn('id="publishPrecheckHint"', self.page)
         self.assertIn("aria-describedby=\"publishPrecheckHint\"", self.page)
+        self.assertIn('id="feedSearch"', self.page)
+        self.assertIn('id="feedSearchStatus"', self.page)
         self.assertIn("function getPublishPrecheckState(textValue = '') {", self.script)
         self.assertIn("applyPublishPrecheckHint(getPublishPrecheckState(newPostInput.value));", self.script)
         self.assertIn("if (precheckState.type === 'warning') {", self.script)
@@ -37,6 +39,27 @@ class FeedPublishProfileNavigationFlowTests(unittest.TestCase):
         self.assertIn("const MODERATION_ERROR_COPY = {", self.script)
         self.assertIn("function resolveModerationErrorMessage(rawMessage = '') {", self.script)
         self.assertIn("throw new Error(resolveModerationErrorMessage(", self.script)
+
+    def test_interaction_error_messages_are_unified_for_comments_and_reactions(self) -> None:
+        self.assertIn("const INTERACTION_ERROR_COPY = {", self.script)
+        self.assertIn("function resolveInteractionErrorMessage(rawMessage = '', fallbackMessage = 'Не удалось выполнить действие.') {", self.script)
+        self.assertIn("forbiddenCommentEdit: 'Можно редактировать только свои комментарии.'", self.script)
+        self.assertIn("forbiddenCommentDelete: 'Можно удалять только свои комментарии.'", self.script)
+        self.assertIn("throw new Error(resolveInteractionErrorMessage(payload.error, `Не удалось установить реакцию (HTTP ${response.status})`));", self.script)
+        self.assertIn("throw new Error(resolveInteractionErrorMessage(payload.error, `Не удалось добавить комментарий (HTTP ${response.status})`));", self.script)
+
+    def test_feed_search_input_triggers_server_side_query_reload(self) -> None:
+        self.assertIn("let feedSearchQuery = '';", self.script)
+        self.assertIn("let feedPendingReset = false;", self.script)
+        self.assertIn("params.set('q', feedSearchQuery);", self.script)
+        self.assertIn("feedSearch?.addEventListener('input', (event) => {", self.script)
+        self.assertIn("loadPosts({ reset: true });", self.script)
+        self.assertIn("Введите ещё ${2 - raw.length} символ(а), чтобы включить поиск.", self.script)
+        self.assertIn("if (feedIsLoading) {", self.script)
+        self.assertIn("if (reset) {", self.script)
+        self.assertIn("feedPendingReset = true;", self.script)
+        self.assertIn("if (feedPendingReset) {", self.script)
+        self.assertIn("feedSearchQuery = raw;", self.script)
 
     def test_docs_and_readme_describe_navigation_map_and_test_cases(self) -> None:
         self.assertIn("docs/feed_navigation_publish_flow.md", self.readme)
