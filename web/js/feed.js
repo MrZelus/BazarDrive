@@ -8,6 +8,7 @@
     let feedObserver = null;
     let feedSearchQuery = '';
     let feedSearchDebounceTimer = null;
+    let feedPendingReset = false;
 
     const docs = [
       {
@@ -1431,9 +1432,17 @@
     }
 
     async function loadPosts({ reset = false } = {}) {
-      if (feedIsLoading) return;
+      if (feedIsLoading) {
+        if (reset) {
+          feedPendingReset = true;
+        }
+        return;
+      }
       if (!reset && !feedHasMore) return;
       feedIsLoading = true;
+      if (reset) {
+        feedPendingReset = false;
+      }
       if (reset) {
         feedNextCursor = null;
         feedHasMore = true;
@@ -1493,6 +1502,10 @@
       } finally {
         setFeedLoadingSkeleton(false);
         feedIsLoading = false;
+        if (feedPendingReset) {
+          feedPendingReset = false;
+          loadPosts({ reset: true });
+        }
       }
     }
 

@@ -50,10 +50,15 @@ class FeedPublishProfileNavigationFlowTests(unittest.TestCase):
 
     def test_feed_search_input_triggers_server_side_query_reload(self) -> None:
         self.assertIn("let feedSearchQuery = '';", self.script)
+        self.assertIn("let feedPendingReset = false;", self.script)
         self.assertIn("params.set('q', feedSearchQuery);", self.script)
         self.assertIn("feedSearch?.addEventListener('input', (event) => {", self.script)
         self.assertIn("loadPosts({ reset: true });", self.script)
         self.assertIn("Введите ещё ${2 - raw.length} символ(а), чтобы включить поиск.", self.script)
+        self.assertIn("if (feedIsLoading) {", self.script)
+        self.assertIn("if (reset) {", self.script)
+        self.assertIn("feedPendingReset = true;", self.script)
+        self.assertIn("if (feedPendingReset) {", self.script)
 
     def test_docs_and_readme_describe_navigation_map_and_test_cases(self) -> None:
         self.assertIn("docs/feed_navigation_publish_flow.md", self.readme)
