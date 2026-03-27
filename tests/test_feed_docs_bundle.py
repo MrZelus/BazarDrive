@@ -21,6 +21,10 @@ class FeedDocsBundleTests(unittest.TestCase):
     def test_openapi_covers_core_feed_endpoints(self) -> None:
         self.assertIn('/api/feed/posts:', self.openapi)
         self.assertIn('/api/feed/profiles:', self.openapi)
+        self.assertIn('/api/feed/posts/{id}/react:', self.openapi)
+        self.assertIn('deprecated: true', self.openapi)
+        self.assertIn('/api/feed/posts/{id}/reactions:', self.openapi)
+        self.assertIn('summary: Поставить или заменить реакцию на пост', self.openapi)
         self.assertIn('/api/feed/approved:', self.openapi)
         self.assertIn('/api/feed/publication-rules:', self.openapi)
         self.assertIn('/api/driver/documents:', self.openapi)
