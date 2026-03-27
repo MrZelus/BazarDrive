@@ -42,11 +42,22 @@ class FeedPublishProfileNavigationFlowTests(unittest.TestCase):
 
     def test_interaction_error_messages_are_unified_for_comments_and_reactions(self) -> None:
         self.assertIn("const INTERACTION_ERROR_COPY = {", self.script)
-        self.assertIn("function resolveInteractionErrorMessage(rawMessage = '', fallbackMessage = 'Не удалось выполнить действие.') {", self.script)
+        self.assertIn(
+            "function resolveInteractionErrorMessage(rawMessage = '', rawCode = '', fallbackMessage = 'Не удалось выполнить действие.') {",
+            self.script,
+        )
         self.assertIn("forbiddenCommentEdit: 'Можно редактировать только свои комментарии.'", self.script)
         self.assertIn("forbiddenCommentDelete: 'Можно удалять только свои комментарии.'", self.script)
-        self.assertIn("throw new Error(resolveInteractionErrorMessage(payload.error, `Не удалось установить реакцию (HTTP ${response.status})`));", self.script)
-        self.assertIn("throw new Error(resolveInteractionErrorMessage(payload.error, `Не удалось добавить комментарий (HTTP ${response.status})`));", self.script)
+        self.assertIn("if (code === 'comment_edit_forbidden') return INTERACTION_ERROR_COPY.forbiddenCommentEdit;", self.script)
+        self.assertIn("if (code === 'comment_delete_forbidden') return INTERACTION_ERROR_COPY.forbiddenCommentDelete;", self.script)
+        self.assertIn(
+            "throw new Error(resolveInteractionErrorMessage(payload.error, payload.error_code, `Не удалось установить реакцию (HTTP ${response.status})`));",
+            self.script,
+        )
+        self.assertIn(
+            "throw new Error(resolveInteractionErrorMessage(payload.error, payload.error_code, `Не удалось добавить комментарий (HTTP ${response.status})`));",
+            self.script,
+        )
 
     def test_feed_search_input_triggers_server_side_query_reload(self) -> None:
         self.assertIn("let feedSearchQuery = '';", self.script)

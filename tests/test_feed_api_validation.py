@@ -544,6 +544,7 @@ class FeedAPIValidationTests(unittest.TestCase):
         )
         self.assertEqual(bad_request_status, 400)
         self.assertIn("error", bad_request_payload)
+        self.assertEqual(bad_request_payload.get("error_code"), "comment_text_required")
 
         create_status, create_payload, _ = self._post(
             f"/api/feed/posts/{post_id}/comments",
@@ -552,23 +553,26 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertEqual(create_status, 201)
         comment_id = create_payload["id"]
 
-        forbidden_patch_status, _, _ = self._patch(
+        forbidden_patch_status, forbidden_patch_payload, _ = self._patch(
             f"/api/feed/posts/{post_id}/comments/{comment_id}",
             {"guest_profile_id": "guest-9999", "text": "Попытка изменить чужой комментарий"},
         )
         self.assertEqual(forbidden_patch_status, 403)
+        self.assertEqual(forbidden_patch_payload.get("error_code"), "comment_edit_forbidden")
 
-        forbidden_delete_status, _, _ = self._delete(
+        forbidden_delete_status, forbidden_delete_payload, _ = self._delete(
             f"/api/feed/posts/{post_id}/comments/{comment_id}",
             {"guest_profile_id": "guest-9999"},
         )
         self.assertEqual(forbidden_delete_status, 403)
+        self.assertEqual(forbidden_delete_payload.get("error_code"), "comment_delete_forbidden")
 
-        not_found_comment_status, _, _ = self._patch(
+        not_found_comment_status, not_found_comment_payload, _ = self._patch(
             f"/api/feed/posts/{post_id}/comments/999999",
             {"guest_profile_id": "guest-0001", "text": "missing"},
         )
         self.assertEqual(not_found_comment_status, 404)
+        self.assertEqual(not_found_comment_payload.get("error_code"), "comment_not_found")
 
     def test_delete_post_by_author_success_with_comment_cascade(self) -> None:
         created_post = repository.create_guest_feed_post(
@@ -869,12 +873,14 @@ class FeedAPIValidationTests(unittest.TestCase):
         )
         self.assertEqual(bad_status, 400)
         self.assertIn("Некорректный тип реакции", bad_payload.get("error", ""))
+        self.assertEqual(bad_payload.get("error_code"), "reaction_type_invalid")
 
-        not_found_status, _, _ = self._post(
+        not_found_status, not_found_payload, _ = self._post(
             "/api/feed/posts/999999/react",
             {"guest_profile_id": "guest-react-2", "type": "like"},
         )
         self.assertEqual(not_found_status, 404)
+        self.assertEqual(not_found_payload.get("error_code"), "post_not_found")
 
     def test_reactions_concurrency_is_idempotent(self) -> None:
         post = repository.create_guest_feed_post(author="Owner", text="Concurrent post", guest_profile_id="owner-1")

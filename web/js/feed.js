@@ -339,11 +339,21 @@
       return source;
     }
 
-    function resolveInteractionErrorMessage(rawMessage = '', fallbackMessage = 'Не удалось выполнить действие.') {
+    function resolveInteractionErrorMessage(rawMessage = '', rawCode = '', fallbackMessage = 'Не удалось выполнить действие.') {
       const source = String(rawMessage || '').trim();
+      const code = String(rawCode || '').trim().toLowerCase();
       if (!source) return String(fallbackMessage || '').trim() || 'Не удалось выполнить действие.';
-      const normalized = source.toLowerCase();
+      if (code === 'guest_profile_required') return INTERACTION_ERROR_COPY.profileRequired;
+      if (code === 'comment_edit_forbidden') return INTERACTION_ERROR_COPY.forbiddenCommentEdit;
+      if (code === 'comment_delete_forbidden') return INTERACTION_ERROR_COPY.forbiddenCommentDelete;
+      if (code === 'comment_not_found') return INTERACTION_ERROR_COPY.commentNotFound;
+      if (code === 'post_not_found') return INTERACTION_ERROR_COPY.postNotFound;
+      if (code === 'comment_text_required' || code === 'comment_text_too_long' || code === 'comment_text_too_short') {
+        return INTERACTION_ERROR_COPY.commentValidation;
+      }
+      if (code === 'reaction_type_invalid') return INTERACTION_ERROR_COPY.reactionValidation;
 
+      const normalized = source.toLowerCase();
       if (normalized.includes('guest_profile_id') && normalized.includes('обязательно')) {
         return INTERACTION_ERROR_COPY.profileRequired;
       }
@@ -1057,7 +1067,7 @@
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(resolveInteractionErrorMessage(payload.error, `Не удалось установить реакцию (HTTP ${response.status})`));
+        throw new Error(resolveInteractionErrorMessage(payload.error, payload.error_code, `Не удалось установить реакцию (HTTP ${response.status})`));
       }
       return payload;
     }
@@ -1070,7 +1080,7 @@
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(resolveInteractionErrorMessage(payload.error, `Не удалось снять реакцию (HTTP ${response.status})`));
+        throw new Error(resolveInteractionErrorMessage(payload.error, payload.error_code, `Не удалось снять реакцию (HTTP ${response.status})`));
       }
       return payload;
     }
@@ -1269,7 +1279,7 @@
                   body: JSON.stringify({ guest_profile_id: actor.id, text: cleaned }),
                 });
                 const payload = await response.json().catch(() => ({}));
-                if (!response.ok) throw new Error(resolveInteractionErrorMessage(payload.error, `Не удалось обновить комментарий (HTTP ${response.status})`));
+                if (!response.ok) throw new Error(resolveInteractionErrorMessage(payload.error, payload.error_code, `Не удалось обновить комментарий (HTTP ${response.status})`));
                 await loadCommentsForPost(post);
                 renderFeed();
                 showAppNotification('Комментарий обновлён.', 'success');
@@ -1292,7 +1302,7 @@
                   body: JSON.stringify({ guest_profile_id: actor.id }),
                 });
                 const payload = await response.json().catch(() => ({}));
-                if (!response.ok) throw new Error(resolveInteractionErrorMessage(payload.error, `Не удалось удалить комментарий (HTTP ${response.status})`));
+                if (!response.ok) throw new Error(resolveInteractionErrorMessage(payload.error, payload.error_code, `Не удалось удалить комментарий (HTTP ${response.status})`));
                 await loadCommentsForPost(post);
                 renderFeed();
                 showAppNotification('Комментарий удалён.', 'success');
@@ -1346,7 +1356,7 @@
               body: JSON.stringify({ guest_profile_id: actor.id, author: actor.fullName, text }),
             });
             const payload = await response.json().catch(() => ({}));
-            if (!response.ok) throw new Error(resolveInteractionErrorMessage(payload.error, `Не удалось добавить комментарий (HTTP ${response.status})`));
+            if (!response.ok) throw new Error(resolveInteractionErrorMessage(payload.error, payload.error_code, `Не удалось добавить комментарий (HTTP ${response.status})`));
             input.value = '';
             await loadCommentsForPost(post);
             renderFeed();
