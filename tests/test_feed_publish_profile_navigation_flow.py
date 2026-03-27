@@ -38,6 +38,14 @@ class FeedPublishProfileNavigationFlowTests(unittest.TestCase):
         self.assertIn("function resolveModerationErrorMessage(rawMessage = '') {", self.script)
         self.assertIn("throw new Error(resolveModerationErrorMessage(", self.script)
 
+    def test_interaction_error_messages_are_unified_for_comments_and_reactions(self) -> None:
+        self.assertIn("const INTERACTION_ERROR_COPY = {", self.script)
+        self.assertIn("function resolveInteractionErrorMessage(rawMessage = '', fallbackMessage = 'Не удалось выполнить действие.') {", self.script)
+        self.assertIn("forbiddenCommentEdit: 'Можно редактировать только свои комментарии.'", self.script)
+        self.assertIn("forbiddenCommentDelete: 'Можно удалять только свои комментарии.'", self.script)
+        self.assertIn("throw new Error(resolveInteractionErrorMessage(payload.error, `Не удалось установить реакцию (HTTP ${response.status})`));", self.script)
+        self.assertIn("throw new Error(resolveInteractionErrorMessage(payload.error, `Не удалось добавить комментарий (HTTP ${response.status})`));", self.script)
+
     def test_docs_and_readme_describe_navigation_map_and_test_cases(self) -> None:
         self.assertIn("docs/feed_navigation_publish_flow.md", self.readme)
         self.assertIn("## 1) Карта переходов между разделами", self.flow_doc)
