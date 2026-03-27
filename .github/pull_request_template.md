@@ -2,10 +2,10 @@
 - What changed and why (brief).
 
 ## Epic linkage
-- [ ] This PR is in Epic #126 scope (theme tokens, contrast/readability, component states, regression process, Theme Contract docs).
+- [ ] This PR is in Epic #173 scope (theme tokens, contrast/readability, component states, regression process, Theme Contract docs).
 - Required issue linkage:
-  - Intermediate PRs: `Part of #126`
-  - Final closure PR only when all epic criteria are met: `Closes #126`
+  - Intermediate PRs: `Part of #173`
+  - Final closure PR only when all epic criteria are met: `Closes #173`
 - Link(s):
 
 ## Theme Contract compliance (required for UI PRs)
