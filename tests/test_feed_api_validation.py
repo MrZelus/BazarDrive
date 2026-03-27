@@ -8,6 +8,7 @@ from base64 import urlsafe_b64encode
 from http.client import HTTPConnection
 from http.server import ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import quote
 
 from app.api.http_handlers import FeedAPIHandler
 from app.db import repository

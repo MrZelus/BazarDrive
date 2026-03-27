@@ -3,16 +3,24 @@ window.tailwind.config = {
   theme: {
     extend: {
       colors: {
-        bg: '#000000',
-        panel: '#242424',
-        panelSoft: '#2d2d2d',
-        accent: '#0095F6',
-        text: '#f5f5f5',
-        textSoft: '#a8a8a8',
-        border: '#262626',
+        // Base canvas for the app shell.
+        bg: '#C8D2DF',
+        // Primary cards and form surfaces.
+        panel: '#F1F5F9',
+        // Raised or highlighted neutral areas inside cards.
+        panelSoft: '#FFFFFF',
+        // Instagram-inspired blue, shifted darker for WCAG contrast on light bg.
+        accent: '#004BB5',
+        // Primary readable text.
+        text: '#0F172A',
+        // Secondary/supporting text.
+        textSoft: '#334155',
+        // Dividers and subtle control outlines.
+        border: '#94A3B8',
+        // Semantic status colors used by alerts and badges.
         danger: '#ed4956',
-        success: '#34d399',
-        warning: '#fbbf24'
+        success: '#059669',
+        warning: '#b45309'
       },
       keyframes: {
         fadeInUp: {

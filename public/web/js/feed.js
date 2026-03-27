@@ -1333,7 +1333,7 @@
         input.className = 'min-w-0 flex-1 rounded-lg border border-textSoft/25 bg-panel px-3 py-2 text-sm text-text outline-none focus:border-accent';
         const submit = document.createElement('button');
         submit.type = 'submit';
-        submit.className = 'rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-bg hover:opacity-90';
+        submit.className = 'rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-white hover:opacity-90';
         submit.textContent = 'Отправить';
         submit.setAttribute('aria-label', `Отправить комментарий к посту автора ${String(post.author || 'Гость')}`);
         form.append(input, submit);

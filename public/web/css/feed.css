@@ -1,31 +1,24 @@
 :root {
-  --feed-bg-rgb: 0 0 0;
-  --feed-panel-rgb: 36 36 36;
-  --feed-panel-soft-rgb: 45 45 45;
-  --feed-accent-rgb: 0 149 246;
-  --feed-text-rgb: 245 245 245;
-  --feed-text-soft-rgb: 168 168 168;
-  --feed-border-rgb: 38 38 38;
-  --feed-success-rgb: 52 211 153;
-  --feed-warning-rgb: 251 191 36;
+  --feed-bg-rgb: 200 210 223;
+  --feed-panel-rgb: 241 245 249;
+  --feed-panel-soft-rgb: 255 255 255;
+  --feed-accent-rgb: 0 75 181;
+  --feed-text-rgb: 15 23 42;
+  --feed-text-soft-rgb: 51 65 85;
+  --feed-border-rgb: 148 163 184;
+  --feed-success-rgb: 5 150 105;
+  --feed-warning-rgb: 180 83 9;
+  --feed-bg-gradient: none;
   --feed-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 
 /*
- * Fallback background color for the document.
+ * Stable fallback for Tailwind Play CDN hiccups.
  *
- * Tailwind’s Play CDN sometimes fails to apply custom colors from
- * the dynamic configuration (e.g., `window.tailwind.config`). When that
- * happens, the `bg-bg` class on the `<body>` element does not set a
- * background color, leaving `<body>` transparent and causing the white
- * page background to bleed through. By explicitly setting a background on
- * `html` and `body` using our dark color token we ensure the page
- * stays dark even if Tailwind fails to generate the utility classes.
- *
- * We also set the base text color here because `text-text` can fail to
- * generate in the same scenario. That prevents browser-default black text
- * from rendering on the dark fallback background.
+ * If runtime Tailwind token generation fails, semantic classes like `bg-bg`
+ * and `text-text` may not be applied. We still force a readable baseline
+ * canvas and typography with CSS variables so UI remains usable.
  */
 html,
 body {
@@ -33,7 +26,7 @@ body {
   background-image: var(--feed-bg-gradient);
   color: rgb(var(--feed-text-rgb));
   font-family: var(--feed-font-family);
-  letter-spacing: 0.2px;
+  letter-spacing: 0.18px;
 }
 
 body {
@@ -42,7 +35,7 @@ body {
 
 .bg-panel {
   background-color: rgb(var(--feed-panel-rgb)) !important;
-  border-color: rgb(var(--feed-border-rgb) / 1) !important;
+  border-color: rgb(var(--feed-border-rgb) / 0.76) !important;
 }
 
 .bg-panelSoft {
@@ -69,7 +62,7 @@ body {
 .tab-btn,
 .profile-menu-btn,
 .role-btn {
-  border: 1px solid rgb(var(--feed-border-rgb));
+  border: 1px solid rgb(var(--feed-border-rgb) / 0.72);
   color: rgb(var(--feed-text-soft-rgb));
   background-color: rgb(var(--feed-panel-rgb));
   transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 120ms ease;
@@ -86,7 +79,7 @@ body {
 .role-btn:hover {
   color: rgb(var(--feed-text-rgb));
   background-color: rgb(var(--feed-panel-soft-rgb));
-  border-color: rgb(var(--feed-border-rgb));
+  border-color: rgb(var(--feed-border-rgb) / 0.82);
   box-shadow: none;
 }
 
@@ -95,24 +88,24 @@ body {
 .role-btn:focus-visible {
   outline: none;
   color: rgb(var(--feed-text-rgb));
-  background-color: rgb(var(--feed-panel-soft-rgb) / 0.84);
-  border-color: rgb(var(--feed-accent-rgb) / 0.64);
-  box-shadow: 0 0 0 2px rgb(var(--feed-accent-rgb) / 0.28);
+  background-color: rgb(var(--feed-panel-soft-rgb));
+  border-color: rgb(var(--feed-accent-rgb) / 0.82);
+  box-shadow: 0 0 0 2px rgb(var(--feed-accent-rgb) / 0.2);
 }
 
 .tab-btn.active,
 .profile-menu-btn.active {
   color: rgb(var(--feed-text-rgb));
-  background-color: rgb(var(--feed-panel-rgb));
-  border-color: rgb(var(--feed-border-rgb));
+  background-color: rgb(var(--feed-panel-soft-rgb));
+  border-color: rgb(var(--feed-border-rgb) / 0.9);
   box-shadow: none;
 }
 
 .role-btn.active {
   background-color: rgb(var(--feed-accent-rgb));
-  color: rgb(var(--feed-bg-rgb));
-  border-color: rgb(var(--feed-text-rgb) / 0.7);
-  box-shadow: 0 0 0 1px rgb(var(--feed-text-rgb) / 0.2) inset;
+  color: #fff;
+  border-color: rgb(var(--feed-accent-rgb));
+  box-shadow: none;
 }
 
 .tab-btn:disabled,
@@ -121,10 +114,10 @@ body {
 .profile-menu-btn[aria-disabled='true'],
 .role-btn:disabled,
 .role-btn[aria-disabled='true'] {
-  opacity: 0.72;
+  opacity: 0.7;
   color: rgb(var(--feed-text-soft-rgb));
-  background-color: rgb(var(--feed-panel-soft-rgb) / 0.28);
-  border-color: rgb(var(--feed-text-soft-rgb) / 0.24);
+  background-color: rgb(var(--feed-panel-rgb) / 0.58);
+  border-color: rgb(var(--feed-border-rgb) / 0.4);
   cursor: not-allowed;
   box-shadow: none;
   transform: none;
@@ -137,7 +130,7 @@ body {
 
 .ui-btn:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px rgb(var(--feed-accent-rgb) / 0.28);
+  box-shadow: 0 0 0 2px rgb(var(--feed-accent-rgb) / 0.22);
 }
 
 .ui-btn:active:not(:disabled):not([aria-disabled='true']) {
@@ -153,18 +146,18 @@ body {
 
 .ui-btn--primary:hover,
 .ui-btn--primary:focus-visible {
-  background-color: rgb(var(--feed-accent-rgb) / 0.9);
+  background-color: rgb(var(--feed-accent-rgb) / 0.92);
 }
 
 .ui-btn--secondary {
-  border-color: rgb(var(--feed-border-rgb));
-  background-color: transparent;
+  border-color: rgb(var(--feed-border-rgb) / 0.8);
+  background-color: rgb(var(--feed-panel-soft-rgb));
   color: rgb(var(--feed-text-rgb));
 }
 
 .ui-btn--secondary:hover,
 .ui-btn--secondary:focus-visible {
-  border-color: rgb(var(--feed-border-rgb));
+  border-color: rgb(var(--feed-border-rgb) / 0.88);
   background-color: rgb(var(--feed-panel-rgb));
 }
 
@@ -181,7 +174,7 @@ input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
   border-color: rgb(var(--feed-accent-rgb));
-  box-shadow: 0 0 0 2px rgb(var(--feed-accent-rgb) / 0.24);
+  box-shadow: 0 0 0 2px rgb(var(--feed-accent-rgb) / 0.2);
 }
 
 button:disabled,
@@ -205,7 +198,7 @@ button.is-loading::after {
   height: 12px;
   margin-top: -6px;
   border-radius: 9999px;
-  border: 2px solid rgb(var(--feed-text-rgb) / 0.28);
+  border: 2px solid rgb(var(--feed-text-rgb) / 0.2);
   border-top-color: rgb(var(--feed-text-rgb));
   animation: feed-btn-spin 700ms linear infinite;
 }
@@ -216,34 +209,34 @@ button.is-loading::after {
   z-index: 20;
   margin: 0 16px;
   border-radius: 12px;
-  border: 1px solid rgb(var(--feed-text-soft-rgb) / 0.32);
+  border: 1px solid rgb(var(--feed-text-soft-rgb) / 0.28);
   padding: 10px 12px;
   font-size: 13px;
   line-height: 1.35;
   color: rgb(var(--feed-text-rgb));
-  backdrop-filter: blur(6px);
+  backdrop-filter: blur(4px);
   animation: fade-in-notification 180ms ease-out;
 }
 
 .app-notification--info {
-  background-color: rgb(var(--feed-accent-rgb) / 0.26);
-  border-color: rgb(var(--feed-accent-rgb) / 0.56);
+  background-color: rgb(var(--feed-accent-rgb) / 0.12);
+  border-color: rgb(var(--feed-accent-rgb) / 0.34);
 }
 
 .app-notification--success {
-  background-color: rgb(var(--feed-success-rgb) / 0.16);
-  border-color: rgb(var(--feed-success-rgb) / 0.45);
+  background-color: rgb(var(--feed-success-rgb) / 0.12);
+  border-color: rgb(var(--feed-success-rgb) / 0.34);
 }
 
 .app-notification--error {
-  background-color: rgb(var(--feed-warning-rgb) / 0.16);
-  border-color: rgb(var(--feed-warning-rgb) / 0.45);
+  background-color: rgb(var(--feed-warning-rgb) / 0.12);
+  border-color: rgb(var(--feed-warning-rgb) / 0.34);
 }
 
 nav[role='tablist'] {
-  background: rgb(var(--feed-bg-rgb)) !important;
-  backdrop-filter: none;
-  border-top: 1px solid rgb(var(--feed-border-rgb)) !important;
+  background: rgb(var(--feed-panel-rgb) / 0.94) !important;
+  backdrop-filter: blur(2px);
+  border-top: 1px solid rgb(var(--feed-border-rgb) / 0.72) !important;
 }
 
 @keyframes fade-in-notification {
