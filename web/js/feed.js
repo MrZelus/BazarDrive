@@ -6,6 +6,8 @@
     let feedHasMore = true;
     let feedIsLoading = false;
     let feedObserver = null;
+    let feedSearchQuery = '';
+    let feedSearchDebounceTimer = null;
 
     const docs = [
       {
@@ -110,6 +112,8 @@
     const clearPostImageBtn = document.getElementById('clearPostImageBtn');
     const selectedPostImageName = document.getElementById('selectedPostImageName');
     const publishFileError = document.getElementById('publishFileError');
+    const feedSearch = document.getElementById('feedSearch');
+    const feedSearchStatus = document.getElementById('feedSearchStatus');
     const appNotification = document.getElementById('appNotification');
     let notificationTimer = null;
     const POST_IMAGE_MAX_BYTES = 3 * 1024 * 1024;
@@ -1402,6 +1406,20 @@
       }
     }
 
+    function updateFeedSearchStatus(total = null) {
+      if (!feedSearchStatus) return;
+      const query = String(feedSearchQuery || '').trim();
+      if (!query) {
+        feedSearchStatus.textContent = '';
+        return;
+      }
+      if (!Number.isFinite(Number(total))) {
+        feedSearchStatus.textContent = `Поиск: «${query}».`;
+        return;
+      }
+      feedSearchStatus.textContent = `Поиск: «${query}». Найдено постов: ${Math.max(0, Number(total))}.`;
+    }
+
     function ensureFeedInfiniteScroll() {
       if (!feedSentinelEl || feedObserver || !window.IntersectionObserver) return;
       feedObserver = new IntersectionObserver((entries) => {
@@ -1437,6 +1455,9 @@
         if (actor.id) {
           params.set('guest_profile_id', actor.id);
         }
+        if (feedSearchQuery) {
+          params.set('q', feedSearchQuery);
+        }
         const query = `?${params.toString()}`;
         const response = await fetch(`${FEED_API_BASE}/api/feed/posts${query}`);
         if (!response.ok) {
@@ -1455,6 +1476,7 @@
         posts.push(...freshPosts);
         feedNextCursor = String(payload.next_cursor || '').trim() || null;
         feedHasMore = Boolean(payload.has_more) && Boolean(feedNextCursor);
+        updateFeedSearchStatus(payload.total);
 
         await Promise.all(freshPosts.map((post) => loadCommentsForPost(post).catch(() => {
           post.comments = [];
@@ -1465,6 +1487,7 @@
         }
       } catch (error) {
         console.error(error);
+        updateFeedSearchStatus();
         setFeedError(`Не удалось загрузить посты. Проверьте доступность API: ${FEED_API_BASE}.`);
         showAppNotification(error.message || 'Ошибка загрузки ленты.', 'error');
       } finally {
@@ -1840,6 +1863,24 @@
 
     docsSearch.addEventListener('input', (event) => {
       renderDocs(event.target.value);
+    });
+    feedSearch?.addEventListener('input', (event) => {
+      const raw = String(event?.target?.value || '').trim();
+      if (raw && raw.length < 2) {
+        feedSearchQuery = '';
+        if (feedSearchStatus) {
+          feedSearchStatus.textContent = `Введите ещё ${2 - raw.length} символ(а), чтобы включить поиск.`;
+        }
+      } else {
+        feedSearchQuery = raw.toLowerCase();
+      }
+
+      if (feedSearchDebounceTimer) {
+        window.clearTimeout(feedSearchDebounceTimer);
+      }
+      feedSearchDebounceTimer = window.setTimeout(() => {
+        loadPosts({ reset: true });
+      }, 220);
     });
     saveProfileBtn.addEventListener('click', saveGuestProfile);
     profileVerificationResubmitBtn?.addEventListener('click', submitProfileForResubmission);

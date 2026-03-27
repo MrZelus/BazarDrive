@@ -64,6 +64,12 @@ paths:
           name: guest_profile_id
           schema: { type: string }
           description: Идентификатор гостевого профиля для расчёта my_reaction
+        - in: query
+          name: q
+          schema: { type: string }
+          description: |
+            Опциональный поисковый запрос по полям `author` и `text` (case-insensitive).
+            Работает как с offset-пагинацией, так и с cursor.
       responses:
         '200':
           description: Список постов
@@ -1128,6 +1134,9 @@ components:
           items: { $ref: '#/components/schemas/FeedPost' }
         limit: { type: integer }
         offset: { type: integer }
+        q:
+          type: string
+          description: Нормализованный поисковый запрос (`""` если фильтр не применялся)
         total: { type: integer }
         next_cursor:
           type: string
@@ -1136,7 +1145,7 @@ components:
         has_more:
           type: boolean
           description: Признак наличия следующей страницы
-      required: [items, limit, offset, total, next_cursor, has_more]
+      required: [items, limit, offset, q, total, next_cursor, has_more]
 
     SetReactionRequest:
       type: object

@@ -999,6 +999,47 @@ class FeedAPIValidationTests(unittest.TestCase):
         second_ids = {int(item["id"]) for item in second_payload["items"]}
         self.assertEqual(len(first_ids.intersection(second_ids)), 0)
 
+    def test_feed_list_supports_search_query_with_offset(self) -> None:
+        repository.create_guest_feed_post(author="Taxi Expert", text="Москва аэропорт", guest_profile_id="guest-search")
+        repository.create_guest_feed_post(author="Food Lover", text="Лучшие рестораны", guest_profile_id="guest-search")
+        repository.create_guest_feed_post(author="Taxi Helper", text="Поездка в центр", guest_profile_id="guest-search")
+
+        status, payload, _ = self._get("/api/feed/posts?limit=10&offset=0&q=taxi")
+        self.assertEqual(status, 200)
+        self.assertEqual(payload.get("q"), "taxi")
+        self.assertEqual(payload.get("total"), 2)
+        self.assertEqual(len(payload.get("items", [])), 2)
+        for item in payload["items"]:
+            haystack = f"{item.get('author', '')} {item.get('text', '')}".lower()
+            self.assertIn("taxi", haystack)
+
+    def test_feed_cursor_pagination_respects_search_query(self) -> None:
+        repository.create_guest_feed_post(author="Search One", text="alpha keyword", guest_profile_id="guest-search-cursor")
+        repository.create_guest_feed_post(author="Search Two", text="beta keyword", guest_profile_id="guest-search-cursor")
+        repository.create_guest_feed_post(author="Search Three", text="alpha second", guest_profile_id="guest-search-cursor")
+
+        first_status, first_payload, _ = self._get("/api/feed/posts?limit=1&q=alpha")
+        self.assertEqual(first_status, 200)
+        self.assertEqual(first_payload.get("q"), "alpha")
+        self.assertEqual(first_payload.get("total"), 2)
+        self.assertEqual(len(first_payload.get("items", [])), 1)
+        self.assertTrue(first_payload.get("next_cursor"))
+
+        next_cursor = first_payload["next_cursor"]
+        second_status, second_payload, _ = self._get(f"/api/feed/posts?limit=1&q=alpha&cursor={next_cursor}")
+        self.assertEqual(second_status, 200)
+        self.assertEqual(second_payload.get("q"), "alpha")
+        self.assertEqual(len(second_payload.get("items", [])), 1)
+        self.assertFalse(second_payload.get("has_more"))
+        self.assertIsNone(second_payload.get("next_cursor"))
+
+        first_ids = {int(item["id"]) for item in first_payload["items"]}
+        second_ids = {int(item["id"]) for item in second_payload["items"]}
+        self.assertEqual(len(first_ids.intersection(second_ids)), 0)
+        for item in [*first_payload["items"], *second_payload["items"]]:
+            haystack = f"{item.get('author', '')} {item.get('text', '')}".lower()
+            self.assertIn("alpha", haystack)
+
     def test_feed_cursor_pagination_invalid_cursor_returns_400(self) -> None:
         repository.create_guest_feed_post(author="Author", text="Post", guest_profile_id="guest-cursor")
         status, payload, _ = self._get("/api/feed/posts?limit=2&cursor=not-valid")

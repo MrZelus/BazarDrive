@@ -25,6 +25,7 @@ class FeedDocsBundleTests(unittest.TestCase):
         self.assertIn('deprecated: true', self.openapi)
         self.assertIn('/api/feed/posts/{id}/reactions:', self.openapi)
         self.assertIn('summary: Поставить или заменить реакцию на пост', self.openapi)
+        self.assertIn('name: q', self.openapi)
         self.assertIn('/api/feed/approved:', self.openapi)
         self.assertIn('/api/feed/publication-rules:', self.openapi)
         self.assertIn('/api/driver/documents:', self.openapi)

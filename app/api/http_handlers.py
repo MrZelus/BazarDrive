@@ -396,6 +396,7 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             limit = max(1, min(100, _parse_int("limit", 20)))
             offset = max(0, _parse_int("offset", 0))
             guest_profile_id = str(params.get("guest_profile_id", [""])[0]).strip()
+            search_query = str(params.get("q", [""])[0]).strip()
             cursor = str(params.get("cursor", [""])[0]).strip()
             use_cursor = bool(cursor)
             if use_cursor and "offset" in params:
@@ -412,14 +413,15 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
                     limit=limit + 1,
                     cursor_created_at=cursor_created_at,
                     cursor_id=cursor_id,
+                    search_query=search_query,
                 )
                 has_more = len(cursor_batch) > limit
                 posts = cursor_batch[:limit]
             else:
-                posts = repository.list_guest_feed_posts(limit=limit, offset=offset)
+                posts = repository.list_guest_feed_posts(limit=limit, offset=offset, search_query=search_query)
                 has_more = False
             enriched_posts = FeedService.enrich_posts_with_reactions(posts, guest_profile_id=guest_profile_id)
-            total = repository.count_guest_feed_posts()
+            total = repository.count_guest_feed_posts(search_query=search_query)
             if not use_cursor:
                 has_more = (offset + len(enriched_posts)) < total
             next_cursor = self._encode_posts_cursor(enriched_posts[-1]) if enriched_posts else None
@@ -429,6 +431,7 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
                     "items": enriched_posts,
                     "limit": limit,
                     "offset": offset,
+                    "q": search_query,
                     "total": total,
                     "next_cursor": next_cursor if has_more else None,
                     "has_more": has_more,
