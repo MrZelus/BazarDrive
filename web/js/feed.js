@@ -248,6 +248,15 @@
       too_short: 'Текст слишком короткий: напишите минимум 5 символов.',
       generic: 'Публикация отклонена правилами модерации. Исправьте текст и попробуйте снова.',
     };
+    const INTERACTION_ERROR_COPY = {
+      profileRequired: 'Сначала заполните и сохраните профиль публикации.',
+      forbiddenCommentEdit: 'Можно редактировать только свои комментарии.',
+      forbiddenCommentDelete: 'Можно удалять только свои комментарии.',
+      postNotFound: 'Пост не найден или уже удалён.',
+      commentNotFound: 'Комментарий не найден или уже удалён.',
+      commentValidation: 'Проверьте текст комментария и попробуйте снова.',
+      reactionValidation: 'Некорректная реакция. Попробуйте обновить страницу.',
+    };
 
     function storePendingPostDraft(text = '') {
       const normalized = String(text || '').trim();
@@ -322,6 +331,36 @@
       if (normalized.includes('спам')) return MODERATION_ERROR_COPY.spam;
       if (normalized.includes('минимум 5 символ')) return MODERATION_ERROR_COPY.too_short;
       if (normalized.includes('правила')) return MODERATION_ERROR_COPY.generic;
+      return source;
+    }
+
+    function resolveInteractionErrorMessage(rawMessage = '', fallbackMessage = 'Не удалось выполнить действие.') {
+      const source = String(rawMessage || '').trim();
+      if (!source) return String(fallbackMessage || '').trim() || 'Не удалось выполнить действие.';
+      const normalized = source.toLowerCase();
+
+      if (normalized.includes('guest_profile_id') && normalized.includes('обязательно')) {
+        return INTERACTION_ERROR_COPY.profileRequired;
+      }
+      if (normalized.includes('недостаточно прав для изменения комментария')) {
+        return INTERACTION_ERROR_COPY.forbiddenCommentEdit;
+      }
+      if (normalized.includes('недостаточно прав для удаления комментария')) {
+        return INTERACTION_ERROR_COPY.forbiddenCommentDelete;
+      }
+      if (normalized.includes('комментар') && normalized.includes('не найден')) {
+        return INTERACTION_ERROR_COPY.commentNotFound;
+      }
+      if (normalized.includes('пост') && normalized.includes('не найден')) {
+        return INTERACTION_ERROR_COPY.postNotFound;
+      }
+      if (normalized.includes('комментар') && (normalized.includes('обязательно') || normalized.includes('слишком длин') || normalized.includes('минимум'))) {
+        return INTERACTION_ERROR_COPY.commentValidation;
+      }
+      if (normalized.includes('тип реакции') || normalized.includes('реакц') && normalized.includes('допустимые значения')) {
+        return INTERACTION_ERROR_COPY.reactionValidation;
+      }
+
       return source;
     }
 
@@ -1013,7 +1052,7 @@
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(payload.error || `Не удалось установить реакцию (HTTP ${response.status})`);
+        throw new Error(resolveInteractionErrorMessage(payload.error, `Не удалось установить реакцию (HTTP ${response.status})`));
       }
       return payload;
     }
@@ -1026,7 +1065,7 @@
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(payload.error || `Не удалось снять реакцию (HTTP ${response.status})`);
+        throw new Error(resolveInteractionErrorMessage(payload.error, `Не удалось снять реакцию (HTTP ${response.status})`));
       }
       return payload;
     }
@@ -1225,7 +1264,7 @@
                   body: JSON.stringify({ guest_profile_id: actor.id, text: cleaned }),
                 });
                 const payload = await response.json().catch(() => ({}));
-                if (!response.ok) throw new Error(payload.error || `Не удалось обновить комментарий (HTTP ${response.status})`);
+                if (!response.ok) throw new Error(resolveInteractionErrorMessage(payload.error, `Не удалось обновить комментарий (HTTP ${response.status})`));
                 await loadCommentsForPost(post);
                 renderFeed();
                 showAppNotification('Комментарий обновлён.', 'success');
@@ -1248,7 +1287,7 @@
                   body: JSON.stringify({ guest_profile_id: actor.id }),
                 });
                 const payload = await response.json().catch(() => ({}));
-                if (!response.ok) throw new Error(payload.error || `Не удалось удалить комментарий (HTTP ${response.status})`);
+                if (!response.ok) throw new Error(resolveInteractionErrorMessage(payload.error, `Не удалось удалить комментарий (HTTP ${response.status})`));
                 await loadCommentsForPost(post);
                 renderFeed();
                 showAppNotification('Комментарий удалён.', 'success');
@@ -1302,7 +1341,7 @@
               body: JSON.stringify({ guest_profile_id: actor.id, author: actor.fullName, text }),
             });
             const payload = await response.json().catch(() => ({}));
-            if (!response.ok) throw new Error(payload.error || `Не удалось добавить комментарий (HTTP ${response.status})`);
+            if (!response.ok) throw new Error(resolveInteractionErrorMessage(payload.error, `Не удалось добавить комментарий (HTTP ${response.status})`));
             input.value = '';
             await loadCommentsForPost(post);
             renderFeed();
