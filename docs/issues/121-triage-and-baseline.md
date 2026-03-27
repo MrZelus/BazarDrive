@@ -540,7 +540,7 @@ To make PR review faster, the Markdown evidence export now supports optional fil
   - `--report-md-check-files`: annotate each selected matrix cell with:
     - `✅` when the referenced screenshot file exists;
     - `❌` when the file is still missing.
-- Markdown cells are now rendered as links (`[path](path)`), so reviewers can click artifact paths directly from the PR body.
+- Markdown cells are now rendered as links (for example, ``[artifact](121-triage-and-baseline.md)``), so reviewers can click artifact paths directly from the PR body.
 - This mode is especially useful after real capture runs to quickly spot missing browser/viewport/tab combinations before posting final closure evidence.
 - Added regression coverage in `tests/test_capture_guest_feed_evidence_script.py`:
   - verifies linked Markdown formatting for report rows;
