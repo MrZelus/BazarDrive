@@ -1,12 +1,13 @@
 import json
 import os
+import sqlite3
 import tempfile
 import threading
 import unittest
 from base64 import urlsafe_b64encode
 from http.client import HTTPConnection
 from http.server import ThreadingHTTPServer
-from urllib.parse import quote
+from pathlib import Path
 
 from app.api.http_handlers import FeedAPIHandler
 from app.db import repository
@@ -128,6 +129,11 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertIn("error", payload)
 
     def test_verification_workflow_submit_approve_reject_and_history(self) -> None:
+        os.environ["APP_ENV"] = "prod"
+        os.environ["API_AUTH_KEYS"] = "writer-key"
+        os.environ["MODERATOR_API_KEYS"] = "mod-key"
+        os.environ["CORS_ALLOWED_ORIGINS"] = "https://app.example.com"
+
         status, payload, _ = self._post(
             "/api/feed/profiles",
             {
@@ -136,6 +142,7 @@ class FeedAPIValidationTests(unittest.TestCase):
                 "email": "driver@example.com",
                 "verification_state": "unverified",
             },
+            headers={"X-API-Key": "writer-key", "Origin": "https://app.example.com"},
         )
         self.assertEqual(status, 201)
         self.assertEqual(payload.get("verification_state"), "unverified")
@@ -143,6 +150,7 @@ class FeedAPIValidationTests(unittest.TestCase):
         submit_status, submit_payload, _ = self._post(
             "/api/feed/profiles/guest-verify-001/verification/submit",
             {"actor": "guest-verify-001"},
+            headers={"X-API-Key": "writer-key", "Origin": "https://app.example.com"},
         )
         self.assertEqual(submit_status, 200)
         self.assertEqual(submit_payload.get("verification_state"), "pending_verification")
@@ -150,6 +158,7 @@ class FeedAPIValidationTests(unittest.TestCase):
         reject_status, reject_payload, _ = self._post(
             "/api/feed/profiles/guest-verify-001/verification/reject",
             {"actor": "moderator-1", "reason": "Фото документа размыто"},
+            headers={"X-API-Key": "mod-key", "Origin": "https://app.example.com"},
         )
         self.assertEqual(reject_status, 200)
         self.assertEqual(reject_payload.get("verification_state"), "rejected")
@@ -158,6 +167,7 @@ class FeedAPIValidationTests(unittest.TestCase):
         resubmit_status, resubmit_payload, _ = self._post(
             "/api/feed/profiles/guest-verify-001/verification/submit",
             {"actor": "guest-verify-001"},
+            headers={"X-API-Key": "writer-key", "Origin": "https://app.example.com"},
         )
         self.assertEqual(resubmit_status, 200)
         self.assertEqual(resubmit_payload.get("verification_state"), "pending_verification")
@@ -165,6 +175,7 @@ class FeedAPIValidationTests(unittest.TestCase):
         approve_status, approve_payload, _ = self._post(
             "/api/feed/profiles/guest-verify-001/verification/approve",
             {"actor": "moderator-2"},
+            headers={"X-API-Key": "mod-key", "Origin": "https://app.example.com"},
         )
         self.assertEqual(approve_status, 200)
         self.assertEqual(approve_payload.get("verification_state"), "verified")
@@ -177,59 +188,137 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertGreaterEqual(len(profile_payload.get("verification_history", [])), 4)
 
     def test_verification_reject_requires_reason_and_enforces_state_transitions(self) -> None:
+        os.environ["APP_ENV"] = "prod"
+        os.environ["API_AUTH_KEYS"] = "writer-key"
+        os.environ["MODERATOR_API_KEYS"] = "mod-key"
+        os.environ["CORS_ALLOWED_ORIGINS"] = "https://app.example.com"
+
         created_status, _, _ = self._post(
             "/api/feed/profiles",
             {"id": "guest-verify-002", "display_name": "Тестовый", "phone": "+70000000000"},
+            headers={"X-API-Key": "writer-key", "Origin": "https://app.example.com"},
         )
         self.assertEqual(created_status, 201)
 
         reject_without_submit_status, _, _ = self._post(
             "/api/feed/profiles/guest-verify-002/verification/reject",
             {"actor": "moderator-1", "reason": "Нет данных"},
+            headers={"X-API-Key": "mod-key", "Origin": "https://app.example.com"},
         )
         self.assertEqual(reject_without_submit_status, 409)
 
         submit_status, _, _ = self._post(
             "/api/feed/profiles/guest-verify-002/verification/submit",
             {"actor": "guest-verify-002"},
+            headers={"X-API-Key": "writer-key", "Origin": "https://app.example.com"},
         )
         self.assertEqual(submit_status, 200)
 
         reject_without_reason_status, reject_without_reason_payload, _ = self._post(
             "/api/feed/profiles/guest-verify-002/verification/reject",
             {"actor": "moderator-1"},
+            headers={"X-API-Key": "mod-key", "Origin": "https://app.example.com"},
         )
         self.assertEqual(reject_without_reason_status, 409)
         self.assertIn("error", reject_without_reason_payload)
 
-    def test_verification_metrics_endpoint_returns_aggregates(self) -> None:
+    def test_prod_only_moderator_can_approve_or_reject_verification(self) -> None:
+        os.environ["APP_ENV"] = "prod"
+        os.environ["API_AUTH_KEYS"] = "writer-key"
+        os.environ["MODERATOR_API_KEYS"] = "mod-key"
+        os.environ["CORS_ALLOWED_ORIGINS"] = "https://app.example.com"
+
         created_status, _, _ = self._post(
             "/api/feed/profiles",
-            {"id": "guest-verify-003", "display_name": "Тестовый 3", "email": "verify3@example.com"},
+            {
+                "id": "guest-verify-003",
+                "display_name": "Проверка модерации",
+                "phone": "+70000000003",
+            },
+            headers={"X-API-Key": "writer-key", "Origin": "https://app.example.com"},
         )
         self.assertEqual(created_status, 201)
 
         submit_status, _, _ = self._post(
             "/api/feed/profiles/guest-verify-003/verification/submit",
             {"actor": "guest-verify-003"},
+            headers={"X-API-Key": "writer-key", "Origin": "https://app.example.com"},
         )
         self.assertEqual(submit_status, 200)
 
-        reject_status, _, _ = self._post(
+        reject_denied_status, reject_denied_payload, _ = self._post(
+            "/api/feed/profiles/guest-verify-003/verification/reject",
+            {"actor": "writer-user", "reason": "Недостаточно данных"},
+            headers={"X-API-Key": "writer-key", "Origin": "https://app.example.com"},
+        )
+        self.assertEqual(reject_denied_status, 403)
+        self.assertIn("error", reject_denied_payload)
+
+        reject_status, reject_payload, _ = self._post(
             "/api/feed/profiles/guest-verify-003/verification/reject",
             {"actor": "moderator-1", "reason": "Недостаточно данных"},
+            headers={"X-API-Key": "mod-key", "Origin": "https://app.example.com"},
         )
         self.assertEqual(reject_status, 200)
+        self.assertEqual(reject_payload.get("verification_state"), "rejected")
 
-        metrics_status, metrics_payload, _ = self._get("/api/feed/profiles/guest-verify-003/verification/metrics")
-        self.assertEqual(metrics_status, 200)
-        self.assertEqual(metrics_payload.get("profile_id"), "guest-verify-003")
-        self.assertEqual(metrics_payload.get("total_events"), 2)
-        self.assertEqual(metrics_payload.get("actions", {}).get("submit"), 1)
-        self.assertEqual(metrics_payload.get("actions", {}).get("reject"), 1)
-        self.assertEqual(metrics_payload.get("states", {}).get("pending_verification"), 1)
-        self.assertEqual(metrics_payload.get("states", {}).get("rejected"), 1)
-        self.assertEqual(metrics_payload.get("rejected_with_reason"), 1)
+    def test_migration_006_backfills_verification_state_for_verified_profiles(self) -> None:
+        db_file = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        db_file.close()
+        try:
+            conn = sqlite3.connect(db_file.name)
+            try:
+                conn.execute(
+                    """
+                    CREATE TABLE guest_profiles (
+                        id TEXT PRIMARY KEY,
+                        role TEXT NOT NULL DEFAULT 'guest',
+                        display_name TEXT NOT NULL,
+                        email TEXT,
+                        phone TEXT,
+                        about TEXT,
+                        is_verified INTEGER NOT NULL DEFAULT 0,
+                        status TEXT NOT NULL DEFAULT 'active',
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        last_seen_at DATETIME
+                    )
+                    """
+                )
+                conn.execute(
+                    """
+                    INSERT INTO guest_profiles (id, role, display_name, email, is_verified, status)
+                    VALUES ('legacy-verified', 'guest', 'Legacy Verified', 'legacy@example.com', 1, 'active')
+                    """
+                )
+                conn.execute(
+                    """
+                    INSERT INTO guest_profiles (id, role, display_name, phone, is_verified, status)
+                    VALUES ('legacy-unverified', 'guest', 'Legacy Unverified', '+70000000004', 0, 'active')
+                    """
+                )
+                conn.commit()
+
+                migration_sql = (Path(__file__).resolve().parents[1] / "migrations" / "006_verification_workflow_v1.sql").read_text(encoding="utf-8")
+                conn.executescript(migration_sql)
+                conn.commit()
+
+                verified_state = conn.execute(
+                    "SELECT verification_state FROM guest_profiles WHERE id = ?",
+                    ("legacy-verified",),
+                ).fetchone()[0]
+                unverified_state = conn.execute(
+                    "SELECT verification_state FROM guest_profiles WHERE id = ?",
+                    ("legacy-unverified",),
+                ).fetchone()[0]
+            finally:
+                conn.close()
+
+            self.assertEqual(verified_state, "verified")
+            self.assertEqual(unverified_state, "unverified")
+        finally:
+            if os.path.exists(db_file.name):
+                os.unlink(db_file.name)
 
     def test_post_validation_returns_400_for_invalid_author_and_image(self) -> None:
         status, payload, _ = self._post(

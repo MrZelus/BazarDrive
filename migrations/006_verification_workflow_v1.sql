@@ -2,6 +2,9 @@ ALTER TABLE guest_profiles ADD COLUMN verification_state TEXT NOT NULL DEFAULT '
 ALTER TABLE guest_profiles ADD COLUMN verification_rejection_reason TEXT;
 ALTER TABLE guest_profiles ADD COLUMN verification_decided_at DATETIME;
 ALTER TABLE guest_profiles ADD COLUMN verification_decided_by TEXT;
+UPDATE guest_profiles
+SET verification_state = 'verified'
+WHERE is_verified = 1;
 
 CREATE TABLE IF NOT EXISTS guest_profile_verification_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
