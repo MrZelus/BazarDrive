@@ -804,6 +804,69 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertIsNone(delete_payload["my_reaction"])
         self.assertEqual(delete_payload["reactions"], {})
 
+    def test_reactions_snapshot_stays_consistent_across_cursor_pages_for_guest(self) -> None:
+        created_post_ids: list[int] = []
+        for idx in range(4):
+            post = repository.create_guest_feed_post(
+                author=f"Reaction Author {idx}",
+                text=f"Пост для реакций в cursor-страницах #{idx}",
+                guest_profile_id=f"guest-react-seq-{idx}",
+            )
+            created_post_ids.append(post["id"])
+
+        first_reacted_id = created_post_ids[0]
+        second_reacted_id = created_post_ids[1]
+
+        first_set_status, _, _ = self._post(
+            f"/api/feed/posts/{first_reacted_id}/reactions",
+            {"guest_profile_id": "guest-react-cursor-a", "type": "like"},
+        )
+        self.assertEqual(first_set_status, 200)
+
+        second_set_status, _, _ = self._post(
+            f"/api/feed/posts/{second_reacted_id}/reactions",
+            {"guest_profile_id": "guest-react-cursor-a", "type": "dislike"},
+        )
+        self.assertEqual(second_set_status, 200)
+
+        second_post_other_guest_status, _, _ = self._post(
+            f"/api/feed/posts/{second_reacted_id}/reactions",
+            {"guest_profile_id": "guest-react-cursor-b", "type": "like"},
+        )
+        self.assertEqual(second_post_other_guest_status, 200)
+
+        expected_by_post_id: dict[int, dict] = {
+            created_post_ids[0]: {"my_reaction": "like", "reactions": {"like": 1}, "likes": 1},
+            created_post_ids[1]: {"my_reaction": "dislike", "reactions": {"dislike": 1, "like": 1}, "likes": 1},
+            created_post_ids[2]: {"my_reaction": None, "reactions": {}, "likes": 0},
+            created_post_ids[3]: {"my_reaction": None, "reactions": {}, "likes": 0},
+        }
+
+        next_cursor: str | None = None
+        seen_items: dict[int, dict] = {}
+        while True:
+            query = "/api/feed/posts?limit=2&guest_profile_id=guest-react-cursor-a"
+            if next_cursor:
+                query = f"{query}&cursor={next_cursor}"
+            status, payload, _ = self._get(query)
+            self.assertEqual(status, 200)
+
+            for item in payload["items"]:
+                seen_items[item["id"]] = item
+
+            if not payload["has_more"]:
+                self.assertIsNone(payload["next_cursor"])
+                break
+
+            self.assertTrue(payload["next_cursor"])
+            next_cursor = payload["next_cursor"]
+
+        self.assertEqual(set(seen_items.keys()), set(created_post_ids))
+        for post_id, expected in expected_by_post_id.items():
+            self.assertEqual(seen_items[post_id]["my_reaction"], expected["my_reaction"])
+            self.assertEqual(seen_items[post_id]["likes"], expected["likes"])
+            self.assertEqual(seen_items[post_id]["reactions"], expected["reactions"])
+
     def test_reactions_plural_endpoint_and_get_snapshot(self) -> None:
         post_status, post_payload, _ = self._post(
             "/api/feed/posts",
