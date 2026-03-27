@@ -134,6 +134,15 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
             re.compile(r"const trustLabel = verificationState === 'verified' \? 'подтверждённый' : 'базовый';"),
         )
 
+    def test_verification_state_resolver_accepts_camel_case_field_from_profile_state(self) -> None:
+        script = Path('web/js/feed.js').read_text(encoding='utf-8')
+        self.assertRegex(
+            script,
+            re.compile(
+                r"const rawState = String\(profile\?\.verification_state \|\| profile\?\.verificationState \|\| ''\)\.trim\(\);",
+            ),
+        )
+
 
 if __name__ == '__main__':
     unittest.main()
