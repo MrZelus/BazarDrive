@@ -1673,7 +1673,7 @@
           phone: payload.phone || profile.phone || '',
           about: payload.about || profile.about || '',
           isVerified: Boolean(payload.is_verified),
-          verificationState: String(payload.verification_state || '').trim(),
+          verificationState: String(payload.verification_state || payload.verificationState || '').trim(),
         };
         localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(localProfile));
         updateGuestProfileStatus();
