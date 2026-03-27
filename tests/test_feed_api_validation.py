@@ -126,6 +126,81 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertIn("error", payload)
 
+    def test_verification_workflow_submit_approve_reject_and_history(self) -> None:
+        status, payload, _ = self._post(
+            "/api/feed/profiles",
+            {
+                "id": "guest-verify-001",
+                "display_name": "Водитель Тест",
+                "email": "driver@example.com",
+                "verification_state": "unverified",
+            },
+        )
+        self.assertEqual(status, 201)
+        self.assertEqual(payload.get("verification_state"), "unverified")
+
+        submit_status, submit_payload, _ = self._post(
+            "/api/feed/profiles/guest-verify-001/verification/submit",
+            {"actor": "guest-verify-001"},
+        )
+        self.assertEqual(submit_status, 200)
+        self.assertEqual(submit_payload.get("verification_state"), "pending_verification")
+
+        reject_status, reject_payload, _ = self._post(
+            "/api/feed/profiles/guest-verify-001/verification/reject",
+            {"actor": "moderator-1", "reason": "Фото документа размыто"},
+        )
+        self.assertEqual(reject_status, 200)
+        self.assertEqual(reject_payload.get("verification_state"), "rejected")
+        self.assertEqual(reject_payload.get("verification_rejection_reason"), "Фото документа размыто")
+
+        resubmit_status, resubmit_payload, _ = self._post(
+            "/api/feed/profiles/guest-verify-001/verification/submit",
+            {"actor": "guest-verify-001"},
+        )
+        self.assertEqual(resubmit_status, 200)
+        self.assertEqual(resubmit_payload.get("verification_state"), "pending_verification")
+
+        approve_status, approve_payload, _ = self._post(
+            "/api/feed/profiles/guest-verify-001/verification/approve",
+            {"actor": "moderator-2"},
+        )
+        self.assertEqual(approve_status, 200)
+        self.assertEqual(approve_payload.get("verification_state"), "verified")
+        self.assertTrue(bool(approve_payload.get("is_verified")))
+
+        profile_status, profile_payload, _ = self._get("/api/feed/profiles/guest-verify-001")
+        self.assertEqual(profile_status, 200)
+        self.assertEqual(profile_payload.get("verification_state"), "verified")
+        self.assertIn("verification_history", profile_payload)
+        self.assertGreaterEqual(len(profile_payload.get("verification_history", [])), 4)
+
+    def test_verification_reject_requires_reason_and_enforces_state_transitions(self) -> None:
+        created_status, _, _ = self._post(
+            "/api/feed/profiles",
+            {"id": "guest-verify-002", "display_name": "Тестовый", "phone": "+70000000000"},
+        )
+        self.assertEqual(created_status, 201)
+
+        reject_without_submit_status, _, _ = self._post(
+            "/api/feed/profiles/guest-verify-002/verification/reject",
+            {"actor": "moderator-1", "reason": "Нет данных"},
+        )
+        self.assertEqual(reject_without_submit_status, 409)
+
+        submit_status, _, _ = self._post(
+            "/api/feed/profiles/guest-verify-002/verification/submit",
+            {"actor": "guest-verify-002"},
+        )
+        self.assertEqual(submit_status, 200)
+
+        reject_without_reason_status, reject_without_reason_payload, _ = self._post(
+            "/api/feed/profiles/guest-verify-002/verification/reject",
+            {"actor": "moderator-1"},
+        )
+        self.assertEqual(reject_without_reason_status, 409)
+        self.assertIn("error", reject_without_reason_payload)
+
     def test_post_validation_returns_400_for_invalid_author_and_image(self) -> None:
         status, payload, _ = self._post(
             "/api/feed/posts",

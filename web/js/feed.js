@@ -219,9 +219,11 @@
     const profilePhoneInput = document.getElementById('profilePhone');
 	    const profileAboutInput = document.getElementById('profileAbout');
     const saveProfileBtn = document.getElementById('saveProfileBtn');
-	    const guestProfileStatus = document.getElementById('guestProfileStatus');
+    const guestProfileStatus = document.getElementById('guestProfileStatus');
     const profileVerificationBadge = document.getElementById('profileVerificationBadge');
     const profileTrustBadge = document.getElementById('profileTrustBadge');
+    const profileVerificationReason = document.getElementById('profileVerificationReason');
+    const profileVerificationResubmitBtn = document.getElementById('profileVerificationResubmitBtn');
     const driverDocumentsSection = document.getElementById('driverDocumentsSection');
 	    const addDocumentBtn = document.getElementById('addDocumentBtn');
     const addDocumentForm = document.getElementById('addDocumentForm');
@@ -847,6 +849,50 @@
       if (profileTrustBadge) {
         const trustLabel = verificationState === 'verified' ? 'подтверждённый' : 'базовый';
         profileTrustBadge.textContent = `Trust badge: ${trustLabel}`;
+      }
+      if (profileVerificationReason) {
+        const reason = String(profile?.verification_rejection_reason || profile?.verificationRejectionReason || '').trim();
+        const showReason = verificationState === 'rejected' && reason;
+        profileVerificationReason.classList.toggle('hidden', !showReason);
+        profileVerificationReason.textContent = showReason ? `Причина отклонения: ${reason}` : '';
+      }
+      if (profileVerificationResubmitBtn) {
+        const canResubmit = verificationState === 'rejected';
+        profileVerificationResubmitBtn.classList.toggle('hidden', !canResubmit);
+      }
+    }
+
+    async function submitProfileForResubmission() {
+      const profile = getStoredGuestProfile();
+      const profileId = String(profile.id || '').trim();
+      if (!profileId) {
+        showAppNotification('Сначала сохраните профиль публикации.', 'error');
+        return;
+      }
+      setButtonBusyState(profileVerificationResubmitBtn, true, 'Отправка...');
+      try {
+        const response = await fetch(`${FEED_API_BASE}/api/feed/profiles/${encodeURIComponent(profileId)}/verification/submit`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ actor: profileId }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload.error || `Не удалось отправить на повторную проверку (HTTP ${response.status})`);
+        }
+        localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify({
+          ...profile,
+          isVerified: Boolean(payload.is_verified),
+          verificationState: String(payload.verification_state || payload.verificationState || '').trim(),
+          verificationRejectionReason: String(payload.verification_rejection_reason || '').trim(),
+        }));
+        updateGuestProfileStatus();
+        showAppNotification('Профиль повторно отправлен на проверку.', 'success');
+      } catch (error) {
+        console.error(error);
+        showAppNotification(error.message || 'Не удалось отправить профиль на повторную проверку.', 'error');
+      } finally {
+        setButtonBusyState(profileVerificationResubmitBtn, false, '', 'Отправить на повторную проверку');
       }
     }
     
@@ -1674,6 +1720,7 @@
           about: payload.about || profile.about || '',
           isVerified: Boolean(payload.is_verified),
           verificationState: String(payload.verification_state || payload.verificationState || '').trim(),
+          verificationRejectionReason: String(payload.verification_rejection_reason || payload.verificationRejectionReason || '').trim(),
         };
         localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(localProfile));
         updateGuestProfileStatus();
@@ -1756,6 +1803,7 @@
       renderDocs(event.target.value);
     });
     saveProfileBtn.addEventListener('click', saveGuestProfile);
+    profileVerificationResubmitBtn?.addEventListener('click', submitProfileForResubmission);
     addDocumentBtn?.addEventListener('click', () => toggleDocumentForm(true));
     driverAddDocumentBtn?.addEventListener('click', () => {
       setActiveProfileTab('documents');

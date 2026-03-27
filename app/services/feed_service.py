@@ -405,6 +405,10 @@ class FeedService:
         role = str(payload.get("role", "guest_author")).strip() or "guest_author"
         status = str(payload.get("status", "active")).strip() or "active"
         is_verified = bool(payload.get("is_verified", False))
+        verification_state_raw = str(payload.get("verification_state", payload.get("verificationState", ""))).strip().lower()
+        verification_state = verification_state_raw or ("verified" if is_verified else "unverified")
+        if verification_state not in {"unverified", "pending_verification", "verified", "rejected", "expired"}:
+            raise ValueError("Некорректное значение verification_state")
 
         if len(profile_id) < 8:
             raise ValueError("Некорректный id профиля")
@@ -434,6 +438,7 @@ class FeedService:
             "role": role,
             "status": status,
             "is_verified": is_verified,
+            "verification_state": verification_state,
         }
 
 

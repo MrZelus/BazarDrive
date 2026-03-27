@@ -46,8 +46,11 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
         script = Path('web/js/feed.js').read_text(encoding='utf-8')
         self.assertIn('id="profileVerificationBadge"', html)
         self.assertIn('id="profileTrustBadge"', html)
+        self.assertIn('id="profileVerificationReason"', html)
+        self.assertIn('id="profileVerificationResubmitBtn"', html)
         self.assertIn('function resolveVerificationState(profile)', script)
         self.assertIn('function renderProfileTrustSignals(profile)', script)
+        self.assertIn('async function submitProfileForResubmission()', script)
         self.assertIn('pending_verification', script)
         self.assertIn('verification_state', script)
 

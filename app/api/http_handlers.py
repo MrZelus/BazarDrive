@@ -464,6 +464,16 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             self._send_json(200, {"items": items, "limit": limit, "offset": offset, "total": total})
             return
 
+        verification_history_suffix = "/verification/history"
+        if path.startswith("/api/feed/profiles/") and path.endswith(verification_history_suffix):
+            profile_id = path[len("/api/feed/profiles/") : -len(verification_history_suffix)].strip()
+            if not profile_id:
+                self._send_json(400, {"error": "Некорректный id профиля"})
+                return
+            history = repository.get_guest_profile_verification_history(profile_id)
+            self._send_json(200, {"items": history, "total": len(history)})
+            return
+
         if path.startswith("/api/feed/profiles/"):
             profile_id = path[len("/api/feed/profiles/") :].strip()
             if not profile_id:
@@ -473,6 +483,7 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             if not profile:
                 self._send_json(404, {"error": "Профиль не найден"})
                 return
+            profile["verification_history"] = repository.get_guest_profile_verification_history(profile_id)
             self._send_json(200, profile)
             return
 
@@ -539,6 +550,49 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
                 self._send_json(400, {"error": str(error)})
                 return
             self._send_json(201, profile)
+            return
+
+        verification_prefix = "/api/feed/profiles/"
+        if path.startswith(verification_prefix) and path.endswith("/verification/submit"):
+            profile_id = path[len(verification_prefix) : -len("/verification/submit")].strip()
+            if not profile_id:
+                self._send_json(400, {"error": "Некорректный id профиля"})
+                return
+            actor = str(payload.get("actor", getattr(self, "write_auth_context", None).subject if getattr(self, "write_auth_context", None) else "anonymous")).strip() or "anonymous"
+            try:
+                updated = repository.apply_guest_profile_verification_action(profile_id=profile_id, action="submit", actor=actor)
+            except ValueError as error:
+                self._send_json(409, {"error": str(error)})
+                return
+            if not updated:
+                self._send_json(404, {"error": "Профиль не найден"})
+                return
+            self._send_json(200, updated)
+            return
+
+        if path.startswith(verification_prefix) and (path.endswith("/verification/approve") or path.endswith("/verification/reject")):
+            profile_id = path[len(verification_prefix) :]
+            action = "approve" if profile_id.endswith("/verification/approve") else "reject"
+            profile_id = profile_id[: -len(f"/verification/{action}")].strip()
+            if not profile_id:
+                self._send_json(400, {"error": "Некорректный id профиля"})
+                return
+            actor = str(payload.get("actor", getattr(self, "write_auth_context", None).subject if getattr(self, "write_auth_context", None) else "anonymous")).strip() or "anonymous"
+            reason = str(payload.get("reason", "")).strip() or None
+            try:
+                updated = repository.apply_guest_profile_verification_action(
+                    profile_id=profile_id,
+                    action=action,
+                    actor=actor,
+                    reason=reason,
+                )
+            except ValueError as error:
+                self._send_json(409, {"error": str(error)})
+                return
+            if not updated:
+                self._send_json(404, {"error": "Профиль не найден"})
+                return
+            self._send_json(200, updated)
             return
 
         react_prefix = "/api/feed/posts/"

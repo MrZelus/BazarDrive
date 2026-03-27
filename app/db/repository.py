@@ -7,6 +7,19 @@ DB_PATH_ENV_VAR = "BAZAR_DB_PATH"
 DEFAULT_DB_PATH = "bot.db"
 
 
+
+VERIFICATION_STATES = {"unverified", "pending_verification", "verified", "rejected", "expired"}
+VERIFICATION_TRANSITIONS: dict[str, set[str]] = {
+    "submit": {"unverified", "rejected", "expired"},
+    "approve": {"pending_verification"},
+    "reject": {"pending_verification"},
+}
+VERIFICATION_TARGET_STATES = {
+    "submit": "pending_verification",
+    "approve": "verified",
+    "reject": "rejected",
+}
+
 def get_db_path() -> str:
     return os.getenv(DB_PATH_ENV_VAR, DEFAULT_DB_PATH)
 
@@ -746,7 +759,14 @@ def upsert_guest_profile(
     role: str = "guest_author",
     status: str = "active",
     is_verified: bool = False,
+    verification_state: str | None = None,
 ) -> dict[str, Any]:
+    normalized_state = str(verification_state or "").strip().lower()
+    if not normalized_state:
+        normalized_state = "verified" if is_verified else "unverified"
+    if normalized_state not in VERIFICATION_STATES:
+        normalized_state = "verified" if is_verified else "unverified"
+
     with closing(sqlite3.connect(get_db_path())) as conn:
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
@@ -761,11 +781,12 @@ def upsert_guest_profile(
                 about,
                 is_verified,
                 status,
+                verification_state,
                 created_at,
                 updated_at,
                 last_seen_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
             ON CONFLICT(id) DO UPDATE SET
                 role = excluded.role,
                 display_name = excluded.display_name,
@@ -774,16 +795,17 @@ def upsert_guest_profile(
                 about = excluded.about,
                 is_verified = excluded.is_verified,
                 status = excluded.status,
+                verification_state = excluded.verification_state,
                 updated_at = CURRENT_TIMESTAMP,
                 last_seen_at = CURRENT_TIMESTAMP
             """,
-            (profile_id, role, display_name, email, phone, about, 1 if is_verified else 0, status),
+            (profile_id, role, display_name, email, phone, about, 1 if is_verified else 0, status, normalized_state),
         )
         conn.commit()
 
         cur.execute(
             """
-            SELECT id, role, display_name, email, phone, about, is_verified, status, created_at, updated_at, last_seen_at
+            SELECT id, role, display_name, email, phone, about, is_verified, status, verification_state, verification_rejection_reason, verification_decided_at, verification_decided_by, created_at, updated_at, last_seen_at
             FROM guest_profiles
             WHERE id = ?
             """,
@@ -799,7 +821,7 @@ def get_guest_profile(profile_id: str) -> Optional[dict[str, Any]]:
         cur = conn.cursor()
         cur.execute(
             """
-            SELECT id, role, display_name, email, phone, about, is_verified, status, created_at, updated_at, last_seen_at
+            SELECT id, role, display_name, email, phone, about, is_verified, status, verification_state, verification_rejection_reason, verification_decided_at, verification_decided_by, created_at, updated_at, last_seen_at
             FROM guest_profiles
             WHERE id = ?
             """,
@@ -808,6 +830,96 @@ def get_guest_profile(profile_id: str) -> Optional[dict[str, Any]]:
         row = cur.fetchone()
         return dict(row) if row else None
 
+
+
+def get_guest_profile_verification_history(profile_id: str, limit: int = 50) -> list[dict[str, Any]]:
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT id, profile_id, from_state, to_state, action, reason, actor, created_at
+            FROM guest_profile_verification_history
+            WHERE profile_id = ?
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (profile_id, limit),
+        )
+        return [dict(row) for row in cur.fetchall()]
+
+
+def apply_guest_profile_verification_action(
+    profile_id: str,
+    action: str,
+    actor: str,
+    reason: str | None = None,
+) -> dict[str, Any] | None:
+    normalized_action = str(action).strip().lower()
+    if normalized_action not in VERIFICATION_TRANSITIONS:
+        raise ValueError("Некорректное действие верификации")
+
+    cleaned_reason = str(reason or "").strip() or None
+
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT id, verification_state, is_verified
+            FROM guest_profiles
+            WHERE id = ?
+            """,
+            (profile_id,),
+        )
+        row = cur.fetchone()
+        if not row:
+            return None
+
+        current_state = str(row["verification_state"] or "").strip().lower() or ("verified" if row["is_verified"] else "unverified")
+        allowed_from = VERIFICATION_TRANSITIONS[normalized_action]
+        if current_state not in allowed_from:
+            raise ValueError("Переход состояния верификации запрещён")
+
+        if normalized_action == "reject" and not cleaned_reason:
+            raise ValueError("Для отклонения требуется указать reason")
+
+        next_state = VERIFICATION_TARGET_STATES[normalized_action]
+        is_verified = 1 if next_state == "verified" else 0
+        rejection_reason = cleaned_reason if normalized_action == "reject" else None
+
+        cur.execute(
+            """
+            UPDATE guest_profiles
+            SET verification_state = ?,
+                verification_rejection_reason = ?,
+                verification_decided_at = CURRENT_TIMESTAMP,
+                verification_decided_by = ?,
+                is_verified = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (next_state, rejection_reason, actor, is_verified, profile_id),
+        )
+        cur.execute(
+            """
+            INSERT INTO guest_profile_verification_history (profile_id, from_state, to_state, action, reason, actor)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (profile_id, current_state, next_state, normalized_action, cleaned_reason, actor),
+        )
+        conn.commit()
+
+        cur.execute(
+            """
+            SELECT id, role, display_name, email, phone, about, is_verified, status, verification_state, verification_rejection_reason, verification_decided_at, verification_decided_by, created_at, updated_at, last_seen_at
+            FROM guest_profiles
+            WHERE id = ?
+            """,
+            (profile_id,),
+        )
+        updated = cur.fetchone()
+        return dict(updated) if updated else None
 
 
 def list_driver_documents(profile_id: str = "driver-main") -> list[dict[str, Any]]:
