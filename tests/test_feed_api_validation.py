@@ -1057,6 +1057,34 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertEqual(len(payload_city.get("items", [])), 1)
         self.assertIn("МОСКВА", payload_city["items"][0]["text"])
 
+    def test_feed_cursor_search_is_case_insensitive_for_cyrillic(self) -> None:
+        repository.create_guest_feed_post(author="Автор А", text="Попутка в МОСКВА", guest_profile_id="guest-search-ru-cursor")
+        repository.create_guest_feed_post(author="Автор Б", text="Без совпадений", guest_profile_id="guest-search-ru-cursor")
+        repository.create_guest_feed_post(author="Автор В", text="Вечером в Москва", guest_profile_id="guest-search-ru-cursor")
+
+        first_status, first_payload, _ = self._get("/api/feed/posts?limit=1&q=%D0%BC%D0%BE%D1%81%D0%BA%D0%B2%D0%B0")
+        self.assertEqual(first_status, 200)
+        self.assertEqual(first_payload.get("total"), 2)
+        self.assertEqual(len(first_payload.get("items", [])), 1)
+        self.assertTrue(first_payload.get("has_more"))
+        self.assertTrue(first_payload.get("next_cursor"))
+
+        next_cursor = first_payload["next_cursor"]
+        second_status, second_payload, _ = self._get(
+            f"/api/feed/posts?limit=1&q=%D0%BC%D0%BE%D1%81%D0%BA%D0%B2%D0%B0&cursor={next_cursor}"
+        )
+        self.assertEqual(second_status, 200)
+        self.assertEqual(second_payload.get("total"), 2)
+        self.assertEqual(len(second_payload.get("items", [])), 1)
+        self.assertFalse(second_payload.get("has_more"))
+        self.assertIsNone(second_payload.get("next_cursor"))
+
+        first_ids = {int(item["id"]) for item in first_payload["items"]}
+        second_ids = {int(item["id"]) for item in second_payload["items"]}
+        self.assertEqual(len(first_ids.intersection(second_ids)), 0)
+        self.assertIn("москва", str(first_payload["items"][0]["text"]).casefold())
+        self.assertIn("москва", str(second_payload["items"][0]["text"]).casefold())
+
     def test_feed_cursor_pagination_invalid_cursor_returns_400(self) -> None:
         repository.create_guest_feed_post(author="Author", text="Post", guest_profile_id="guest-cursor")
         status, payload, _ = self._get("/api/feed/posts?limit=2&cursor=not-valid")
