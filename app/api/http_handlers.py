@@ -436,6 +436,22 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             )
             return
 
+        reactions_prefix = "/api/feed/posts/"
+        if path.startswith(reactions_prefix) and path.endswith("/reactions"):
+            post_id_raw = path[len(reactions_prefix) : -len("/reactions")]
+            if not post_id_raw.isdigit() or int(post_id_raw) <= 0:
+                self._send_json(400, {"error": "Некорректный id поста"})
+                return
+            params = parse_qs(parsed.query)
+            guest_profile_id = str(params.get("guest_profile_id", [""])[0]).strip() or None
+            try:
+                item = FeedService.get_post_reactions(post_id=int(post_id_raw), guest_profile_id=guest_profile_id)
+            except LookupError as error:
+                self._send_json(404, {"error": str(error)})
+                return
+            self._send_json(200, item)
+            return
+
         comments_prefix = "/api/feed/posts/"
         if path.startswith(comments_prefix) and path.endswith("/comments"):
             suffix = path[len(comments_prefix) :]
@@ -627,9 +643,14 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             return
 
         react_prefix = "/api/feed/posts/"
-        if path.startswith(react_prefix) and path.endswith("/react"):
+        react_path_suffix = "/react"
+        reactions_path_suffix = "/reactions"
+        if path.startswith(react_prefix) and (path.endswith(react_path_suffix) or path.endswith(reactions_path_suffix)):
             suffix = path[len(react_prefix) :]
-            post_id_raw = suffix[: -len("/react")]
+            if suffix.endswith(reactions_path_suffix):
+                post_id_raw = suffix[: -len(reactions_path_suffix)]
+            else:
+                post_id_raw = suffix[: -len(react_path_suffix)]
             if not post_id_raw.isdigit() or int(post_id_raw) <= 0:
                 self._send_json(400, {"error": "Некорректный id поста"})
                 return
@@ -805,8 +826,13 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
     def _handle_delete(self) -> None:
         path = urlparse(self.path).path
         posts_prefix = "/api/feed/posts/"
-        if path.startswith(posts_prefix) and path.endswith("/react"):
-            post_id_raw = path[len(posts_prefix) : -len("/react")]
+        react_path_suffix = "/react"
+        reactions_path_suffix = "/reactions"
+        if path.startswith(posts_prefix) and (path.endswith(react_path_suffix) or path.endswith(reactions_path_suffix)):
+            if path.endswith(reactions_path_suffix):
+                post_id_raw = path[len(posts_prefix) : -len(reactions_path_suffix)]
+            else:
+                post_id_raw = path[len(posts_prefix) : -len(react_path_suffix)]
             if not post_id_raw.isdigit() or int(post_id_raw) <= 0:
                 self._send_json(400, {"error": "Некорректный id поста"})
                 return

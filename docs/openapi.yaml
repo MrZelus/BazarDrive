@@ -292,6 +292,118 @@ paths:
   /api/feed/posts/{id}/react:
     post:
       tags: [Feed]
+      deprecated: true
+      summary: Поставить или заменить реакцию на пост
+      description: |
+        Legacy endpoint (backward compatibility). Для новых интеграций используйте
+        `POST /api/feed/posts/{id}/reactions`.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetReactionRequest'
+      responses:
+        '200':
+          description: Реакция установлена (идемпотентно)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostReactionsResponse'
+        '400':
+          description: Ошибка валидации реакции
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        '401':
+          description: В prod для write-операций не переданы или невалидны auth credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+        '404':
+          description: Пост не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+    delete:
+      tags: [Feed]
+      deprecated: true
+      summary: Снять реакцию с поста
+      description: |
+        Legacy endpoint (backward compatibility). Для новых интеграций используйте
+        `DELETE /api/feed/posts/{id}/reactions`.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteReactionRequest'
+      responses:
+        '200':
+          description: Реакция снята (идемпотентно)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostReactionsResponse'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        '401':
+          description: В prod для write-операций не переданы или невалидны auth credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+        '404':
+          description: Пост не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+
+  /api/feed/posts/{id}/reactions:
+    get:
+      tags: [Feed]
+      summary: Получить агрегированные реакции по посту
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - in: query
+          name: guest_profile_id
+          schema: { type: string }
+      responses:
+        '200':
+          description: Агрегаты и реакция текущего гостя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostReactionsResponse'
+        '404':
+          description: Пост не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+    post:
+      tags: [Feed]
       summary: Поставить или заменить реакцию на пост
       parameters:
         - in: path
@@ -362,32 +474,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthErrorResponse'
-        '404':
-          description: Пост не найден
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorMessage'
-
-  /api/feed/posts/{id}/reactions:
-    get:
-      tags: [Feed]
-      summary: Получить агрегированные реакции по посту
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: integer, minimum: 1 }
-        - in: query
-          name: guest_profile_id
-          schema: { type: string }
-      responses:
-        '200':
-          description: Агрегаты и реакция текущего гостя
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PostReactionsResponse'
         '404':
           description: Пост не найден
           content:

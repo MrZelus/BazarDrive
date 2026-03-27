@@ -21,6 +21,10 @@ class FeedDocsBundleTests(unittest.TestCase):
     def test_openapi_covers_core_feed_endpoints(self) -> None:
         self.assertIn('/api/feed/posts:', self.openapi)
         self.assertIn('/api/feed/profiles:', self.openapi)
+        self.assertIn('/api/feed/posts/{id}/react:', self.openapi)
+        self.assertIn('deprecated: true', self.openapi)
+        self.assertIn('/api/feed/posts/{id}/reactions:', self.openapi)
+        self.assertIn('summary: Поставить или заменить реакцию на пост', self.openapi)
         self.assertIn('/api/feed/approved:', self.openapi)
         self.assertIn('/api/feed/publication-rules:', self.openapi)
         self.assertIn('/api/driver/documents:', self.openapi)
@@ -28,12 +32,17 @@ class FeedDocsBundleTests(unittest.TestCase):
     def test_qa_doc_contains_smoke_and_regression_sections(self) -> None:
         self.assertIn('## 1) Smoke (быстрый прогон)', self.qa)
         self.assertIn('## 2) Регрессия (обязательный набор)', self.qa)
+        self.assertIn('### Взаимодействия в ленте (реакции, комментарии, поиск)', self.qa)
+        self.assertIn('publish -> moderation -> approved', self.qa)
         self.assertIn('## 3) Автотесты (локальный минимум)', self.qa)
 
     def test_flow_doc_has_navigation_map_section(self) -> None:
         self.assertIn('## 1) Карта переходов между разделами', self.flow)
         self.assertIn('## 1) Карта навигации (основной сценарий)', self.navigation_flow)
         self.assertIn('flow_id,title,priority,component,preconditions,steps,expected_result', self.qa_csv)
+        self.assertIn('FLW-007,Серверные реакции восстанавливаются после reload', self.qa_csv)
+        self.assertIn('FLW-009,CRUD комментариев только для автора', self.qa_csv)
+        self.assertIn('FLW-012,Infinite scroll/pagination без пропусков', self.qa_csv)
 
 
 if __name__ == '__main__':
