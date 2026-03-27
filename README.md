@@ -110,7 +110,7 @@
 - QA-набор (smoke + регрессия): `docs/feed_qa_regression.md`.
 - CSV для импорта QA-кейсов в тест-менеджер: `docs/feed_qa_cases.csv`.
 - План автоматизации и декомпозиции по эпику #172: `docs/issues/172-documents-trust-automation-plan.md`.
-- Архив постановки по загрузке фото в ленту: `docs/issues/182-upload-photo-issue.md`.
+- Архив постановки по загрузке фото в ленту: `docs/issues/upload_photo_issue.md`.
 
 
 ### Миграции базы данных
