@@ -474,6 +474,16 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             self._send_json(200, {"items": history, "total": len(history)})
             return
 
+        verification_metrics_suffix = "/verification/metrics"
+        if path.startswith("/api/feed/profiles/") and path.endswith(verification_metrics_suffix):
+            profile_id = path[len("/api/feed/profiles/") : -len(verification_metrics_suffix)].strip()
+            if not profile_id:
+                self._send_json(400, {"error": "Некорректный id профиля"})
+                return
+            metrics = repository.get_guest_profile_verification_metrics(profile_id)
+            self._send_json(200, metrics)
+            return
+
         if path.startswith("/api/feed/profiles/"):
             profile_id = path[len("/api/feed/profiles/") :].strip()
             if not profile_id:
@@ -567,6 +577,16 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             if not updated:
                 self._send_json(404, {"error": "Профиль не найден"})
                 return
+            logger.info(
+                "verification.transition",
+                extra={
+                    **self._request_log_extra(),
+                    "verification_action": "submit",
+                    "verification_profile_id": profile_id,
+                    "verification_actor": actor,
+                    "verification_to_state": str(updated.get("verification_state", "")),
+                },
+            )
             self._send_json(200, updated)
             return
 
@@ -592,6 +612,17 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             if not updated:
                 self._send_json(404, {"error": "Профиль не найден"})
                 return
+            logger.info(
+                "verification.transition",
+                extra={
+                    **self._request_log_extra(),
+                    "verification_action": action,
+                    "verification_profile_id": profile_id,
+                    "verification_actor": actor,
+                    "verification_reason_present": bool(reason),
+                    "verification_to_state": str(updated.get("verification_state", "")),
+                },
+            )
             self._send_json(200, updated)
             return
 
