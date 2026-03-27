@@ -60,6 +60,17 @@
             </button>
           </div>
         </div>
+        <div class="mb-4 rounded-2xl bg-panel p-4 border border-textSoft/25">
+          <label for="feedSearch" class="mb-2 block text-sm font-medium text-textSoft">Поиск по ленте</label>
+          <input
+            id="feedSearch"
+            type="search"
+            placeholder="Например: taxi, аэропорт, центр"
+            aria-describedby="feedSearchStatus"
+            class="h-11 w-full rounded-xl border border-textSoft/20 bg-panelSoft px-4 text-sm outline-none transition focus:border-accent"
+          />
+          <p id="feedSearchStatus" class="mt-2 text-xs text-textSoft" role="status" aria-live="polite"></p>
+        </div>
         <section id="feed" class="space-y-3"></section>
       </section>
 

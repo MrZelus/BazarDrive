@@ -184,19 +184,33 @@ def list_approved_posts(limit: int = 50, offset: int = 0, include_ads: bool = Tr
         return [dict(row) for row in cur.fetchall()]
 
 
-def list_guest_feed_posts(limit: int = 20, offset: int = 0) -> list[dict[str, Any]]:
+def list_guest_feed_posts(limit: int = 20, offset: int = 0, search_query: Optional[str] = None) -> list[dict[str, Any]]:
     with closing(sqlite3.connect(get_db_path())) as conn:
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
-        cur.execute(
-            """
-            SELECT id, author, text, guest_profile_id, likes, image_url, created_at, updated_at
-            FROM guest_feed_posts
-            ORDER BY datetime(created_at) DESC, id DESC
-            LIMIT ? OFFSET ?
-            """,
-            (limit, offset),
-        )
+        normalized_query = str(search_query or "").strip().lower()
+        if normalized_query:
+            like_pattern = f"%{normalized_query}%"
+            cur.execute(
+                """
+                SELECT id, author, text, guest_profile_id, likes, image_url, created_at, updated_at
+                FROM guest_feed_posts
+                WHERE lower(author) LIKE ? OR lower(text) LIKE ?
+                ORDER BY datetime(created_at) DESC, id DESC
+                LIMIT ? OFFSET ?
+                """,
+                (like_pattern, like_pattern, limit, offset),
+            )
+        else:
+            cur.execute(
+                """
+                SELECT id, author, text, guest_profile_id, likes, image_url, created_at, updated_at
+                FROM guest_feed_posts
+                ORDER BY datetime(created_at) DESC, id DESC
+                LIMIT ? OFFSET ?
+                """,
+                (limit, offset),
+            )
         posts = [dict(row) for row in cur.fetchall()]
         return _attach_guest_feed_post_media(conn, posts)
 
@@ -205,40 +219,80 @@ def list_guest_feed_posts_by_cursor(
     limit: int = 20,
     cursor_created_at: Optional[str] = None,
     cursor_id: Optional[int] = None,
+    search_query: Optional[str] = None,
 ) -> list[dict[str, Any]]:
     with closing(sqlite3.connect(get_db_path())) as conn:
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
+        normalized_query = str(search_query or "").strip().lower()
         if cursor_created_at is None or cursor_id is None:
-            cur.execute(
-                """
-                SELECT id, author, text, guest_profile_id, likes, image_url, created_at, updated_at
-                FROM guest_feed_posts
-                ORDER BY datetime(created_at) DESC, id DESC
-                LIMIT ?
-                """,
-                (limit,),
-            )
+            if normalized_query:
+                like_pattern = f"%{normalized_query}%"
+                cur.execute(
+                    """
+                    SELECT id, author, text, guest_profile_id, likes, image_url, created_at, updated_at
+                    FROM guest_feed_posts
+                    WHERE lower(author) LIKE ? OR lower(text) LIKE ?
+                    ORDER BY datetime(created_at) DESC, id DESC
+                    LIMIT ?
+                    """,
+                    (like_pattern, like_pattern, limit),
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT id, author, text, guest_profile_id, likes, image_url, created_at, updated_at
+                    FROM guest_feed_posts
+                    ORDER BY datetime(created_at) DESC, id DESC
+                    LIMIT ?
+                    """,
+                    (limit,),
+                )
         else:
-            cur.execute(
-                """
-                SELECT id, author, text, guest_profile_id, likes, image_url, created_at, updated_at
-                FROM guest_feed_posts
-                WHERE datetime(created_at) < datetime(?)
-                   OR (datetime(created_at) = datetime(?) AND id < ?)
-                ORDER BY datetime(created_at) DESC, id DESC
-                LIMIT ?
-                """,
-                (cursor_created_at, cursor_created_at, cursor_id, limit),
-            )
+            if normalized_query:
+                like_pattern = f"%{normalized_query}%"
+                cur.execute(
+                    """
+                    SELECT id, author, text, guest_profile_id, likes, image_url, created_at, updated_at
+                    FROM guest_feed_posts
+                    WHERE (lower(author) LIKE ? OR lower(text) LIKE ?)
+                      AND (
+                        datetime(created_at) < datetime(?)
+                        OR (datetime(created_at) = datetime(?) AND id < ?)
+                      )
+                    ORDER BY datetime(created_at) DESC, id DESC
+                    LIMIT ?
+                    """,
+                    (like_pattern, like_pattern, cursor_created_at, cursor_created_at, cursor_id, limit),
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT id, author, text, guest_profile_id, likes, image_url, created_at, updated_at
+                    FROM guest_feed_posts
+                    WHERE datetime(created_at) < datetime(?)
+                       OR (datetime(created_at) = datetime(?) AND id < ?)
+                    ORDER BY datetime(created_at) DESC, id DESC
+                    LIMIT ?
+                    """,
+                    (cursor_created_at, cursor_created_at, cursor_id, limit),
+                )
         posts = [dict(row) for row in cur.fetchall()]
         return _attach_guest_feed_post_media(conn, posts)
 
 
-def count_guest_feed_posts() -> int:
+def count_guest_feed_posts(search_query: Optional[str] = None) -> int:
     with closing(sqlite3.connect(get_db_path())) as conn:
         cur = conn.cursor()
-        cur.execute("SELECT COUNT(*) FROM guest_feed_posts")
+        normalized_query = str(search_query or "").strip().lower()
+        if normalized_query:
+            like_pattern = f"%{normalized_query}%"
+            cur.execute(
+                "SELECT COUNT(*) FROM guest_feed_posts WHERE lower(author) LIKE ? OR lower(text) LIKE ?",
+                (like_pattern, like_pattern),
+            )
+        else:
+            cur.execute("SELECT COUNT(*) FROM guest_feed_posts")
         row = cur.fetchone()
         return int(row[0]) if row else 0
 
