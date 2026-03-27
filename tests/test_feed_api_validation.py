@@ -899,6 +899,87 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertEqual(payload["likes"], 1)
         self.assertEqual(payload["my_reaction"], "like")
 
+    def test_feed_cursor_pagination_returns_stable_non_duplicated_sequence(self) -> None:
+        expected_ids: list[int] = []
+        for idx in range(7):
+            created = repository.create_guest_feed_post(
+                author=f"Author {idx}",
+                text=f"Пост для cursor pagination #{idx}",
+                guest_profile_id=f"guest-cursor-{idx}",
+            )
+            expected_ids.append(created["id"])
+        expected_ids.sort(reverse=True)
+
+        status_page1, payload_page1, _ = self._get("/api/feed/posts?limit=3")
+        self.assertEqual(status_page1, 200)
+        page1_ids = [item["id"] for item in payload_page1["items"]]
+        self.assertEqual(page1_ids, expected_ids[:3])
+        self.assertTrue(payload_page1["has_more"])
+        self.assertIsNotNone(payload_page1["next_cursor"])
+
+        status_page2, payload_page2, _ = self._get(f"/api/feed/posts?limit=3&cursor={payload_page1['next_cursor']}")
+        self.assertEqual(status_page2, 200)
+        page2_ids = [item["id"] for item in payload_page2["items"]]
+        self.assertEqual(page2_ids, expected_ids[3:6])
+        self.assertTrue(payload_page2["has_more"])
+        self.assertIsNotNone(payload_page2["next_cursor"])
+
+        status_page3, payload_page3, _ = self._get(f"/api/feed/posts?limit=3&cursor={payload_page2['next_cursor']}")
+        self.assertEqual(status_page3, 200)
+        page3_ids = [item["id"] for item in payload_page3["items"]]
+        self.assertEqual(page3_ids, expected_ids[6:])
+        self.assertFalse(payload_page3["has_more"])
+        self.assertIsNone(payload_page3["next_cursor"])
+
+        merged_ids = page1_ids + page2_ids + page3_ids
+        self.assertEqual(merged_ids, expected_ids)
+        self.assertEqual(len(set(merged_ids)), len(merged_ids))
+        self.assertEqual(payload_page1["total"], 7)
+        self.assertEqual(payload_page2["total"], 7)
+        self.assertEqual(payload_page3["total"], 7)
+
+    def test_feed_cursor_pagination_respects_search_query(self) -> None:
+        matching_ids: list[int] = []
+        for idx in range(5):
+            matching = repository.create_guest_feed_post(
+                author="Search Match",
+                text=f"Вакансия для поиска {idx}",
+                guest_profile_id=f"guest-search-match-{idx}",
+            )
+            matching_ids.append(matching["id"])
+        for idx in range(3):
+            repository.create_guest_feed_post(
+                author="Other",
+                text=f"Нерелевантный пост {idx}",
+                guest_profile_id=f"guest-search-other-{idx}",
+            )
+        matching_ids.sort(reverse=True)
+
+        first_status, first_payload, _ = self._get("/api/feed/posts?limit=2&q=вакансия")
+        self.assertEqual(first_status, 200)
+        self.assertEqual([item["id"] for item in first_payload["items"]], matching_ids[:2])
+        self.assertEqual(first_payload["total"], 5)
+        self.assertTrue(first_payload["has_more"])
+        self.assertIsNotNone(first_payload["next_cursor"])
+
+        second_status, second_payload, _ = self._get(
+            f"/api/feed/posts?limit=2&q=вакансия&cursor={first_payload['next_cursor']}"
+        )
+        self.assertEqual(second_status, 200)
+        self.assertEqual([item["id"] for item in second_payload["items"]], matching_ids[2:4])
+        self.assertEqual(second_payload["total"], 5)
+        self.assertTrue(second_payload["has_more"])
+        self.assertIsNotNone(second_payload["next_cursor"])
+
+        third_status, third_payload, _ = self._get(
+            f"/api/feed/posts?limit=2&q=вакансия&cursor={second_payload['next_cursor']}"
+        )
+        self.assertEqual(third_status, 200)
+        self.assertEqual([item["id"] for item in third_payload["items"]], matching_ids[4:])
+        self.assertEqual(third_payload["total"], 5)
+        self.assertFalse(third_payload["has_more"])
+        self.assertIsNone(third_payload["next_cursor"])
+
     def test_create_post_with_multiple_media_and_legacy_fallback(self) -> None:
         status, payload, _ = self._post(
             "/api/feed/posts",
