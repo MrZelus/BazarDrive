@@ -201,6 +201,35 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertEqual(reject_without_reason_status, 409)
         self.assertIn("error", reject_without_reason_payload)
 
+    def test_verification_metrics_endpoint_returns_aggregates(self) -> None:
+        created_status, _, _ = self._post(
+            "/api/feed/profiles",
+            {"id": "guest-verify-003", "display_name": "Тестовый 3", "email": "verify3@example.com"},
+        )
+        self.assertEqual(created_status, 201)
+
+        submit_status, _, _ = self._post(
+            "/api/feed/profiles/guest-verify-003/verification/submit",
+            {"actor": "guest-verify-003"},
+        )
+        self.assertEqual(submit_status, 200)
+
+        reject_status, _, _ = self._post(
+            "/api/feed/profiles/guest-verify-003/verification/reject",
+            {"actor": "moderator-1", "reason": "Недостаточно данных"},
+        )
+        self.assertEqual(reject_status, 200)
+
+        metrics_status, metrics_payload, _ = self._get("/api/feed/profiles/guest-verify-003/verification/metrics")
+        self.assertEqual(metrics_status, 200)
+        self.assertEqual(metrics_payload.get("profile_id"), "guest-verify-003")
+        self.assertEqual(metrics_payload.get("total_events"), 2)
+        self.assertEqual(metrics_payload.get("actions", {}).get("submit"), 1)
+        self.assertEqual(metrics_payload.get("actions", {}).get("reject"), 1)
+        self.assertEqual(metrics_payload.get("states", {}).get("pending_verification"), 1)
+        self.assertEqual(metrics_payload.get("states", {}).get("rejected"), 1)
+        self.assertEqual(metrics_payload.get("rejected_with_reason"), 1)
+
     def test_post_validation_returns_400_for_invalid_author_and_image(self) -> None:
         status, payload, _ = self._post(
             "/api/feed/posts",

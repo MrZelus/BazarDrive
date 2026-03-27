@@ -849,6 +849,64 @@ def get_guest_profile_verification_history(profile_id: str, limit: int = 50) -> 
         return [dict(row) for row in cur.fetchall()]
 
 
+def get_guest_profile_verification_metrics(profile_id: str) -> dict[str, Any]:
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+
+        cur.execute(
+            """
+            SELECT action, COUNT(*) AS total
+            FROM guest_profile_verification_history
+            WHERE profile_id = ?
+            GROUP BY action
+            ORDER BY action ASC
+            """,
+            (profile_id,),
+        )
+        actions = {str(row["action"]): int(row["total"]) for row in cur.fetchall()}
+
+        cur.execute(
+            """
+            SELECT to_state, COUNT(*) AS total
+            FROM guest_profile_verification_history
+            WHERE profile_id = ?
+            GROUP BY to_state
+            ORDER BY to_state ASC
+            """,
+            (profile_id,),
+        )
+        states = {str(row["to_state"]): int(row["total"]) for row in cur.fetchall()}
+
+        cur.execute(
+            """
+            SELECT COUNT(*)
+            FROM guest_profile_verification_history
+            WHERE profile_id = ? AND action = 'reject' AND COALESCE(TRIM(reason), '') <> ''
+            """,
+            (profile_id,),
+        )
+        rejected_with_reason = int((cur.fetchone() or [0])[0])
+
+        cur.execute(
+            """
+            SELECT COUNT(*)
+            FROM guest_profile_verification_history
+            WHERE profile_id = ?
+            """,
+            (profile_id,),
+        )
+        total_events = int((cur.fetchone() or [0])[0])
+
+        return {
+            "profile_id": profile_id,
+            "total_events": total_events,
+            "actions": actions,
+            "states": states,
+            "rejected_with_reason": rejected_with_reason,
+        }
+
+
 def apply_guest_profile_verification_action(
     profile_id: str,
     action: str,
