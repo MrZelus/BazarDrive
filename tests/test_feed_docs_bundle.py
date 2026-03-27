@@ -36,6 +36,8 @@ class FeedDocsBundleTests(unittest.TestCase):
         self.assertIn('### Взаимодействия в ленте (реакции, комментарии, поиск)', self.qa)
         self.assertIn('publish -> moderation -> approved', self.qa)
         self.assertIn('## 3) Автотесты (локальный минимум)', self.qa)
+        self.assertIn('## 5) BAZ-51 — процент прогресса и следующий шаг', self.qa)
+        self.assertIn('**7/7 = 100%**', self.qa)
 
     def test_flow_doc_has_navigation_map_section(self) -> None:
         self.assertIn('## 1) Карта переходов между разделами', self.flow)
