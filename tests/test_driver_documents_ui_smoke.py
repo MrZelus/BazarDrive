@@ -117,6 +117,23 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
             re.compile(r"pending_verification:\s*'на проверке'"),
         )
 
+    def test_verification_state_defaults_to_unverified_when_no_api_verification_fields_are_present(self) -> None:
+        script = Path('web/js/feed.js').read_text(encoding='utf-8')
+        self.assertRegex(
+            script,
+            re.compile(
+                r"function resolveVerificationState\(profile\)\s*\{[\s\S]+if \(rawState\) return rawState;\s*if \(profile\?\.is_verified \|\| profile\?\.isVerified\) return 'verified';\s*return 'unverified';",
+            ),
+        )
+        self.assertRegex(
+            script,
+            re.compile(r"unverified:\s*'не начата'"),
+        )
+        self.assertRegex(
+            script,
+            re.compile(r"const trustLabel = verificationState === 'verified' \? 'подтверждённый' : 'базовый';"),
+        )
+
 
 if __name__ == '__main__':
     unittest.main()
