@@ -57,7 +57,7 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
             script,
             re.compile(
                 r"const localProfile = \{[\s\S]+isVerified: Boolean\(payload\.is_verified\),[\s\S]+"
-                r"verificationState: String\(payload\.verification_state \|\| ''\)\.trim\(\),[\s\S]+\};",
+                r"verificationState: String\(payload\.verification_state \|\| payload\.verificationState \|\| ''\)\.trim\(\),[\s\S]+\};",
                 re.MULTILINE,
             ),
         )
@@ -85,7 +85,7 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
         script = Path('web/js/feed.js').read_text(encoding='utf-8')
         self.assertRegex(
             script,
-            re.compile(r"verificationState: String\(payload\.verification_state \|\| ''\)\.trim\(\),"),
+            re.compile(r"verificationState: String\(payload\.verification_state \|\| payload\.verificationState \|\| ''\)\.trim\(\),"),
         )
         self.assertRegex(
             script,
@@ -140,6 +140,16 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
             script,
             re.compile(
                 r"const rawState = String\(profile\?\.verification_state \|\| profile\?\.verificationState \|\| ''\)\.trim\(\);",
+            ),
+        )
+
+    def test_profile_save_normalization_accepts_camel_case_verification_state_from_api_payload(self) -> None:
+        script = Path('web/js/feed.js').read_text(encoding='utf-8')
+        self.assertRegex(
+            script,
+            re.compile(
+                r"const localProfile = \{[\s\S]+verificationState: String\(payload\.verification_state \|\| payload\.verificationState \|\| ''\)\.trim\(\),[\s\S]+\};",
+                re.MULTILINE,
             ),
         )
 
