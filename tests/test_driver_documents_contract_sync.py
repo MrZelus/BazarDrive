@@ -7,8 +7,8 @@ from pathlib import Path
 class DriverDocumentsContractSyncTests(unittest.TestCase):
     def setUp(self) -> None:
         self.repo_root = Path(__file__).resolve().parents[1]
-        self.schema_path = self.repo_root / "docs" / "driver_profile_screen.schema.json"
-        self.types_path = self.repo_root / "docs" / "driver_profile.types.ts"
+        self.schema_path = self.repo_root / "docs" / "schemas" / "driver-profile" / "driver_profile_screen.schema.json"
+        self.types_path = self.repo_root / "docs" / "schemas" / "driver-profile" / "driver_profile.types.ts"
         self.html_path = self.repo_root / "guest_feed.html"
 
     def _load_schema(self) -> dict:

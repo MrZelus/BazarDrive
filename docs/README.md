@@ -15,14 +15,18 @@
 - `feed_qa_cases.csv` — CSV-набор QA-кейсов.
 - `rules_mobile_a11y_checklist.md` — мобильный accessibility-чеклист.
 
-### Водительский профиль
-- `driver_profile_wireframe_spec.md` — wireframe-спецификация.
-- `driver_profile_screen.schema.json` — JSON-схема экрана.
-- `driver_profile.types.ts` — типы для интеграции схемы.
+## QA и регрессия
+- `qa/feed_qa_regression.md` — smoke/regression набор.
+- `qa/feed_qa_cases.csv` — CSV для импорта QA-кейсов.
+- `qa/rules_mobile_a11y_checklist.md` — mobile A11Y checklist.
+
+## Схемы и типы
+- `schemas/driver-profile/driver_profile_screen.schema.json` — JSON-схема экрана профиля.
+- `schemas/driver-profile/driver_profile.types.ts` — TypeScript-типы экрана профиля.
 
 ### Issues / планы
 - `issues/` — issue-планы, служебные заметки и материалы по задачам.
 
-### Epic #126
-Материалы Epic #126 пока находятся в корне `docs/` и имеют префикс `epic_126_*`.
-При дальнейшей реорганизации их можно пакетно перенести в отдельную подпапку (например, `docs/epics/126/`) с массовым обновлением ссылок.
+## Issues и инициативы
+- `issues/` — рабочие документы по задачам и инцидентам.
+- `epics/126/` — пакет документов по Epic #126.

@@ -103,12 +103,12 @@
 ### Правила и документы
 - Вкладка «Правила» объединяет правила платформы, краткие правила публикации и список шаблонов документов.
 - На вкладке «Лента» дублируется подробный пошаговый блок «Как публиковать посты (пошагово)» для быстрого доступа перед отправкой поста.
-- Для ручной мобильной проверки UX + accessibility используйте чеклист `docs/rules_mobile_a11y_checklist.md`.
+- Для ручной мобильной проверки UX + accessibility используйте чеклист `docs/qa/rules_mobile_a11y_checklist.md`.
 - Карта навигации для сценария `Лента → Профиль → Одобренное`: `docs/feed_navigation_flow.md`.
 - Карта переходов между «Лента/Правила/Профиль» и тест-кейсы публикации описаны в `docs/feed_navigation_publish_flow.md`.
 - OpenAPI-контракт по ленте: `docs/openapi.yaml`.
-- QA-набор (smoke + регрессия): `docs/feed_qa_regression.md`.
-- CSV для импорта QA-кейсов в тест-менеджер: `docs/feed_qa_cases.csv`.
+- QA-набор (smoke + регрессия): `docs/qa/feed_qa_regression.md`.
+- CSV для импорта QA-кейсов в тест-менеджер: `docs/qa/feed_qa_cases.csv`.
 - План автоматизации и декомпозиции по эпику #172: `docs/issues/172-documents-trust-automation-plan.md`.
 - Архив постановки по загрузке фото в ленту: `docs/issues/upload_photo_issue.md`.
 
@@ -243,8 +243,8 @@ migrations/                   # SQL-миграции (001_init.sql, 002_...sql, 
 Для frontend-проработки добавлены материалы по wireframe и компонентной схеме:
 
 - `docs/driver_profile_wireframe_spec.md` — текстовая спецификация layout, состояний, событий и адаптива.
-- `docs/driver_profile_screen.schema.json` — JSON-схема экрана для проектирования компонентной архитектуры.
-- `docs/driver_profile.types.ts` — TypeScript-интерфейсы и union-типы для типизации payload экрана.
+- `docs/schemas/driver-profile/driver_profile_screen.schema.json` — JSON-схема экрана для проектирования компонентной архитектуры.
+- `docs/schemas/driver-profile/driver_profile.types.ts` — TypeScript-интерфейсы и union-типы для типизации payload экрана.
 
 
 ## Тесты
