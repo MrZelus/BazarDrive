@@ -59,6 +59,7 @@ class FeedPublishProfileNavigationFlowTests(unittest.TestCase):
         self.assertIn("if (reset) {", self.script)
         self.assertIn("feedPendingReset = true;", self.script)
         self.assertIn("if (feedPendingReset) {", self.script)
+        self.assertIn("feedSearchQuery = raw;", self.script)
 
     def test_docs_and_readme_describe_navigation_map_and_test_cases(self) -> None:
         self.assertIn("docs/feed_navigation_publish_flow.md", self.readme)

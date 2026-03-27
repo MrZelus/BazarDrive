@@ -1885,7 +1885,7 @@
           feedSearchStatus.textContent = `Введите ещё ${2 - raw.length} символ(а), чтобы включить поиск.`;
         }
       } else {
-        feedSearchQuery = raw.toLowerCase();
+        feedSearchQuery = raw;
       }
 
       if (feedSearchDebounceTimer) {
