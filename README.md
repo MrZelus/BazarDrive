@@ -65,7 +65,7 @@
 
 ## Гостевая HTML-лента
 
-В репозиторий добавлена отдельная страница `guest_feed.html`.
+В репозиторий добавлена отдельная страница `public/guest_feed.html`.
 
 ### Что умеет
 - Добавлять посты гостей через backend API (`POST /api/feed/posts`).
@@ -103,13 +103,14 @@
 ### Правила и документы
 - Вкладка «Правила» объединяет правила платформы, краткие правила публикации и список шаблонов документов.
 - На вкладке «Лента» дублируется подробный пошаговый блок «Как публиковать посты (пошагово)» для быстрого доступа перед отправкой поста.
-- Для ручной мобильной проверки UX + accessibility используйте чеклист `docs/rules_mobile_a11y_checklist.md`.
+- Для ручной мобильной проверки UX + accessibility используйте чеклист `docs/qa/rules_mobile_a11y_checklist.md`.
 - Карта навигации для сценария `Лента → Профиль → Одобренное`: `docs/feed_navigation_flow.md`.
 - Карта переходов между «Лента/Правила/Профиль» и тест-кейсы публикации описаны в `docs/feed_navigation_publish_flow.md`.
 - OpenAPI-контракт по ленте: `docs/openapi.yaml`.
-- QA-набор (smoke + регрессия): `docs/feed_qa_regression.md`.
-- CSV для импорта QA-кейсов в тест-менеджер: `docs/feed_qa_cases.csv`.
+- QA-набор (smoke + регрессия): `docs/qa/feed_qa_regression.md`.
+- CSV для импорта QA-кейсов в тест-менеджер: `docs/qa/feed_qa_cases.csv`.
 - План автоматизации и декомпозиции по эпику #172: `docs/issues/172-documents-trust-automation-plan.md`.
+- Архив постановки по загрузке фото в ленту: `docs/issues/upload_photo_issue.md`.
 
 
 ### Миграции базы данных
@@ -117,48 +118,68 @@
 Перед запуском API/бота можно явно применить миграции:
 
 ```bash
-python -c "from app.db.migrator import apply_migrations; apply_migrations('bot.db')"
+python3 -c "from app.db.migrator import apply_migrations; apply_migrations('bot.db')"
 ```
 
 В CI/деплое добавьте отдельный шаг перед запуском приложения:
 
 ```bash
 # пример для CI/CD pipeline
-python -c "from app.db.migrator import apply_migrations; apply_migrations('bot.db')"
-python run_api.py
+python3 -c "from app.db.migrator import apply_migrations; apply_migrations('bot.db')"
+python3 run_api.py
 ```
+
+Правила нумерации миграций:
+- не переименовывайте уже применённые миграции;
+- если есть исторические совпадения по префиксу (в проекте уже есть две миграции `006_*.sql`), оставляйте их как есть;
+- для новых миграций используйте следующий свободный уникальный префикс (`010_*`, `011_*`, ...).
+
+Почему это важно:
+- мигратор применяет файлы в порядке сортировки имён (`sorted(...)`);
+- в `schema_migrations.version` сохраняется имя файла миграции;
+- переименование уже применённого файла на «живой» БД может привести к повторному применению SQL.
 
 ### Как запустить локально
 1. Запустите API-сервер:
 
 ```bash
-FEED_API_HOST=0.0.0.0 FEED_API_PORT=8001 python run_api.py
+FEED_API_HOST=0.0.0.0 FEED_API_PORT=8001 python3 run_api.py
 ```
 
 2. В отдельном терминале запустите статический сервер (с привязкой ко всем интерфейсам):
 
 ```bash
-python -m http.server 8000 --bind 0.0.0.0
+python3 -m http.server 8000 --bind 0.0.0.0
 ```
 
-3. На текущем устройстве откройте `http://localhost:8000/guest_feed.html`.
+3. На текущем устройстве откройте `http://localhost:8000/public/guest_feed.html`.
 
 4. Для запуска с другого устройства в той же сети откройте:
 
 ```text
-http://<LAN-IP-ВАШЕГО-ПК>:8000/guest_feed.html
+http://<LAN-IP-ВАШЕГО-ПК>:8000/public/guest_feed.html
 ```
 
 Если API находится на другом хосте/порту, можно передать его напрямую: `?apiBase=http://<host>:<port>`.
-Пример: `http://192.168.1.50:8000/guest_feed.html?apiBase=http://192.168.1.50:8001`.
+Пример: `http://192.168.1.50:8000/public/guest_feed.html?apiBase=http://192.168.1.50:8001`.
+
+### Этап 0: безопасные границы «быстрой чистки»
+
+Чтобы упростить навигацию по проекту и не сломать текущий runtime/CI:
+- каноничные точки запуска: `run_api.py` и `run_bot.py`;
+- legacy-алиасы для обратной совместимости: `feed_api.py`, `bot.py`, `db.py`;
+- пока сохраняем `public/guest_feed.html` и `public/web/**` в текущем месте, чтобы локальный запуск оставался прежним;
+- тесты читают фронтенд-файлы по путям из корня (например, `tests/test_driver_tab_content_regression.py`, `tests/test_guest_feed_theme_contrast_guardrails.py`), поэтому перенос делать только отдельным PR с массовым обновлением тестов;
+- скрипт доказательной съёмки `scripts/capture_guest_feed_evidence.py` также ожидает путь `/public/guest_feed.html`, поэтому перенос фронтенда в рамках «быстрой чистки» запрещён;
+- применённые SQL-миграции не переименовываем: `schema_migrations.version` хранит имя файла миграции.
 
 ### Как добавить в ваш репозиторий (шаги)
 Если вы переносите файл в другой проект:
 
 ```bash
-cp guest_feed.html /path/to/your-repo/
+cp public/guest_feed.html /path/to/your-repo/
 cd /path/to/your-repo
-git add guest_feed.html
+git add public/guest_feed.html
 git commit -m "Add guest feed HTML page with search, filters and pagination"
 git push
 ```
@@ -183,7 +204,7 @@ ADMIN_IDS=123456789,987654321
 2. Запустите бота:
 
 ```bash
-python run_bot.py
+python3 run_bot.py
 ```
 
 `run_bot.py` и `run_api.py` автоматически подхватывают `.env`, поэтому дополнительно делать `export` не нужно.
@@ -207,13 +228,18 @@ migrations/                   # SQL-миграции (001_init.sql, 002_...sql, 
 
 Совместимость со старыми точками входа (`feed_api.py`, `bot.py`, `db.py`) сохранена через прокси-импорты в новые модули.
 
+### Точки входа: каноничные и legacy
+- **Каноничные entrypoints:** `run_api.py`, `run_bot.py`.
+- **Legacy aliases (backward compatibility):** `feed_api.py`, `bot.py`, `db.py`.
+- Для новой документации, скриптов и инструкций используйте каноничные entrypoints.
+
 ## Спецификация профиля водителя такси (ИП, УСН «Доходы»)
 
 Для frontend-проработки добавлены материалы по wireframe и компонентной схеме:
 
 - `docs/driver_profile_wireframe_spec.md` — текстовая спецификация layout, состояний, событий и адаптива.
-- `docs/driver_profile_screen.schema.json` — JSON-схема экрана для проектирования компонентной архитектуры.
-- `docs/driver_profile.types.ts` — TypeScript-интерфейсы и union-типы для типизации payload экрана.
+- `docs/schemas/driver-profile/driver_profile_screen.schema.json` — JSON-схема экрана для проектирования компонентной архитектуры.
+- `docs/schemas/driver-profile/driver_profile.types.ts` — TypeScript-интерфейсы и union-типы для типизации payload экрана.
 
 
 ## Тесты

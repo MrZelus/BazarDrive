@@ -5,8 +5,8 @@ from pathlib import Path
 
 class GuestFeedThemeContrastGuardrails(unittest.TestCase):
     def setUp(self) -> None:
-        self.tailwind_config = Path("web/js/tailwind-config.js").read_text(encoding="utf-8")
-        self.feed_css = Path("web/css/feed.css").read_text(encoding="utf-8")
+        self.tailwind_config = Path("public/web/js/tailwind-config.js").read_text(encoding="utf-8")
+        self.feed_css = Path("public/web/css/feed.css").read_text(encoding="utf-8")
 
     @staticmethod
     def _hex_to_rgb(hex_color: str) -> tuple[int, int, int]:

@@ -42,7 +42,7 @@ Pass condition:
 Run:
 
 ```bash
-rg -n "text-white|text-black|bg-black|border-white/|white/|rgba\\(|#[0-9A-Fa-f]{3,8}" guest_feed.html web/css/feed.css web/js/feed.js
+rg -n "text-white|text-black|bg-black|border-white/|white/|rgba\\(|#[0-9A-Fa-f]{3,8}" public/guest_feed.html public/web/css/feed.css public/web/js/feed.js
 ```
 
 Expected: no ad-hoc runtime color matches in the target files.

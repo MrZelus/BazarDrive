@@ -3,7 +3,7 @@
 ## A) Current state: confirmed / partially complete / missing
 
 ### Confirmed
-- **Theme token baseline exists** in `web/js/tailwind-config.js` with a centralized palette (`bg`, `panel`, `panelSoft`, `text`, `textSoft`, `accent`, `success`, `warning`).
+- **Theme token baseline exists** in `public/web/js/tailwind-config.js` with a centralized palette (`bg`, `panel`, `panelSoft`, `text`, `textSoft`, `accent`, `success`, `warning`).
 - **Initial foundation from #121 exists** (baseline diagnostics + partial contrast/state fixes), so this epic does **not** start from zero.
 
 ### Partially complete
@@ -28,8 +28,8 @@
 - Current risk is not missing colors, but **usage drift** and mixed patterns. Without this, every next UI fix can reintroduce readability regressions.
 
 **Likely files/areas affected**
-- `web/js/tailwind-config.js` (token contract stays canonical).
-- `web/js/**/*.js`, `web/css/**/*.css`, templates/views for `Лента / Правила / Профиль`.
+- `public/web/js/tailwind-config.js` (token contract stays canonical).
+- `public/web/js/**/*.js`, `public/web/css/**/*.css`, templates/views for `Лента / Правила / Профиль`.
 - Focus checks around component states already touched by #121.
 
 **Expected outcome**

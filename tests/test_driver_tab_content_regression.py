@@ -4,15 +4,15 @@ from pathlib import Path
 
 class DriverTabContentRegressionTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.html = Path("guest_feed.html").read_text(encoding="utf-8")
+        self.html = Path("public/guest_feed.html").read_text(encoding="utf-8")
 
     def _driver_tab_block(self) -> str:
         start_token = 'id="role-driver"'
         end_token = 'id="role-common"'
         start = self.html.find(start_token)
         end = self.html.find(end_token)
-        self.assertNotEqual(start, -1, "Could not locate #role-driver block in guest_feed.html")
-        self.assertNotEqual(end, -1, "Could not locate #role-common block in guest_feed.html")
+        self.assertNotEqual(start, -1, "Could not locate #role-driver block in public/guest_feed.html")
+        self.assertNotEqual(end, -1, "Could not locate #role-common block in public/guest_feed.html")
         self.assertLess(start, end, "#role-driver block should be placed before #role-common")
         return self.html[start:end]
 
