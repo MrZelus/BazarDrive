@@ -5,11 +5,11 @@ from pathlib import Path
 
 class FeedXssRegressionTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.script = Path("web/js/feed.js").read_text(encoding="utf-8")
+        self.script = Path("public/web/js/feed.js").read_text(encoding="utf-8")
 
     def _render_feed_block(self) -> str:
         match = re.search(r"function renderFeed\(\) \{([\s\S]+?)\n    \}\n\n    async function loadPosts", self.script)
-        self.assertIsNotNone(match, "renderFeed block was not found in web/js/feed.js")
+        self.assertIsNotNone(match, "renderFeed block was not found in public/web/js/feed.js")
         return match.group(1)
 
     def test_render_feed_uses_text_nodes_instead_of_html_injection(self) -> None:

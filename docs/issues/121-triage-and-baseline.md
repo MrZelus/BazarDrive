@@ -8,9 +8,9 @@
 ## Priority plan and dependency order
 
 ### P0 (must-fix first)
-1. **121.2 — Theme tokens fix (`web/js/tailwind-config.js`)**  
+1. **121.2 — Theme tokens fix (`public/web/js/tailwind-config.js`)**  
    Цель: гарантировать устойчивое разделение `bg` vs `panel/panelSoft`, сохранить читаемость `text/textSoft`, не уронить CTA-контраст.
-2. **121.3 — Fine tuning in markup/styles (`guest_feed.html`, `web/css/feed.css`)**  
+2. **121.3 — Fine tuning in markup/styles (`public/guest_feed.html`, `public/web/css/feed.css`)**  
    Цель: различимость карточек, бордеров, secondary-button и active/inactive states для `tab-btn`, `profile-menu-btn`, `role-btn`, CTA.
 
 ### P1 (after P0 visual stability)
@@ -24,18 +24,18 @@
 ## Subtask status checklist (issue #121)
 
 - [x] 121.1 Baseline-диагностика: скриншоты текущего состояния + computed colors ключевых блоков.
-- [x] 121.2 Корректировка цветовых токенов темы в `web/js/tailwind-config.js`.
-- [x] 121.3 Тонкая настройка контраста карточек/бордеров/кнопок (`guest_feed.html`, `web/css/feed.css`).
+- [x] 121.2 Корректировка цветовых токенов темы в `public/web/js/tailwind-config.js`.
+- [x] 121.3 Тонкая настройка контраста карточек/бордеров/кнопок (`public/guest_feed.html`, `public/web/css/feed.css`).
 - [x] 121.4 Визуальная и а11y-проверка состояний (`active`, `inactive`, `hover`, `disabled`) на всех вкладках.
 - [x] 121.5 PR-артефакты: before/after скриншоты, test plan, привязка `Closes #121`.
 
 ## 121.1 Baseline diagnostics
 
 ### Files inspected
-- `web/js/tailwind-config.js`
-- `guest_feed.html`
-- `web/css/feed.css`
-- `web/js/feed.js` (button/state generation inventory)
+- `public/web/js/tailwind-config.js`
+- `public/guest_feed.html`
+- `public/web/css/feed.css`
+- `public/web/js/feed.js` (button/state generation inventory)
 
 ### Computed baseline contrasts (WCAG ratio)
 
@@ -84,9 +84,9 @@
 ## 121.3 UI contrast fine tuning (P0)
 
 ### Updated surfaces and controls
-- Increased static surface separators in `guest_feed.html` from `border-white/10` to `border-white/15` for key cards/containers and top/bottom chrome.
+- Increased static surface separators in `public/guest_feed.html` from `border-white/10` to `border-white/15` for key cards/containers and top/bottom chrome.
 - Increased divider/form contrast in profile documents flow (`addDocumentForm`, `hr`) and strengthened the secondary cancel button (`border-white/35` + `bg-panelSoft/40` + `text-text`).
-- Added explicit base/hover/focus styles for `tab-btn`, `role-btn`, `profile-menu-btn` in `web/css/feed.css` so active and inactive states are visually unambiguous.
+- Added explicit base/hover/focus styles for `tab-btn`, `role-btn`, `profile-menu-btn` in `public/web/css/feed.css` so active and inactive states are visually unambiguous.
 - Added shared `button:disabled` styling to make long-running/blocked actions clearly non-interactive.
 
 ### 121.3 conclusion
@@ -97,7 +97,7 @@
 ## 121.4 A11y + state UX pass (P1)
 
 ### Updated interaction states
-- Added shared helper `setButtonBusyState(...)` in `web/js/feed.js` and wired it to long-running actions (`Опубликовать`, `Сохранить профиль`, `Сохранить документ`, delete/comment actions, like toggles).
+- Added shared helper `setButtonBusyState(...)` in `public/web/js/feed.js` and wired it to long-running actions (`Опубликовать`, `Сохранить профиль`, `Сохранить документ`, delete/comment actions, like toggles).
 - Busy transitions now set `disabled`, `aria-disabled`, and `aria-busy` consistently for action buttons.
 - Added contextual `aria-label` values for destructive actions to disambiguate controls in screen readers:
   - delete document,
@@ -113,7 +113,7 @@
 ## 121.5 PR artifacts + closure evidence (P2)
 
 ### Consolidated test plan (desktop + mobile viewport)
-1. Open `guest_feed.html` in Chromium-based browser.
+1. Open `public/guest_feed.html` in Chromium-based browser.
 2. Validate tabs in order: `Лента` → `Правила` → `Профиль`.
 3. On each tab, verify:
    - visual separation of page background vs cards/sections;
@@ -215,7 +215,7 @@
 Статус: ✅ Выполнен subtask **121.1 Baseline-диагностика**.
 
 Что сделано:
-- Проведён аудит `guest_feed.html`, `web/css/feed.css`, `web/js/tailwind-config.js`, `web/js/feed.js`.
+- Проведён аудит `public/guest_feed.html`, `public/web/css/feed.css`, `public/web/js/tailwind-config.js`, `public/web/js/feed.js`.
 - Зафиксированы baseline contrast-ratio для ключевых пар цветов.
 - Подтверждён ключевой риск: низкое разделение поверхностей `bg` vs `panel/panelSoft`.
 
@@ -348,7 +348,7 @@ Added automated regression checks to keep #121 fixes stable over time:
 
 - `tests/test_guest_feed_theme_contrast_guardrails.py` validates WCAG-oriented contrast guardrails for `text`, `textSoft`, and `accent` against `bg/panel`.
 - The same test enforces minimum surface separation ratios for `bg` vs `panel/panelSoft` to catch future "flat white" style regressions early.
-- The suite also verifies that `web/css/feed.css` color variables stay synchronized with `web/js/tailwind-config.js` tokens.
+- The suite also verifies that `public/web/css/feed.css` color variables stay synchronized with `public/web/js/tailwind-config.js` tokens.
 
 Execution target:
 
@@ -426,7 +426,7 @@ Use this template in the next browser-enabled PR to reduce review latency and ma
 | Профиль | <link> | <link> | ✅/❌ | ✅/❌ |
 
 ## Test plan executed
-1. Open `guest_feed.html`.
+1. Open `public/guest_feed.html`.
 2. Switch `Лента → Правила → Профиль`.
 3. Verify contrast/readability for text, borders, and CTA buttons.
 4. Validate profile subtabs and documents flow.
@@ -463,7 +463,7 @@ To reduce manual mistakes in the final browser-enabled evidence PR, use the scri
 1. Start a local static server from repo root:
    - `python -m http.server 8000`
 2. In another shell, run:
-   - `python scripts/capture_guest_feed_evidence.py --url http://127.0.0.1:8000/guest_feed.html --out artifacts/121`
+   - `python scripts/capture_guest_feed_evidence.py --url http://127.0.0.1:8000/public/guest_feed.html --out artifacts/121`
 3. Attach generated files to the final evidence PR and fill Q6 matrix with links.
 
 ### Notes
@@ -499,7 +499,7 @@ Recommended usage:
 1. Preview and export plan (no browser runtime required):
    - `python scripts/capture_guest_feed_evidence.py --dry-run --browsers chrome,edge --manifest artifacts/121/capture-manifest.json`
 2. Execute real capture in browser-enabled environment:
-   - `python scripts/capture_guest_feed_evidence.py --url http://127.0.0.1:8000/guest_feed.html --out artifacts/121 --manifest artifacts/121/capture-manifest.json`
+   - `python scripts/capture_guest_feed_evidence.py --url http://127.0.0.1:8000/public/guest_feed.html --out artifacts/121 --manifest artifacts/121/capture-manifest.json`
 
 ## Q10 targeted evidence capture filters (tab/viewport subsets)
 
@@ -548,7 +548,7 @@ To make PR review faster, the Markdown evidence export now supports optional fil
 
 Example:
 
-- `python scripts/capture_guest_feed_evidence.py --url http://127.0.0.1:8000/guest_feed.html --out artifacts/121 --browsers chrome,edge --report-md artifacts/121/evidence-matrix.md --report-md-check-files`
+- `python scripts/capture_guest_feed_evidence.py --url http://127.0.0.1:8000/public/guest_feed.html --out artifacts/121 --browsers chrome,edge --report-md artifacts/121/evidence-matrix.md --report-md-check-files`
 
 ## Q13 strict evidence completeness gate (`--fail-on-missing-files`)
 

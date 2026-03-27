@@ -9,7 +9,7 @@ class DriverDocumentsContractSyncTests(unittest.TestCase):
         self.repo_root = Path(__file__).resolve().parents[1]
         self.schema_path = self.repo_root / "docs" / "schemas" / "driver-profile" / "driver_profile_screen.schema.json"
         self.types_path = self.repo_root / "docs" / "schemas" / "driver-profile" / "driver_profile.types.ts"
-        self.html_path = self.repo_root / "guest_feed.html"
+        self.html_path = self.repo_root / "public" / "guest_feed.html"
 
     def _load_schema(self) -> dict:
         return json.loads(self.schema_path.read_text(encoding="utf-8"))
@@ -25,7 +25,7 @@ class DriverDocumentsContractSyncTests(unittest.TestCase):
     def _parse_html_document_type_options(self) -> set[str]:
         html = self.html_path.read_text(encoding="utf-8")
         select_match = re.search(r'<select id="documentType"[^>]*>(.+?)</select>', html, re.S)
-        self.assertIsNotNone(select_match, "documentType select was not found in guest_feed.html")
+        self.assertIsNotNone(select_match, "documentType select was not found in public/guest_feed.html")
         options_block = select_match.group(1)
         values = {
             value

@@ -136,7 +136,7 @@ def validate_values(values: list[str], allowed: set[str], label: str) -> None:
 
 async def main() -> int:
     parser = argparse.ArgumentParser(description="Capture guest feed screenshots for issue #121 evidence")
-    parser.add_argument("--url", default="http://127.0.0.1:8000/guest_feed.html", help="Page URL to capture")
+    parser.add_argument("--url", default="http://127.0.0.1:8000/public/guest_feed.html", help="Page URL to capture")
     parser.add_argument("--out", default="artifacts/121", help="Output directory for screenshots")
     parser.add_argument(
         "--browsers",

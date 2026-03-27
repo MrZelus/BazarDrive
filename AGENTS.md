@@ -4,7 +4,7 @@
 
 ### Project overview
 
-BazarDrive is a Russian-language taxi/ride-sharing community platform with a Telegram bot, REST API backend (Python stdlib `http.server`), and a mobile-first HTML frontend (`guest_feed.html`). Uses SQLite for storage — no external database services needed.
+BazarDrive is a Russian-language taxi/ride-sharing community platform with a Telegram bot, REST API backend (Python stdlib `http.server`), and a mobile-first HTML frontend (`public/guest_feed.html`). Uses SQLite for storage — no external database services needed.
 
 ### Running services for development
 
@@ -13,7 +13,7 @@ Two processes must be running:
 1. **Feed API** (port 8001): `python3 run_api.py` (env vars `FEED_API_HOST=0.0.0.0 FEED_API_PORT=8001`)
 2. **Static file server** (port 8000): `python3 -m http.server 8000 --bind 0.0.0.0`
 
-Open the app at `http://localhost:8000/guest_feed.html?apiBase=http://localhost:8001`.
+Open the app at `http://localhost:8000/public/guest_feed.html?apiBase=http://localhost:8001`.
 
 The API health check is at `GET /health` on port 8001.
 
@@ -42,7 +42,7 @@ The bot (`run_bot.py`) requires `BOT_TOKEN`, `ADMIN_CHAT_ID`, and `GROUP_CHAT_ID
 - `APP_ENV=dev` (default) allows all CORS origins and skips auth on write endpoints. Set `APP_ENV=prod` to test auth/CORS rules.
 - The guest feed UI requires a valid guest profile (name + email or phone) before allowing post creation — publishing redirects to profile completion if missing.
 - Canonical entrypoints for docs/scripts are `run_api.py` and `run_bot.py`; `feed_api.py`, `bot.py`, and `db.py` are legacy aliases kept for backward compatibility.
-- Keep `guest_feed.html` in repository root and `web/**` paths stable during quick cleanup; move them only in a dedicated refactor PR with synchronized updates.
+- Keep `public/guest_feed.html` and `public/web/**` paths stable during quick cleanup; move them only in a dedicated refactor PR with synchronized updates.
 - Path-sensitive examples to update together if moving frontend paths: `tests/test_driver_tab_content_regression.py`, `tests/test_guest_feed_theme_contrast_guardrails.py`, `scripts/capture_guest_feed_evidence.py`.
 - Never rename already-applied SQL migration files; keep both existing `006_*.sql` files unchanged.
 - New migrations must use the next unique prefix (`010_*`, `011_*`, ...), because migrator ordering is filename sort and `schema_migrations.version` stores the migration filename.

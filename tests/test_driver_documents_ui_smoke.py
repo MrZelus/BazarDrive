@@ -5,7 +5,7 @@ import re
 
 class DriverDocumentsUISmokeTests(unittest.TestCase):
     def test_add_document_button_and_form_exist(self) -> None:
-        html = Path('guest_feed.html').read_text(encoding='utf-8')
+        html = Path('public/guest_feed.html').read_text(encoding='utf-8')
         self.assertIn('id="addDocumentBtn"', html)
         self.assertIn('id="addDocumentForm"', html)
         self.assertIn('Добавить документ', html)
@@ -14,7 +14,7 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
         self.assertNotIn('Добавить поездку', html)
 
     def test_documents_flow_functions_exist_in_script(self) -> None:
-        script = Path('web/js/feed.js').read_text(encoding='utf-8')
+        script = Path('public/web/js/feed.js').read_text(encoding='utf-8')
         self.assertIn('loadDriverDocuments', script)
         self.assertIn('submitDriverDocument', script)
         self.assertIn('/api/driver/documents', script)
@@ -26,8 +26,8 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
         )
 
     def test_documents_list_covers_loading_empty_and_error_states(self) -> None:
-        html = Path('guest_feed.html').read_text(encoding='utf-8')
-        script = Path('web/js/feed.js').read_text(encoding='utf-8')
+        html = Path('public/guest_feed.html').read_text(encoding='utf-8')
+        script = Path('public/web/js/feed.js').read_text(encoding='utf-8')
         self.assertIn('id="driverDocumentsLoadingState"', html)
         self.assertIn('id="driverDocumentsEmptyState"', html)
         self.assertIn('id="driverDocumentsErrorState"', html)
@@ -42,8 +42,8 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
         )
 
     def test_documents_tab_has_trust_signals_prepared_for_verification_states(self) -> None:
-        html = Path('guest_feed.html').read_text(encoding='utf-8')
-        script = Path('web/js/feed.js').read_text(encoding='utf-8')
+        html = Path('public/guest_feed.html').read_text(encoding='utf-8')
+        script = Path('public/web/js/feed.js').read_text(encoding='utf-8')
         self.assertIn('id="profileVerificationBadge"', html)
         self.assertIn('id="profileTrustBadge"', html)
         self.assertIn('id="profileVerificationReason"', html)
@@ -55,7 +55,7 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
         self.assertIn('verification_state', script)
 
     def test_pending_verification_from_api_payload_is_wired_to_trust_signal_rendering(self) -> None:
-        script = Path('web/js/feed.js').read_text(encoding='utf-8')
+        script = Path('public/web/js/feed.js').read_text(encoding='utf-8')
         self.assertRegex(
             script,
             re.compile(
@@ -74,7 +74,7 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
         )
 
     def test_verification_state_falls_back_to_verified_when_only_is_verified_flag_is_present(self) -> None:
-        script = Path('web/js/feed.js').read_text(encoding='utf-8')
+        script = Path('public/web/js/feed.js').read_text(encoding='utf-8')
         self.assertRegex(
             script,
             re.compile(r"function resolveVerificationState\(profile\)\s*\{[\s\S]+const rawState = String\(profile\?\.verification_state \|\| profile\?\.verificationState \|\| ''\)\.trim\(\);"),
@@ -85,7 +85,7 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
         )
 
     def test_verified_verification_state_from_api_payload_maps_to_verified_trust_signals(self) -> None:
-        script = Path('web/js/feed.js').read_text(encoding='utf-8')
+        script = Path('public/web/js/feed.js').read_text(encoding='utf-8')
         self.assertRegex(
             script,
             re.compile(r"verificationState: String\(payload\.verification_state \|\| payload\.verificationState \|\| ''\)\.trim\(\),"),
@@ -108,7 +108,7 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
         )
 
     def test_explicit_verification_state_has_priority_over_boolean_verified_flag(self) -> None:
-        script = Path('web/js/feed.js').read_text(encoding='utf-8')
+        script = Path('public/web/js/feed.js').read_text(encoding='utf-8')
         self.assertRegex(
             script,
             re.compile(
@@ -121,7 +121,7 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
         )
 
     def test_verification_state_defaults_to_unverified_when_no_api_verification_fields_are_present(self) -> None:
-        script = Path('web/js/feed.js').read_text(encoding='utf-8')
+        script = Path('public/web/js/feed.js').read_text(encoding='utf-8')
         self.assertRegex(
             script,
             re.compile(
@@ -138,7 +138,7 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
         )
 
     def test_verification_state_resolver_accepts_camel_case_field_from_profile_state(self) -> None:
-        script = Path('web/js/feed.js').read_text(encoding='utf-8')
+        script = Path('public/web/js/feed.js').read_text(encoding='utf-8')
         self.assertRegex(
             script,
             re.compile(
@@ -147,7 +147,7 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
         )
 
     def test_profile_save_normalization_accepts_camel_case_verification_state_from_api_payload(self) -> None:
-        script = Path('web/js/feed.js').read_text(encoding='utf-8')
+        script = Path('public/web/js/feed.js').read_text(encoding='utf-8')
         self.assertRegex(
             script,
             re.compile(

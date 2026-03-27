@@ -4,8 +4,8 @@ from pathlib import Path
 
 class FeedPublishProfileNavigationFlowTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.script = Path("web/js/feed.js").read_text(encoding="utf-8")
-        self.page = Path("guest_feed.html").read_text(encoding="utf-8")
+        self.script = Path("public/web/js/feed.js").read_text(encoding="utf-8")
+        self.page = Path("public/guest_feed.html").read_text(encoding="utf-8")
         self.readme = Path("README.md").read_text(encoding="utf-8")
         self.flow_doc = Path("docs/feed_navigation_publish_flow.md").read_text(encoding="utf-8")
 

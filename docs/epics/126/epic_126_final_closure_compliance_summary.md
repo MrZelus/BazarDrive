@@ -19,9 +19,9 @@ Out-of-scope boundaries were preserved throughout execution:
 
 | Epic AC | Status | Completion evidence |
 |---|---|---|
-| 1) Tokens centralized and used consistently | ✅ Done | `docs/epics/126/epic_126_p0_theme_token_inventory_drift_report.md`; `docs/theme-contract.md`; feed-path replacements in `guest_feed.html`, `web/css/feed.css`, `web/js/feed.js` |
+| 1) Tokens centralized and used consistently | ✅ Done | `docs/epics/126/epic_126_p0_theme_token_inventory_drift_report.md`; `docs/theme-contract.md`; feed-path replacements in `public/guest_feed.html`, `public/web/css/feed.css`, `public/web/js/feed.js` |
 | 2) Stable contrast on Feed/Rules/Profile | ✅ Done | `docs/epics/126/epic_126_p0_contrast_stabilization_gate.md`; `docs/epics/126/epic_126_p1_7_regression_findings_resolution.md`; token-aligned state/contrast updates in feed path |
-| 3) Component states visually consistent | ✅ Done | P1.5 state unification changes in `web/css/feed.css` + `guest_feed.html` + `web/js/feed.js` and P1.7 fix pass |
+| 3) Component states visually consistent | ✅ Done | P1.5 state unification changes in `public/web/css/feed.css` + `public/guest_feed.html` + `public/web/js/feed.js` and P1.7 fix pass |
 | 4) Regression visual procedure exists | ✅ Done | `docs/epics/126/epic_126_p1_visual_regression_checklist_runbook.md`; `docs/epics/126/epic_126_p1_visual_regression_run_report_sample.md` |
 | 5) Theme Contract documented and used in new PRs | ✅ Done | `docs/theme-contract.md`; `.github/pull_request_template.md`; `docs/contributing.md` |
 

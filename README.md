@@ -65,7 +65,7 @@
 
 ## Гостевая HTML-лента
 
-В репозиторий добавлена отдельная страница `guest_feed.html`.
+В репозиторий добавлена отдельная страница `public/guest_feed.html`.
 
 ### Что умеет
 - Добавлять посты гостей через backend API (`POST /api/feed/posts`).
@@ -152,16 +152,26 @@ FEED_API_HOST=0.0.0.0 FEED_API_PORT=8001 python3 run_api.py
 python3 -m http.server 8000 --bind 0.0.0.0
 ```
 
-3. На текущем устройстве откройте `http://localhost:8000/guest_feed.html`.
+3. На текущем устройстве откройте `http://localhost:8000/public/guest_feed.html`.
 
 4. Для запуска с другого устройства в той же сети откройте:
 
 ```text
-http://<LAN-IP-ВАШЕГО-ПК>:8000/guest_feed.html
+http://<LAN-IP-ВАШЕГО-ПК>:8000/public/guest_feed.html
 ```
 
 Если API находится на другом хосте/порту, можно передать его напрямую: `?apiBase=http://<host>:<port>`.
-Пример: `http://192.168.1.50:8000/guest_feed.html?apiBase=http://192.168.1.50:8001`.
+Пример: `http://192.168.1.50:8000/public/guest_feed.html?apiBase=http://192.168.1.50:8001`.
+
+### Этап 0: безопасные границы «быстрой чистки»
+
+Чтобы упростить навигацию по проекту и не сломать текущий runtime/CI:
+- каноничные точки запуска: `run_api.py` и `run_bot.py`;
+- legacy-алиасы для обратной совместимости: `feed_api.py`, `bot.py`, `db.py`;
+- пока сохраняем `public/guest_feed.html` и `public/web/**` в текущем месте, чтобы локальный запуск оставался прежним;
+- тесты читают фронтенд-файлы по путям из корня (например, `tests/test_driver_tab_content_regression.py`, `tests/test_guest_feed_theme_contrast_guardrails.py`), поэтому перенос делать только отдельным PR с массовым обновлением тестов;
+- скрипт доказательной съёмки `scripts/capture_guest_feed_evidence.py` также ожидает путь `/public/guest_feed.html`, поэтому перенос фронтенда в рамках «быстрой чистки» запрещён;
+- применённые SQL-миграции не переименовываем: `schema_migrations.version` хранит имя файла миграции.
 
 ### Этап 0: безопасные границы «быстрой чистки»
 
@@ -177,9 +187,9 @@ http://<LAN-IP-ВАШЕГО-ПК>:8000/guest_feed.html
 Если вы переносите файл в другой проект:
 
 ```bash
-cp guest_feed.html /path/to/your-repo/
+cp public/guest_feed.html /path/to/your-repo/
 cd /path/to/your-repo
-git add guest_feed.html
+git add public/guest_feed.html
 git commit -m "Add guest feed HTML page with search, filters and pagination"
 git push
 ```

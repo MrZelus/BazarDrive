@@ -5,13 +5,13 @@ from pathlib import Path
 
 class FeedImageRenderingRegressionTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.script = Path("web/js/feed.js").read_text(encoding="utf-8")
+        self.script = Path("public/web/js/feed.js").read_text(encoding="utf-8")
         map_match = re.search(r"function mapApiPost\(item\) \{([\s\S]+?)\n    \}\n\n    function mapApiComment", self.script)
-        self.assertIsNotNone(map_match, "mapApiPost block was not found in web/js/feed.js")
+        self.assertIsNotNone(map_match, "mapApiPost block was not found in public/web/js/feed.js")
         self.map_block = map_match.group(1)
 
         render_match = re.search(r"function renderFeed\(\) \{([\s\S]+?)\n    \}\n\n    async function loadPosts", self.script)
-        self.assertIsNotNone(render_match, "renderFeed block was not found in web/js/feed.js")
+        self.assertIsNotNone(render_match, "renderFeed block was not found in public/web/js/feed.js")
         self.render_block = render_match.group(1)
 
     def test_map_api_post_sanitizes_legacy_none_and_null_image_values(self) -> None:
