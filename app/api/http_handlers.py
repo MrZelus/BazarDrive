@@ -15,7 +15,8 @@ from app.config import get_api_settings
 from app.db import repository
 from app.logging_setup import configure_logging
 from app.services.driver_compliance_service import DriverComplianceService
-from app.services.driver_guard import DriverGuard, DriverGuardError
+from app.services.driver_operation_service import DriverOperationService
+from app.services.exceptions import DriverNotAllowedError
 from app.services.feed_service import FeedAccessDeniedError, FeedPayloadTooLargeError, FeedService
 
 
@@ -1221,20 +1222,13 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
 
         try:
             profile_id = payload.get("profile_id", "driver-main")
-            DriverGuard.ensure_can_go_online(profile_id)
-            self._send_json(
-                200,
-                {
-                    "ok": True,
-                    "status": "online",
-                },
-            )
-        except DriverGuardError as e:
+            self._send_json(200, DriverOperationService.go_online(profile_id))
+        except DriverNotAllowedError as e:
             self._send_json(
                 403,
                 {
                     "ok": False,
-                    "error": str(e),
+                    "error": e.reason,
                     "code": e.code,
                 },
             )
@@ -1254,21 +1248,13 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             if not order_id:
                 self._send_json(400, {"error": "order_id required"})
                 return
-            DriverGuard.ensure_can_accept_orders(profile_id)
-            self._send_json(
-                200,
-                {
-                    "ok": True,
-                    "order_id": order_id,
-                    "status": "accepted",
-                },
-            )
-        except DriverGuardError as e:
+            self._send_json(200, DriverOperationService.accept_order(order_id, profile_id))
+        except DriverNotAllowedError as e:
             self._send_json(
                 403,
                 {
                     "ok": False,
-                    "error": str(e),
+                    "error": e.reason,
                     "code": e.code,
                 },
             )
