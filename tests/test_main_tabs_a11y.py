@@ -5,8 +5,8 @@ from pathlib import Path
 
 class MainTabsA11yRegressionTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.html = Path('guest_feed.html').read_text(encoding='utf-8')
-        self.script = Path('web/js/feed.js').read_text(encoding='utf-8')
+        self.html = Path('public/guest_feed.html').read_text(encoding='utf-8')
+        self.script = Path('public/web/js/feed.js').read_text(encoding='utf-8')
 
     def test_bottom_nav_uses_aria_tabs_pattern(self) -> None:
         self.assertIn('role="tablist" aria-label="Основное меню"', self.html)

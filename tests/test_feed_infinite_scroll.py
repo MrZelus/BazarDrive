@@ -4,7 +4,7 @@ from pathlib import Path
 
 class FeedInfiniteScrollTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.script = Path("web/js/feed.js").read_text(encoding="utf-8")
+        self.script = Path("public/web/js/feed.js").read_text(encoding="utf-8")
 
     def test_infinite_scroll_uses_intersection_observer(self) -> None:
         self.assertIn("function ensureFeedInfiniteScroll()", self.script)

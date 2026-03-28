@@ -1,6 +1,6 @@
 # BazarDrive Feed API v1
 
-Этот документ фиксирует стабильный контракт между `guest_feed.html` и API v1.
+Этот документ фиксирует стабильный контракт между `public/guest_feed.html` и API v1.
 
 - Base URL: `http://<host>:8001`
 - Формат данных: `application/json; charset=utf-8` (если не указано иначе)
@@ -89,7 +89,7 @@
 - `429 Too Many Requests` — превышен rate limit (возвращаются `retry_after` и заголовок `Retry-After`)
 - `500 Internal Server Error`
 
-### Примечание для `guest_feed.html` (текущий publish flow)
+### Примечание для `public/guest_feed.html` (текущий publish flow)
 - В первом инкременте фронтенд отправляет изображение только через JSON-поля `image_base64` + `image_mime_type`.
 - Поля `image_base64` и `image_mime_type` добавляются в payload только если выбран и прошёл локальную валидацию один файл изображения.
 - Если файл не выбран, отправляется прежний text-only payload без image-полей.

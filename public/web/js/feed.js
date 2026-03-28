@@ -8,6 +8,7 @@
     let feedObserver = null;
     let feedSearchQuery = '';
     let feedSearchDebounceTimer = null;
+    let feedPendingReset = false;
 
     const docs = [
       {
@@ -338,11 +339,21 @@
       return source;
     }
 
-    function resolveInteractionErrorMessage(rawMessage = '', fallbackMessage = 'Не удалось выполнить действие.') {
+    function resolveInteractionErrorMessage(rawMessage = '', rawCode = '', fallbackMessage = 'Не удалось выполнить действие.') {
       const source = String(rawMessage || '').trim();
+      const code = String(rawCode || '').trim().toLowerCase();
       if (!source) return String(fallbackMessage || '').trim() || 'Не удалось выполнить действие.';
-      const normalized = source.toLowerCase();
+      if (code === 'guest_profile_required') return INTERACTION_ERROR_COPY.profileRequired;
+      if (code === 'comment_edit_forbidden') return INTERACTION_ERROR_COPY.forbiddenCommentEdit;
+      if (code === 'comment_delete_forbidden') return INTERACTION_ERROR_COPY.forbiddenCommentDelete;
+      if (code === 'comment_not_found') return INTERACTION_ERROR_COPY.commentNotFound;
+      if (code === 'post_not_found') return INTERACTION_ERROR_COPY.postNotFound;
+      if (code === 'comment_text_required' || code === 'comment_text_too_long' || code === 'comment_text_too_short') {
+        return INTERACTION_ERROR_COPY.commentValidation;
+      }
+      if (code === 'reaction_type_invalid') return INTERACTION_ERROR_COPY.reactionValidation;
 
+      const normalized = source.toLowerCase();
       if (normalized.includes('guest_profile_id') && normalized.includes('обязательно')) {
         return INTERACTION_ERROR_COPY.profileRequired;
       }
@@ -1056,7 +1067,7 @@
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(resolveInteractionErrorMessage(payload.error, `Не удалось установить реакцию (HTTP ${response.status})`));
+        throw new Error(resolveInteractionErrorMessage(payload.error, payload.error_code, `Не удалось установить реакцию (HTTP ${response.status})`));
       }
       return payload;
     }
@@ -1069,7 +1080,7 @@
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(resolveInteractionErrorMessage(payload.error, `Не удалось снять реакцию (HTTP ${response.status})`));
+        throw new Error(resolveInteractionErrorMessage(payload.error, payload.error_code, `Не удалось снять реакцию (HTTP ${response.status})`));
       }
       return payload;
     }
@@ -1268,7 +1279,7 @@
                   body: JSON.stringify({ guest_profile_id: actor.id, text: cleaned }),
                 });
                 const payload = await response.json().catch(() => ({}));
-                if (!response.ok) throw new Error(resolveInteractionErrorMessage(payload.error, `Не удалось обновить комментарий (HTTP ${response.status})`));
+                if (!response.ok) throw new Error(resolveInteractionErrorMessage(payload.error, payload.error_code, `Не удалось обновить комментарий (HTTP ${response.status})`));
                 await loadCommentsForPost(post);
                 renderFeed();
                 showAppNotification('Комментарий обновлён.', 'success');
@@ -1291,7 +1302,7 @@
                   body: JSON.stringify({ guest_profile_id: actor.id }),
                 });
                 const payload = await response.json().catch(() => ({}));
-                if (!response.ok) throw new Error(resolveInteractionErrorMessage(payload.error, `Не удалось удалить комментарий (HTTP ${response.status})`));
+                if (!response.ok) throw new Error(resolveInteractionErrorMessage(payload.error, payload.error_code, `Не удалось удалить комментарий (HTTP ${response.status})`));
                 await loadCommentsForPost(post);
                 renderFeed();
                 showAppNotification('Комментарий удалён.', 'success');
@@ -1322,7 +1333,7 @@
         input.className = 'min-w-0 flex-1 rounded-lg border border-textSoft/25 bg-panel px-3 py-2 text-sm text-text outline-none focus:border-accent';
         const submit = document.createElement('button');
         submit.type = 'submit';
-        submit.className = 'rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-bg hover:opacity-90';
+        submit.className = 'rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-white hover:opacity-90';
         submit.textContent = 'Отправить';
         submit.setAttribute('aria-label', `Отправить комментарий к посту автора ${String(post.author || 'Гость')}`);
         form.append(input, submit);
@@ -1345,7 +1356,7 @@
               body: JSON.stringify({ guest_profile_id: actor.id, author: actor.fullName, text }),
             });
             const payload = await response.json().catch(() => ({}));
-            if (!response.ok) throw new Error(resolveInteractionErrorMessage(payload.error, `Не удалось добавить комментарий (HTTP ${response.status})`));
+            if (!response.ok) throw new Error(resolveInteractionErrorMessage(payload.error, payload.error_code, `Не удалось добавить комментарий (HTTP ${response.status})`));
             input.value = '';
             await loadCommentsForPost(post);
             renderFeed();
@@ -1431,9 +1442,17 @@
     }
 
     async function loadPosts({ reset = false } = {}) {
-      if (feedIsLoading) return;
+      if (feedIsLoading) {
+        if (reset) {
+          feedPendingReset = true;
+        }
+        return;
+      }
       if (!reset && !feedHasMore) return;
       feedIsLoading = true;
+      if (reset) {
+        feedPendingReset = false;
+      }
       if (reset) {
         feedNextCursor = null;
         feedHasMore = true;
@@ -1493,6 +1512,10 @@
       } finally {
         setFeedLoadingSkeleton(false);
         feedIsLoading = false;
+        if (feedPendingReset) {
+          feedPendingReset = false;
+          loadPosts({ reset: true });
+        }
       }
     }
 
@@ -1722,7 +1745,9 @@
 
 	    function setRole(role) {
       roleButtons.forEach((btn) => {
-        btn.classList.toggle('active', btn.dataset.role === role);
+        const isActive = btn.dataset.role === role;
+        btn.classList.toggle('active', isActive);
+        btn.setAttribute('aria-pressed', String(isActive));
       });
 
 	      if (role === 'driver') {
@@ -1872,7 +1897,7 @@
           feedSearchStatus.textContent = `Введите ещё ${2 - raw.length} символ(а), чтобы включить поиск.`;
         }
       } else {
-        feedSearchQuery = raw.toLowerCase();
+        feedSearchQuery = raw;
       }
 
       if (feedSearchDebounceTimer) {

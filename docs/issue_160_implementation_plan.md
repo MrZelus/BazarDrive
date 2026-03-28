@@ -18,8 +18,8 @@
 - Кардинальная перестройка архитектуры табов вне role-based доступа.
 
 ## Затронутые участки кода
-- `guest_feed.html` — профильные кнопки и экраны (`profile-tab-*`).
-- `web/js/feed.js` — `setActiveProfileTab`, `setRole`, `initialRole`, логика видимости блоков документов.
+- `public/guest_feed.html` — профильные кнопки и экраны (`profile-tab-*`).
+- `public/web/js/feed.js` — `setActiveProfileTab`, `setRole`, `initialRole`, логика видимости блоков документов.
 - `docs/feed_navigation_publish_flow.md`, `docs/driver_profile_wireframe_spec.md`.
 - Тесты навигации/ролей (`tests/test_main_tabs_a11y.py`, `tests/test_feed_publish_profile_navigation_flow.py` и смежные).
 
@@ -42,7 +42,7 @@ const ROLE_TABS = {
 };
 ```
 
-**Файлы:** `web/js/feed.js`.
+**Файлы:** `public/web/js/feed.js`.
 
 **Критерии приёмки:**
 - При инициализации и при смене роли UI скрывает/деактивирует недоступные табы.
@@ -59,7 +59,7 @@ const ROLE_TABS = {
 ### 2) Запретить программный переход на недоступные табы (P0)
 **Цель:** доработать `setActiveProfileTab(tab)` так, чтобы недоступная вкладка заменялась на `overview`.
 
-**Файлы:** `web/js/feed.js`.
+**Файлы:** `public/web/js/feed.js`.
 
 **Критерии приёмки:**
 - В `guest/passenger` вызовы `setActiveProfileTab('taxi_ip')` и `setActiveProfileTab('payouts')` не открывают эти табы.
@@ -76,7 +76,7 @@ const ROLE_TABS = {
 ### 3) Авто-fallback при смене роли (P0)
 **Цель:** в `setRole` проверять текущий активный таб и при необходимости переводить в `overview`.
 
-**Файлы:** `web/js/feed.js`.
+**Файлы:** `public/web/js/feed.js`.
 
 **Критерии приёмки:**
 - На `payouts`/`taxi_ip` смена роли на `guest/passenger` мгновенно возвращает в `overview`.
@@ -92,7 +92,7 @@ const ROLE_TABS = {
 ### 4) Default role = `guest` (P0)
 **Цель:** изменить fallback инициализации роли на `guest`.
 
-**Файлы:** `web/js/feed.js`.
+**Файлы:** `public/web/js/feed.js`.
 
 **Критерии приёмки:**
 - После очистки `localStorage` приложение стартует в роли `guest`.
@@ -112,7 +112,7 @@ const ROLE_TABS = {
   2) блок документов водителя (только `driver`).
 - Перенести `guestProfileStatus` в `Документы`.
 
-**Файлы:** `guest_feed.html`, `web/js/feed.js`.
+**Файлы:** `public/guest_feed.html`, `public/web/js/feed.js`.
 
 **Критерии приёмки:**
 - `guest/passenger`: виден только publish-profile блок.

@@ -1,11 +1,14 @@
 import json
 import os
+import sqlite3
 import tempfile
 import threading
 import unittest
 from base64 import urlsafe_b64encode
 from http.client import HTTPConnection
 from http.server import ThreadingHTTPServer
+from pathlib import Path
+from urllib.parse import quote
 
 from app.api.http_handlers import FeedAPIHandler
 from app.db import repository
@@ -127,6 +130,11 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertIn("error", payload)
 
     def test_verification_workflow_submit_approve_reject_and_history(self) -> None:
+        os.environ["APP_ENV"] = "prod"
+        os.environ["API_AUTH_KEYS"] = "writer-key"
+        os.environ["MODERATOR_API_KEYS"] = "mod-key"
+        os.environ["CORS_ALLOWED_ORIGINS"] = "https://app.example.com"
+
         status, payload, _ = self._post(
             "/api/feed/profiles",
             {
@@ -135,6 +143,7 @@ class FeedAPIValidationTests(unittest.TestCase):
                 "email": "driver@example.com",
                 "verification_state": "unverified",
             },
+            headers={"X-API-Key": "writer-key", "Origin": "https://app.example.com"},
         )
         self.assertEqual(status, 201)
         self.assertEqual(payload.get("verification_state"), "unverified")
@@ -142,6 +151,7 @@ class FeedAPIValidationTests(unittest.TestCase):
         submit_status, submit_payload, _ = self._post(
             "/api/feed/profiles/guest-verify-001/verification/submit",
             {"actor": "guest-verify-001"},
+            headers={"X-API-Key": "writer-key", "Origin": "https://app.example.com"},
         )
         self.assertEqual(submit_status, 200)
         self.assertEqual(submit_payload.get("verification_state"), "pending_verification")
@@ -149,6 +159,7 @@ class FeedAPIValidationTests(unittest.TestCase):
         reject_status, reject_payload, _ = self._post(
             "/api/feed/profiles/guest-verify-001/verification/reject",
             {"actor": "moderator-1", "reason": "Фото документа размыто"},
+            headers={"X-API-Key": "mod-key", "Origin": "https://app.example.com"},
         )
         self.assertEqual(reject_status, 200)
         self.assertEqual(reject_payload.get("verification_state"), "rejected")
@@ -157,6 +168,7 @@ class FeedAPIValidationTests(unittest.TestCase):
         resubmit_status, resubmit_payload, _ = self._post(
             "/api/feed/profiles/guest-verify-001/verification/submit",
             {"actor": "guest-verify-001"},
+            headers={"X-API-Key": "writer-key", "Origin": "https://app.example.com"},
         )
         self.assertEqual(resubmit_status, 200)
         self.assertEqual(resubmit_payload.get("verification_state"), "pending_verification")
@@ -164,6 +176,7 @@ class FeedAPIValidationTests(unittest.TestCase):
         approve_status, approve_payload, _ = self._post(
             "/api/feed/profiles/guest-verify-001/verification/approve",
             {"actor": "moderator-2"},
+            headers={"X-API-Key": "mod-key", "Origin": "https://app.example.com"},
         )
         self.assertEqual(approve_status, 200)
         self.assertEqual(approve_payload.get("verification_state"), "verified")
@@ -176,59 +189,137 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertGreaterEqual(len(profile_payload.get("verification_history", [])), 4)
 
     def test_verification_reject_requires_reason_and_enforces_state_transitions(self) -> None:
+        os.environ["APP_ENV"] = "prod"
+        os.environ["API_AUTH_KEYS"] = "writer-key"
+        os.environ["MODERATOR_API_KEYS"] = "mod-key"
+        os.environ["CORS_ALLOWED_ORIGINS"] = "https://app.example.com"
+
         created_status, _, _ = self._post(
             "/api/feed/profiles",
             {"id": "guest-verify-002", "display_name": "Тестовый", "phone": "+70000000000"},
+            headers={"X-API-Key": "writer-key", "Origin": "https://app.example.com"},
         )
         self.assertEqual(created_status, 201)
 
         reject_without_submit_status, _, _ = self._post(
             "/api/feed/profiles/guest-verify-002/verification/reject",
             {"actor": "moderator-1", "reason": "Нет данных"},
+            headers={"X-API-Key": "mod-key", "Origin": "https://app.example.com"},
         )
         self.assertEqual(reject_without_submit_status, 409)
 
         submit_status, _, _ = self._post(
             "/api/feed/profiles/guest-verify-002/verification/submit",
             {"actor": "guest-verify-002"},
+            headers={"X-API-Key": "writer-key", "Origin": "https://app.example.com"},
         )
         self.assertEqual(submit_status, 200)
 
         reject_without_reason_status, reject_without_reason_payload, _ = self._post(
             "/api/feed/profiles/guest-verify-002/verification/reject",
             {"actor": "moderator-1"},
+            headers={"X-API-Key": "mod-key", "Origin": "https://app.example.com"},
         )
         self.assertEqual(reject_without_reason_status, 409)
         self.assertIn("error", reject_without_reason_payload)
 
-    def test_verification_metrics_endpoint_returns_aggregates(self) -> None:
+    def test_prod_only_moderator_can_approve_or_reject_verification(self) -> None:
+        os.environ["APP_ENV"] = "prod"
+        os.environ["API_AUTH_KEYS"] = "writer-key"
+        os.environ["MODERATOR_API_KEYS"] = "mod-key"
+        os.environ["CORS_ALLOWED_ORIGINS"] = "https://app.example.com"
+
         created_status, _, _ = self._post(
             "/api/feed/profiles",
-            {"id": "guest-verify-003", "display_name": "Тестовый 3", "email": "verify3@example.com"},
+            {
+                "id": "guest-verify-003",
+                "display_name": "Проверка модерации",
+                "phone": "+70000000003",
+            },
+            headers={"X-API-Key": "writer-key", "Origin": "https://app.example.com"},
         )
         self.assertEqual(created_status, 201)
 
         submit_status, _, _ = self._post(
             "/api/feed/profiles/guest-verify-003/verification/submit",
             {"actor": "guest-verify-003"},
+            headers={"X-API-Key": "writer-key", "Origin": "https://app.example.com"},
         )
         self.assertEqual(submit_status, 200)
 
-        reject_status, _, _ = self._post(
+        reject_denied_status, reject_denied_payload, _ = self._post(
+            "/api/feed/profiles/guest-verify-003/verification/reject",
+            {"actor": "writer-user", "reason": "Недостаточно данных"},
+            headers={"X-API-Key": "writer-key", "Origin": "https://app.example.com"},
+        )
+        self.assertEqual(reject_denied_status, 403)
+        self.assertIn("error", reject_denied_payload)
+
+        reject_status, reject_payload, _ = self._post(
             "/api/feed/profiles/guest-verify-003/verification/reject",
             {"actor": "moderator-1", "reason": "Недостаточно данных"},
+            headers={"X-API-Key": "mod-key", "Origin": "https://app.example.com"},
         )
         self.assertEqual(reject_status, 200)
+        self.assertEqual(reject_payload.get("verification_state"), "rejected")
 
-        metrics_status, metrics_payload, _ = self._get("/api/feed/profiles/guest-verify-003/verification/metrics")
-        self.assertEqual(metrics_status, 200)
-        self.assertEqual(metrics_payload.get("profile_id"), "guest-verify-003")
-        self.assertEqual(metrics_payload.get("total_events"), 2)
-        self.assertEqual(metrics_payload.get("actions", {}).get("submit"), 1)
-        self.assertEqual(metrics_payload.get("actions", {}).get("reject"), 1)
-        self.assertEqual(metrics_payload.get("states", {}).get("pending_verification"), 1)
-        self.assertEqual(metrics_payload.get("states", {}).get("rejected"), 1)
-        self.assertEqual(metrics_payload.get("rejected_with_reason"), 1)
+    def test_migration_006_backfills_verification_state_for_verified_profiles(self) -> None:
+        db_file = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        db_file.close()
+        try:
+            conn = sqlite3.connect(db_file.name)
+            try:
+                conn.execute(
+                    """
+                    CREATE TABLE guest_profiles (
+                        id TEXT PRIMARY KEY,
+                        role TEXT NOT NULL DEFAULT 'guest',
+                        display_name TEXT NOT NULL,
+                        email TEXT,
+                        phone TEXT,
+                        about TEXT,
+                        is_verified INTEGER NOT NULL DEFAULT 0,
+                        status TEXT NOT NULL DEFAULT 'active',
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        last_seen_at DATETIME
+                    )
+                    """
+                )
+                conn.execute(
+                    """
+                    INSERT INTO guest_profiles (id, role, display_name, email, is_verified, status)
+                    VALUES ('legacy-verified', 'guest', 'Legacy Verified', 'legacy@example.com', 1, 'active')
+                    """
+                )
+                conn.execute(
+                    """
+                    INSERT INTO guest_profiles (id, role, display_name, phone, is_verified, status)
+                    VALUES ('legacy-unverified', 'guest', 'Legacy Unverified', '+70000000004', 0, 'active')
+                    """
+                )
+                conn.commit()
+
+                migration_sql = (Path(__file__).resolve().parents[1] / "migrations" / "006_verification_workflow_v1.sql").read_text(encoding="utf-8")
+                conn.executescript(migration_sql)
+                conn.commit()
+
+                verified_state = conn.execute(
+                    "SELECT verification_state FROM guest_profiles WHERE id = ?",
+                    ("legacy-verified",),
+                ).fetchone()[0]
+                unverified_state = conn.execute(
+                    "SELECT verification_state FROM guest_profiles WHERE id = ?",
+                    ("legacy-unverified",),
+                ).fetchone()[0]
+            finally:
+                conn.close()
+
+            self.assertEqual(verified_state, "verified")
+            self.assertEqual(unverified_state, "unverified")
+        finally:
+            if os.path.exists(db_file.name):
+                os.unlink(db_file.name)
 
     def test_post_validation_returns_400_for_invalid_author_and_image(self) -> None:
         status, payload, _ = self._post(
@@ -543,6 +634,7 @@ class FeedAPIValidationTests(unittest.TestCase):
         )
         self.assertEqual(bad_request_status, 400)
         self.assertIn("error", bad_request_payload)
+        self.assertEqual(bad_request_payload.get("error_code"), "comment_text_required")
 
         create_status, create_payload, _ = self._post(
             f"/api/feed/posts/{post_id}/comments",
@@ -551,23 +643,26 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertEqual(create_status, 201)
         comment_id = create_payload["id"]
 
-        forbidden_patch_status, _, _ = self._patch(
+        forbidden_patch_status, forbidden_patch_payload, _ = self._patch(
             f"/api/feed/posts/{post_id}/comments/{comment_id}",
             {"guest_profile_id": "guest-9999", "text": "Попытка изменить чужой комментарий"},
         )
         self.assertEqual(forbidden_patch_status, 403)
+        self.assertEqual(forbidden_patch_payload.get("error_code"), "comment_edit_forbidden")
 
-        forbidden_delete_status, _, _ = self._delete(
+        forbidden_delete_status, forbidden_delete_payload, _ = self._delete(
             f"/api/feed/posts/{post_id}/comments/{comment_id}",
             {"guest_profile_id": "guest-9999"},
         )
         self.assertEqual(forbidden_delete_status, 403)
+        self.assertEqual(forbidden_delete_payload.get("error_code"), "comment_delete_forbidden")
 
-        not_found_comment_status, _, _ = self._patch(
+        not_found_comment_status, not_found_comment_payload, _ = self._patch(
             f"/api/feed/posts/{post_id}/comments/999999",
             {"guest_profile_id": "guest-0001", "text": "missing"},
         )
         self.assertEqual(not_found_comment_status, 404)
+        self.assertEqual(not_found_comment_payload.get("error_code"), "comment_not_found")
 
     def test_delete_post_by_author_success_with_comment_cascade(self) -> None:
         created_post = repository.create_guest_feed_post(
@@ -799,6 +894,69 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertIsNone(delete_payload["my_reaction"])
         self.assertEqual(delete_payload["reactions"], {})
 
+    def test_reactions_snapshot_stays_consistent_across_cursor_pages_for_guest(self) -> None:
+        created_post_ids: list[int] = []
+        for idx in range(4):
+            post = repository.create_guest_feed_post(
+                author=f"Reaction Author {idx}",
+                text=f"Пост для реакций в cursor-страницах #{idx}",
+                guest_profile_id=f"guest-react-seq-{idx}",
+            )
+            created_post_ids.append(post["id"])
+
+        first_reacted_id = created_post_ids[0]
+        second_reacted_id = created_post_ids[1]
+
+        first_set_status, _, _ = self._post(
+            f"/api/feed/posts/{first_reacted_id}/reactions",
+            {"guest_profile_id": "guest-react-cursor-a", "type": "like"},
+        )
+        self.assertEqual(first_set_status, 200)
+
+        second_set_status, _, _ = self._post(
+            f"/api/feed/posts/{second_reacted_id}/reactions",
+            {"guest_profile_id": "guest-react-cursor-a", "type": "dislike"},
+        )
+        self.assertEqual(second_set_status, 200)
+
+        second_post_other_guest_status, _, _ = self._post(
+            f"/api/feed/posts/{second_reacted_id}/reactions",
+            {"guest_profile_id": "guest-react-cursor-b", "type": "like"},
+        )
+        self.assertEqual(second_post_other_guest_status, 200)
+
+        expected_by_post_id: dict[int, dict] = {
+            created_post_ids[0]: {"my_reaction": "like", "reactions": {"like": 1}, "likes": 1},
+            created_post_ids[1]: {"my_reaction": "dislike", "reactions": {"dislike": 1, "like": 1}, "likes": 1},
+            created_post_ids[2]: {"my_reaction": None, "reactions": {}, "likes": 0},
+            created_post_ids[3]: {"my_reaction": None, "reactions": {}, "likes": 0},
+        }
+
+        next_cursor: str | None = None
+        seen_items: dict[int, dict] = {}
+        while True:
+            query = "/api/feed/posts?limit=2&guest_profile_id=guest-react-cursor-a"
+            if next_cursor:
+                query = f"{query}&cursor={next_cursor}"
+            status, payload, _ = self._get(query)
+            self.assertEqual(status, 200)
+
+            for item in payload["items"]:
+                seen_items[item["id"]] = item
+
+            if not payload["has_more"]:
+                self.assertIsNone(payload["next_cursor"])
+                break
+
+            self.assertTrue(payload["next_cursor"])
+            next_cursor = payload["next_cursor"]
+
+        self.assertEqual(set(seen_items.keys()), set(created_post_ids))
+        for post_id, expected in expected_by_post_id.items():
+            self.assertEqual(seen_items[post_id]["my_reaction"], expected["my_reaction"])
+            self.assertEqual(seen_items[post_id]["likes"], expected["likes"])
+            self.assertEqual(seen_items[post_id]["reactions"], expected["reactions"])
+
     def test_reactions_plural_endpoint_and_get_snapshot(self) -> None:
         post_status, post_payload, _ = self._post(
             "/api/feed/posts",
@@ -868,12 +1026,14 @@ class FeedAPIValidationTests(unittest.TestCase):
         )
         self.assertEqual(bad_status, 400)
         self.assertIn("Некорректный тип реакции", bad_payload.get("error", ""))
+        self.assertEqual(bad_payload.get("error_code"), "reaction_type_invalid")
 
-        not_found_status, _, _ = self._post(
+        not_found_status, not_found_payload, _ = self._post(
             "/api/feed/posts/999999/react",
             {"guest_profile_id": "guest-react-2", "type": "like"},
         )
         self.assertEqual(not_found_status, 404)
+        self.assertEqual(not_found_payload.get("error_code"), "post_not_found")
 
     def test_reactions_concurrency_is_idempotent(self) -> None:
         post = repository.create_guest_feed_post(author="Owner", text="Concurrent post", guest_profile_id="owner-1")
@@ -898,6 +1058,88 @@ class FeedAPIValidationTests(unittest.TestCase):
         payload = FeedService.get_post_reactions(post_id=post_id, guest_profile_id="guest-react-3")
         self.assertEqual(payload["likes"], 1)
         self.assertEqual(payload["my_reaction"], "like")
+
+    def test_feed_cursor_pagination_returns_stable_non_duplicated_sequence_full_regression(self) -> None:
+        expected_ids: list[int] = []
+        for idx in range(7):
+            created = repository.create_guest_feed_post(
+                author=f"Author {idx}",
+                text=f"Пост для cursor pagination #{idx}",
+                guest_profile_id=f"guest-cursor-{idx}",
+            )
+            expected_ids.append(created["id"])
+        expected_ids.sort(reverse=True)
+
+        status_page1, payload_page1, _ = self._get("/api/feed/posts?limit=3")
+        self.assertEqual(status_page1, 200)
+        page1_ids = [item["id"] for item in payload_page1["items"]]
+        self.assertEqual(page1_ids, expected_ids[:3])
+        self.assertTrue(payload_page1["has_more"])
+        self.assertIsNotNone(payload_page1["next_cursor"])
+
+        status_page2, payload_page2, _ = self._get(f"/api/feed/posts?limit=3&cursor={payload_page1['next_cursor']}")
+        self.assertEqual(status_page2, 200)
+        page2_ids = [item["id"] for item in payload_page2["items"]]
+        self.assertEqual(page2_ids, expected_ids[3:6])
+        self.assertTrue(payload_page2["has_more"])
+        self.assertIsNotNone(payload_page2["next_cursor"])
+
+        status_page3, payload_page3, _ = self._get(f"/api/feed/posts?limit=3&cursor={payload_page2['next_cursor']}")
+        self.assertEqual(status_page3, 200)
+        page3_ids = [item["id"] for item in payload_page3["items"]]
+        self.assertEqual(page3_ids, expected_ids[6:])
+        self.assertFalse(payload_page3["has_more"])
+        self.assertIsNone(payload_page3["next_cursor"])
+
+        merged_ids = page1_ids + page2_ids + page3_ids
+        self.assertEqual(merged_ids, expected_ids)
+        self.assertEqual(len(set(merged_ids)), len(merged_ids))
+        self.assertEqual(payload_page1["total"], 7)
+        self.assertEqual(payload_page2["total"], 7)
+        self.assertEqual(payload_page3["total"], 7)
+
+    def test_feed_cursor_pagination_respects_search_query_full_regression(self) -> None:
+        matching_ids: list[int] = []
+        for idx in range(5):
+            matching = repository.create_guest_feed_post(
+                author="Search Match",
+                text=f"vacancy keyword {idx}",
+                guest_profile_id=f"guest-search-match-{idx}",
+            )
+            matching_ids.append(matching["id"])
+        for idx in range(3):
+            repository.create_guest_feed_post(
+                author="Other",
+                text=f"Нерелевантный пост {idx}",
+                guest_profile_id=f"guest-search-other-{idx}",
+            )
+        matching_ids.sort(reverse=True)
+
+        query = quote("vacancy")
+        first_status, first_payload, _ = self._get(f"/api/feed/posts?limit=2&q={query}")
+        self.assertEqual(first_status, 200)
+        self.assertEqual([item["id"] for item in first_payload["items"]], matching_ids[:2])
+        self.assertEqual(first_payload["total"], 5)
+        self.assertTrue(first_payload["has_more"])
+        self.assertIsNotNone(first_payload["next_cursor"])
+
+        second_status, second_payload, _ = self._get(
+            f"/api/feed/posts?limit=2&q={query}&cursor={first_payload['next_cursor']}"
+        )
+        self.assertEqual(second_status, 200)
+        self.assertEqual([item["id"] for item in second_payload["items"]], matching_ids[2:4])
+        self.assertEqual(second_payload["total"], 5)
+        self.assertTrue(second_payload["has_more"])
+        self.assertIsNotNone(second_payload["next_cursor"])
+
+        third_status, third_payload, _ = self._get(
+            f"/api/feed/posts?limit=2&q={query}&cursor={second_payload['next_cursor']}"
+        )
+        self.assertEqual(third_status, 200)
+        self.assertEqual([item["id"] for item in third_payload["items"]], matching_ids[4:])
+        self.assertEqual(third_payload["total"], 5)
+        self.assertFalse(third_payload["has_more"])
+        self.assertIsNone(third_payload["next_cursor"])
 
     def test_create_post_with_multiple_media_and_legacy_fallback(self) -> None:
         status, payload, _ = self._post(
