@@ -1,5 +1,6 @@
 import os
 import sqlite3
+import unicodedata
 from contextlib import closing
 from typing import Any, Optional
 
@@ -24,17 +25,21 @@ def get_db_path() -> str:
     return os.getenv(DB_PATH_ENV_VAR, DEFAULT_DB_PATH)
 
 
+def _normalize_guest_feed_search_value(value: Any) -> str:
+    return unicodedata.normalize("NFKC", str(value or "")).casefold()
+
+
 def _register_unicode_casefold(conn: sqlite3.Connection) -> None:
     conn.create_function(
         "unicode_casefold",
         1,
-        lambda value: str(value or "").casefold(),
+        _normalize_guest_feed_search_value,
         deterministic=True,
     )
 
 
 def _build_guest_feed_search_clause(search_query: Optional[str]) -> tuple[str, tuple[str, ...]]:
-    normalized_query = str(search_query or "").strip().casefold()
+    normalized_query = _normalize_guest_feed_search_value(search_query).strip()
     if not normalized_query:
         return "", ()
     clause = (
