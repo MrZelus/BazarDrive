@@ -16,6 +16,7 @@ from app.db import repository
 from app.logging_setup import configure_logging
 from app.services.driver_compliance_service import DriverComplianceService
 from app.services.driver_operation_service import DriverOperationService
+from app.services.driver_summary_service import DriverSummaryService
 from app.services.exceptions import DriverNotAllowedError
 from app.services.feed_service import FeedAccessDeniedError, FeedPayloadTooLargeError, FeedService
 from app.services.waybill_service import WaybillService
@@ -572,6 +573,13 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             profile_id = str(params.get("profile_id", ["driver-main"])[0] or "driver-main").strip()
             items = repository.list_driver_documents(profile_id=profile_id)
             self._send_json(200, {"items": items, "profile_id": profile_id, "total": len(items)})
+            return
+
+        if path in {"/api/driver/summary", "/driver/summary"}:
+            params = parse_qs(parsed.query)
+            profile_id = str(params.get("profile_id", ["driver-main"])[0] or "driver-main").strip() or "driver-main"
+            summary = DriverSummaryService.build(profile_id)
+            self._send_json(200, summary.to_dict())
             return
 
         if path == "/api/feed/approved":
