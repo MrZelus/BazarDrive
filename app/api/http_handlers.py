@@ -5,6 +5,8 @@ import traceback
 import uuid
 from base64 import urlsafe_b64decode, urlsafe_b64encode
 from dataclasses import dataclass
+from email.parser import BytesParser
+from email.policy import default as default_policy
 from typing import Callable
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
@@ -585,18 +587,59 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             content_type_header = str(self.headers.get("Content-Type", "")).strip()
             content_type = content_type_header.lower()
             if content_type.startswith("multipart/form-data"):
-                payload, error_payload, error_status = self._parse_feed_request_payload()
-                if error_payload is not None:
-                    self._send_json(error_status, error_payload)
+                max_request_bytes = self._get_max_request_bytes()
+                try:
+                    raw_len = int(self.headers.get("Content-Length", "0"))
+                except ValueError:
+                    raw_len = 0
+                if raw_len <= 0:
+                    self._send_json(400, {"error": "Пустой файл документа"})
                     return
-                if payload is None:
-                    self._send_json(400, {"error": "Некорректный payload"})
+                if raw_len > max_request_bytes:
+                    self._send_json(413, self._payload_too_large_error(max_request_bytes))
                     return
-                file_url = str(payload.get("file_url", "")).strip()
-                if not file_url:
-                    self._send_json(400, {"error": "Не найден файл документа (ожидается поле file в multipart/form-data)"})
+                raw = self.rfile.read(raw_len)
+                if len(raw) > max_request_bytes:
+                    self._send_json(413, self._payload_too_large_error(max_request_bytes))
                     return
-                self._send_json(201, {"file_url": file_url})
+
+                envelope = f"Content-Type: {content_type_header}\r\nMIME-Version: 1.0\r\n\r\n".encode("utf-8") + raw
+                message = BytesParser(policy=default_policy).parsebytes(envelope)
+                if not message.is_multipart():
+                    self._send_json(400, {"error": "Некорректный multipart/form-data"})
+                    return
+
+                for part in message.iter_parts():
+                    name = str(part.get_param("name", header="content-disposition") or "").strip().strip('"').lower()
+                    filename = str(part.get_filename() or "").strip()
+                    mime_type = str(part.get_content_type() or "").strip().lower()
+                    looks_like_file = (
+                        "file" in name
+                        or name in {"document", "waybill"}
+                        or bool(filename)
+                        or mime_type in {"application/pdf", "application/octet-stream"}
+                    )
+                    if not looks_like_file:
+                        continue
+                    file_bytes = part.get_payload(decode=True) or b""
+                    if not file_bytes:
+                        continue
+                    try:
+                        file_url = FeedService.document_bytes_to_stored_url(
+                            file_bytes=file_bytes,
+                            mime_type="application/pdf" if mime_type == "application/octet-stream" else mime_type,
+                            filename=filename or "upload.pdf",
+                        )
+                    except FeedPayloadTooLargeError as error:
+                        self._send_json(413, {"error": str(error)})
+                        return
+                    except ValueError as error:
+                        self._send_json(400, {"error": str(error)})
+                        return
+                    self._send_json(201, {"file_url": file_url})
+                    return
+
+                self._send_json(400, {"error": "Не найден файл документа (ожидается поле file в multipart/form-data)"})
                 return
 
             if content_type.startswith("application/pdf") or content_type.startswith("application/octet-stream"):
