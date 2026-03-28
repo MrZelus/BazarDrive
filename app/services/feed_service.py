@@ -253,15 +253,16 @@ class FeedService:
         payload: dict[str, object] = {}
         for part in message.iter_parts():
             name = part.get_param("name", header="content-disposition") or ""
+            normalized_name = str(name).strip().strip('"').strip().lower()
             filename = part.get_filename()
             mime_type = part.get_content_type().lower()
-            is_image_part = name in {"image", "photo"} or (filename and part.get_content_maintype() == "image")
+            is_image_part = normalized_name in {"image", "photo"} or (filename and part.get_content_maintype() == "image")
             if is_image_part:
                 image_bytes = part.get_payload(decode=True) or b""
                 payload["image_url"] = cls.image_bytes_to_stored_url(image_bytes=image_bytes, mime_type=mime_type)
                 continue
             is_document_part = (
-                name in {"file", "document", "waybill"}
+                normalized_name in {"file", "document", "waybill"}
                 or (filename and (mime_type in cls.SUPPORTED_DOCUMENT_MIME_TYPES or str(filename).lower().endswith(".pdf")))
             )
             if is_document_part:
@@ -274,15 +275,15 @@ class FeedService:
                 continue
             if filename:
                 raise ValueError("Неподдерживаемый тип файла. Загрузите PDF-документ")
-            if not name:
+            if not normalized_name:
                 continue
             value = part.get_payload(decode=True)
             if value is None:
                 continue
             try:
-                payload[name] = value.decode(part.get_content_charset() or "utf-8").strip()
+                payload[normalized_name] = value.decode(part.get_content_charset() or "utf-8").strip()
             except UnicodeDecodeError as error:
-                raise ValueError(f"Поле {name} содержит некорректные байты (ожидается текст UTF-8)") from error
+                raise ValueError(f"Поле {normalized_name or name} содержит некорректные байты (ожидается текст UTF-8)") from error
         return payload
 
     @classmethod
