@@ -156,6 +156,27 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
             ),
         )
 
+    def test_guest_profile_payload_sanitizes_unknown_verification_state_before_publish(self) -> None:
+        script = Path('public/web/js/feed.js').read_text(encoding='utf-8')
+        self.assertRegex(
+            script,
+            re.compile(
+                r"const allowedVerificationStates = new Set\(\['unverified', 'pending_verification', 'verified', 'rejected', 'expired'\]\);",
+            ),
+        )
+        self.assertRegex(
+            script,
+            re.compile(
+                r"const rawVerificationState = String\(stored\.verificationState \|\| stored\.verification_state \|\| ''\)\.trim\(\)\.toLowerCase\(\);",
+            ),
+        )
+        self.assertRegex(
+            script,
+            re.compile(
+                r"verification_state: safeVerificationState \|\| '',",
+            ),
+        )
+
 
 if __name__ == '__main__':
     unittest.main()
