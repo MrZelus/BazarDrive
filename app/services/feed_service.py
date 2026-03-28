@@ -159,8 +159,11 @@ class FeedService:
         return cls.image_bytes_to_stored_url(image_bytes=image_bytes, mime_type=mime_type)
 
     @classmethod
-    def document_bytes_to_stored_url(cls, file_bytes: bytes, mime_type: str) -> str:
+    def document_bytes_to_stored_url(cls, file_bytes: bytes, mime_type: str, filename: str = "") -> str:
+        normalized_filename = str(filename or "").strip().lower()
         extension = cls.SUPPORTED_DOCUMENT_MIME_TYPES.get(mime_type)
+        if extension is None and normalized_filename.endswith(".pdf"):
+            extension = ".pdf"
         if extension is None:
             raise ValueError("Неподдерживаемый тип документа. Допустимые значения: application/pdf")
         if len(file_bytes) > cls.MAX_DOCUMENT_BYTES:
@@ -257,11 +260,20 @@ class FeedService:
                 image_bytes = part.get_payload(decode=True) or b""
                 payload["image_url"] = cls.image_bytes_to_stored_url(image_bytes=image_bytes, mime_type=mime_type)
                 continue
-            is_document_part = name in {"file", "document", "waybill"} or (filename and mime_type in cls.SUPPORTED_DOCUMENT_MIME_TYPES)
+            is_document_part = (
+                name in {"file", "document", "waybill"}
+                or (filename and (mime_type in cls.SUPPORTED_DOCUMENT_MIME_TYPES or str(filename).lower().endswith(".pdf")))
+            )
             if is_document_part:
                 file_bytes = part.get_payload(decode=True) or b""
-                payload["file_url"] = cls.document_bytes_to_stored_url(file_bytes=file_bytes, mime_type=mime_type)
+                payload["file_url"] = cls.document_bytes_to_stored_url(
+                    file_bytes=file_bytes,
+                    mime_type=mime_type,
+                    filename=str(filename or ""),
+                )
                 continue
+            if filename:
+                raise ValueError("Неподдерживаемый тип файла. Загрузите PDF-документ")
             if not name:
                 continue
             value = part.get_payload(decode=True)

@@ -251,6 +251,17 @@
     let isSubmittingDocument = false;
     const DOCUMENT_ALLOWED_MIME_TYPES = new Set(['application/pdf']);
     const DOCUMENT_MAX_BYTES = 10 * 1024 * 1024;
+
+    function isPdfDocumentFile(file) {
+      if (!file) return false;
+      const fileType = String(file.type || '').trim().toLowerCase();
+      if (DOCUMENT_ALLOWED_MIME_TYPES.has(fileType)) return true;
+      if (fileType === 'application/octet-stream' || !fileType) {
+        const fileName = String(file.name || '').trim().toLowerCase();
+        return fileName.endsWith('.pdf');
+      }
+      return false;
+    }
     const MODERATION_ERROR_COPY = {
       prohibited: 'Публикация отклонена модерацией: обнаружена запрещённая тема.',
       links: 'Публикация отклонена: в одном посте можно указать не более 2 ссылок.',
@@ -851,7 +862,7 @@
 
       const { payload, errors } = validateDocumentForm();
       const selectedFile = documentFileInput?.files?.[0] || null;
-      if (selectedFile && !DOCUMENT_ALLOWED_MIME_TYPES.has(selectedFile.type)) {
+      if (selectedFile && !isPdfDocumentFile(selectedFile)) {
         errors.file_url = 'Поддерживается только PDF-файл';
       }
       if (selectedFile && selectedFile.size > DOCUMENT_MAX_BYTES) {

@@ -490,6 +490,26 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertEqual(create_payload.get("type"), "waybill")
         self.assertEqual(create_payload.get("file_url"), upload_payload.get("file_url"))
 
+    def test_driver_document_upload_accepts_octet_stream_for_pdf_filename(self) -> None:
+        boundary = "----BazarDrivePdfOctetBoundary"
+        pdf_payload = b"%PDF-1.7\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF"
+        body = (
+            f"--{boundary}\r\n"
+            'Content-Disposition: form-data; name="file"; filename="waybill_mobile.pdf"\r\n'
+            "Content-Type: application/octet-stream\r\n\r\n"
+        ).encode("utf-8") + pdf_payload + f"\r\n--{boundary}--\r\n".encode("utf-8")
+
+        upload_status, upload_payload, _ = self._post_raw(
+            "/api/driver/documents/upload",
+            body=body,
+            headers={
+                "Content-Type": f"multipart/form-data; boundary={boundary}",
+                "Content-Length": str(len(body)),
+            },
+        )
+        self.assertEqual(upload_status, 201)
+        self.assertTrue(str(upload_payload.get("file_url", "")).endswith(".pdf"))
+
     def test_health_endpoint_returns_ok(self) -> None:
         conn = HTTPConnection(self.host, self.port, timeout=5)
         conn.request("GET", "/health")
