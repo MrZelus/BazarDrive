@@ -2,6 +2,7 @@ import json
 import os
 import sqlite3
 import tempfile
+from datetime import datetime, timedelta
 import threading
 import unittest
 from base64 import urlsafe_b64encode
@@ -511,7 +512,7 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertEqual(status, 403)
         self.assertFalse(payload.get("ok"))
         self.assertEqual(payload.get("code"), "driver_cannot_accept_orders")
-        self.assertIn("Нет открытого путевого листа", str(payload.get("error", "")))
+        self.assertIn("Нельзя принимать новые заказы", str(payload.get("error", "")))
 
     def test_driver_accept_order_requires_order_id(self) -> None:
         status, payload, _ = self._post("/api/driver/accept-order", {"profile_id": "driver-main"})
@@ -1706,6 +1707,61 @@ class FeedAPIValidationTests(unittest.TestCase):
         status, payload, _ = self._get(f"/api/feed/posts?limit=1&offset=0&cursor={cursor}")
         self.assertEqual(status, 400)
         self.assertIn("error", payload)
+
+    def test_driver_dashboard_returns_summary_score_reminders_and_mode(self) -> None:
+        profile_id = "driver-dashboard-main"
+        self._seed_driver_ready_profile(profile_id=profile_id)
+        repository.upsert_driver_document(
+            profile_id=profile_id,
+            doc_type="driver_license",
+            number="driver-license-urgent",
+            valid_until="2030-12-31",
+            status="approved",
+        )
+        repository.upsert_driver_document(
+            profile_id=profile_id,
+            doc_type="sts",
+            number="sts-urgent",
+            valid_until="2030-12-31",
+            status="approved",
+        )
+        now = (datetime.utcnow() + timedelta(hours=1)).isoformat()
+        repository.upsert_driver_document(
+            profile_id=profile_id,
+            doc_type="taxi_license",
+            number="taxi-license-urgent",
+            valid_until=now,
+            status="approved",
+        )
+
+        open_status, _, _ = self._post(
+            "/api/driver/shift/open",
+            {"profile_id": profile_id, "vehicle_condition": "ok"},
+        )
+        self.assertEqual(open_status, 200)
+
+        status, payload, _ = self._get(f"/api/driver/dashboard?profile_id={profile_id}")
+        self.assertEqual(status, 200)
+        self.assertIn("summary", payload)
+        self.assertIn("score", payload)
+        self.assertIn("reminders", payload)
+        self.assertIn("mode", payload)
+        self.assertEqual(payload["mode"], "normal")
+        self.assertEqual(payload["score"]["score"], 90)
+
+        reminder_types = {item.get("type") for item in payload.get("reminders", [])}
+        self.assertIn("document_expiring", reminder_types)
+
+    def test_driver_accept_order_blocked_in_limited_mode(self) -> None:
+        profile_id = "driver-limited"
+        self._seed_driver_ready_profile(profile_id=profile_id)
+
+        status, payload, _ = self._post(
+            "/api/driver/accept-order",
+            {"profile_id": profile_id, "order_id": "order-1"},
+        )
+        self.assertEqual(status, 403)
+        self.assertEqual(payload.get("error"), "Нельзя принимать новые заказы")
 
     def test_unexpected_error_returns_unified_json(self) -> None:
         original = repository.list_guest_feed_posts

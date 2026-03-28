@@ -16,6 +16,9 @@ from app.db import repository
 from app.logging_setup import configure_logging
 from app.services.driver_compliance_service import DriverComplianceService
 from app.services.driver_operation_service import DriverOperationService
+from app.services.driver_guard_service import DriverGuardService
+from app.services.driver_reminder_service import DriverReminderService
+from app.services.driver_score_service import DriverScoreService
 from app.services.driver_summary_service import DriverSummaryService
 from app.services.exceptions import DriverNotAllowedError
 from app.services.feed_service import FeedAccessDeniedError, FeedPayloadTooLargeError, FeedService
@@ -580,6 +583,24 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             profile_id = str(params.get("profile_id", ["driver-main"])[0] or "driver-main").strip() or "driver-main"
             summary = DriverSummaryService.build(profile_id)
             self._send_json(200, summary.to_dict())
+            return
+
+        if path in {"/api/driver/dashboard", "/driver/dashboard"}:
+            params = parse_qs(parsed.query)
+            profile_id = str(params.get("profile_id", ["driver-main"])[0] or "driver-main").strip() or "driver-main"
+            summary = DriverSummaryService.build(profile_id)
+            score = DriverScoreService.calculate(profile_id)
+            reminders = DriverReminderService.get_reminders(profile_id)
+            mode = DriverGuardService.get_mode(profile_id)
+            self._send_json(
+                200,
+                {
+                    "summary": summary.to_dict(),
+                    "score": score,
+                    "reminders": reminders,
+                    "mode": mode,
+                },
+            )
             return
 
         if path == "/api/feed/approved":
