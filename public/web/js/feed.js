@@ -507,6 +507,20 @@
       });
     }
 
+    function isImageValidationErrorMessage(message) {
+      const normalized = String(message || '').trim().toLowerCase();
+      if (!normalized) return false;
+      return [
+        'image',
+        'изображ',
+        'mime',
+        'base64',
+        'media_type',
+        'media[]',
+        'фото',
+      ].some((needle) => normalized.includes(needle));
+    }
+
     function formatDocumentDate(dateValue) {
       const value = String(dateValue || '').trim();
       if (!value) return '—';
@@ -1575,7 +1589,11 @@
             throw new Error('Фото слишком большое для публикации. Выберите изображение меньшего размера.');
           }
           if (hasSelectedImage && response.status === 400) {
-            throw new Error('Не удалось опубликовать фото. Проверьте формат изображения (JPG, PNG, WEBP) и повторите попытку.');
+            const responseError = String(payload.error || '').trim();
+            if (isImageValidationErrorMessage(responseError)) {
+              throw new Error(`Не удалось опубликовать фото. ${responseError}`);
+            }
+            throw new Error(resolveModerationErrorMessage(responseError || 'Ошибка публикации (HTTP 400)'));
           }
           if (response.status === 429) {
             const retryAfterRaw = payload.retry_after ?? response.headers.get('Retry-After');
