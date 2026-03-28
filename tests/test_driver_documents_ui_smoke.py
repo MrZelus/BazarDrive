@@ -173,7 +173,7 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
         self.assertRegex(
             script,
             re.compile(
-                r"verification_state: safeVerificationState,",
+                r"verification_state: safeVerificationState \|\| '',",
             ),
         )
 

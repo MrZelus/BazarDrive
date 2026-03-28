@@ -886,7 +886,7 @@
         about: about || null,
         status: 'active',
         is_verified: Boolean(stored.isVerified),
-        verification_state: safeVerificationState,
+        verification_state: safeVerificationState || '',
       };
     }
 
