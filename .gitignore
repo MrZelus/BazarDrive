@@ -5,3 +5,5 @@
 __pycache__/
 bot.db
 storage/
+
+uploads/
