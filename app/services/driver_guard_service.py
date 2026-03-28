@@ -1,0 +1,22 @@
+from app.services.driver_compliance_service import ComplianceResult, DriverComplianceService
+from app.services.exceptions import DriverOfflineBlockedError, DriverOrderBlockedError
+
+
+class DriverGuardService:
+    @staticmethod
+    def ensure_can_go_online(profile_id: str) -> ComplianceResult:
+        result = DriverComplianceService.evaluate(profile_id)
+
+        if not result.can_go_online:
+            raise DriverOfflineBlockedError(reason=result.reason or "Недостаточно данных для выхода на линию")
+
+        return result
+
+    @staticmethod
+    def ensure_can_accept_order(profile_id: str) -> ComplianceResult:
+        result = DriverComplianceService.evaluate(profile_id)
+
+        if not result.can_accept_orders:
+            raise DriverOrderBlockedError(reason=result.reason or "Водитель не может принимать заказы")
+
+        return result
