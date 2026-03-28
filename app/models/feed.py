@@ -26,6 +26,7 @@ ALLOWED_DRIVER_DOCUMENT_TYPES = {
     'driver_license',
     'sts',
     'osago',
+    'osgop',
     'diagnostic_card',
     'self_employed_certificate',
 }
