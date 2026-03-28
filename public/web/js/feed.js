@@ -873,6 +873,9 @@
       const email = String(profileEmailInput?.value || stored.email || '').trim();
       const phone = String(profilePhoneInput?.value || stored.phone || '').trim();
       const about = String(profileAboutInput?.value || stored.about || '').trim();
+      const allowedVerificationStates = new Set(['unverified', 'pending_verification', 'verified', 'rejected', 'expired']);
+      const rawVerificationState = String(stored.verificationState || stored.verification_state || '').trim().toLowerCase();
+      const safeVerificationState = allowedVerificationStates.has(rawVerificationState) ? rawVerificationState : null;
 
       return {
         id: profileId,
@@ -883,7 +886,7 @@
         about: about || null,
         status: 'active',
         is_verified: Boolean(stored.isVerified),
-        verification_state: String(stored.verificationState || '').trim() || null,
+        verification_state: safeVerificationState,
       };
     }
 
