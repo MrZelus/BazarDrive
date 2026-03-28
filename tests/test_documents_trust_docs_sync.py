@@ -10,7 +10,7 @@ class DocumentsTrustDocsSyncTests(unittest.TestCase):
         self.plan_doc = Path("docs/issues/172-documents-trust-automation-plan.md").read_text(encoding="utf-8")
 
     def test_document_statuses_are_present_in_readme_and_spec(self) -> None:
-        statuses = ["uploaded", "checking", "approved", "rejected", "expired"]
+        statuses = ["uploaded", "open", "closed", "checking", "approved", "rejected", "expired"]
         for status in statuses:
             self.assertIn(status, self.readme)
             self.assertIn(status, self.wireframe_doc)

@@ -651,6 +651,10 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             if errors:
                 self._send_json(400, {"error": "validation_error", "fields": errors})
                 return
+            if str(cleaned.get("type", "")).strip() == "waybill" and not str(cleaned.get("status", "")).strip():
+                cleaned["status"] = "open"
+            if str(cleaned.get("type", "")).strip() == "waybill" and str(cleaned.get("status", "")).strip() == "uploaded":
+                cleaned["status"] = "open"
             duplicate = repository.find_driver_document_duplicate(
                 profile_id=str(cleaned["profile_id"]),
                 type=str(cleaned["type"]),
@@ -862,7 +866,9 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
 
         docs_prefix = "/api/driver/documents/"
         if path.startswith(docs_prefix):
-            doc_id_raw = path[len(docs_prefix) :]
+            doc_suffix = path[len(docs_prefix) :]
+            is_close_action = doc_suffix.endswith("/close")
+            doc_id_raw = doc_suffix[:-len("/close")] if is_close_action else doc_suffix
             if not doc_id_raw.isdigit() or int(doc_id_raw) <= 0:
                 self._send_json(400, {"error": "Некорректный id документа"})
                 return
@@ -873,6 +879,22 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
                 return
             if payload is None:
                 self._send_json(400, {"error": "Некорректный payload"})
+                return
+
+            if is_close_action:
+                closure_cleaned, closure_errors = FeedService.validate_waybill_close_payload(payload)
+                if closure_errors:
+                    self._send_json(400, {"error": "validation_error", "fields": closure_errors})
+                    return
+                try:
+                    closed = repository.close_driver_waybill(int(doc_id_raw), closure_cleaned)
+                except ValueError as error:
+                    self._send_json(400, {"error": str(error)})
+                    return
+                if not closed:
+                    self._send_json(404, {"error": "Документ не найден"})
+                    return
+                self._send_json(200, closed)
                 return
 
             cleaned, errors = FeedService.validate_driver_document_fields(payload)

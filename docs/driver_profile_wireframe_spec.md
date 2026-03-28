@@ -284,7 +284,7 @@
 | Блок «Автомобильные данные»       | Data Card               | filled, partial, empty                          | Показывает сведения об авто                     |
 | Блок «Водительское удостоверение» | Data Card               | valid, expiring, expired                        | Показывает данные прав                          |
 | Список документов                 | List / Table            | loaded, empty                                   | Показывает перечень загруженных документов      |
-| Элемент документа                 | List Item / Card        | uploaded, checking, approved, rejected, expired | Открывает карточку документа                    |
+| Элемент документа                 | List Item / Card        | uploaded, open, closed, checking, approved, rejected, expired | Открывает карточку документа                    |
 | Название документа                | Text                    | default                                         | Показывает тип документа                        |
 | Дата загрузки документа           | Text Secondary          | default                                         | Показывает дату загрузки                        |
 | Срок действия документа           | Text / Badge            | valid, expiring, expired                        | Показывает актуальность документа               |
@@ -333,6 +333,8 @@
 ### 8.3. Состояния документов
 
 - `uploaded`
+- `open`
+- `closed`
 - `checking`
 - `approved`
 - `rejected`
