@@ -53,6 +53,8 @@ class FeedService:
     STORAGE_DIR = os.path.abspath(get_feed_upload_dir())
     STORAGE_URL_PREFIX = "/uploads/feed/"
     SUPPORTED_IMAGE_MIME_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
+    SUPPORTED_DOCUMENT_MIME_TYPES = {"application/pdf": ".pdf"}
+    MAX_DOCUMENT_BYTES = 10 * 1024 * 1024
     SUPPORTED_VIDEO_MIME_TYPES = {"video/mp4"}
     MAX_VIDEO_BYTES = 20 * 1024 * 1024
     MAX_URLS_PER_POST = 2
@@ -157,6 +159,24 @@ class FeedService:
         return cls.image_bytes_to_stored_url(image_bytes=image_bytes, mime_type=mime_type)
 
     @classmethod
+    def document_bytes_to_stored_url(cls, file_bytes: bytes, mime_type: str, filename: str = "") -> str:
+        normalized_filename = str(filename or "").strip().lower()
+        extension = cls.SUPPORTED_DOCUMENT_MIME_TYPES.get(mime_type)
+        if extension is None and normalized_filename.endswith(".pdf"):
+            extension = ".pdf"
+        if extension is None:
+            raise ValueError("Неподдерживаемый тип документа. Допустимые значения: application/pdf")
+        if len(file_bytes) > cls.MAX_DOCUMENT_BYTES:
+            raise FeedPayloadTooLargeError(f"Файл документа слишком большой (максимум {cls.MAX_DOCUMENT_BYTES} байт)")
+
+        cls.ensure_storage_dir()
+        filename = f"{uuid.uuid4().hex}{extension}"
+        destination = os.path.join(cls.STORAGE_DIR, filename)
+        with open(destination, "xb") as file_obj:
+            file_obj.write(file_bytes)
+        return f"{cls.STORAGE_URL_PREFIX}{filename}"
+
+    @classmethod
     def validate_post_media_payload(cls, payload: dict[str, object]) -> tuple[list[dict[str, object]], str | None]:
         media_payload = payload.get("media")
         raw_legacy_image_url = payload.get("image_url")
@@ -233,22 +253,45 @@ class FeedService:
         payload: dict[str, object] = {}
         for part in message.iter_parts():
             name = part.get_param("name", header="content-disposition") or ""
+            normalized_name = str(name).strip().strip('"').strip().lower()
             filename = part.get_filename()
             mime_type = part.get_content_type().lower()
-            is_image_part = name in {"image", "photo"} or (filename and part.get_content_maintype() == "image")
+            is_image_part = normalized_name in {"image", "photo"} or (filename and part.get_content_maintype() == "image")
             if is_image_part:
                 image_bytes = part.get_payload(decode=True) or b""
                 payload["image_url"] = cls.image_bytes_to_stored_url(image_bytes=image_bytes, mime_type=mime_type)
                 continue
-            if not name:
+            is_document_part = (
+                normalized_name in {"file", "document", "waybill"}
+                or (filename and (mime_type in cls.SUPPORTED_DOCUMENT_MIME_TYPES or str(filename).lower().endswith(".pdf")))
+            )
+            if is_document_part:
+                file_bytes = part.get_payload(decode=True) or b""
+                payload["file_url"] = cls.document_bytes_to_stored_url(
+                    file_bytes=file_bytes,
+                    mime_type=mime_type,
+                    filename=str(filename or ""),
+                )
+                continue
+            if filename:
+                raise ValueError("Неподдерживаемый тип файла. Загрузите PDF-документ")
+            if not normalized_name:
                 continue
             value = part.get_payload(decode=True)
             if value is None:
                 continue
             try:
-                payload[name] = value.decode(part.get_content_charset() or "utf-8").strip()
+                payload[normalized_name] = value.decode(part.get_content_charset() or "utf-8").strip()
             except UnicodeDecodeError as error:
-                raise ValueError(f"Поле {name} содержит некорректные байты (ожидается текст UTF-8)") from error
+                if "file" in normalized_name or normalized_name in {"document", "waybill"}:
+                    file_bytes = value or b""
+                    payload["file_url"] = cls.document_bytes_to_stored_url(
+                        file_bytes=file_bytes,
+                        mime_type=mime_type,
+                        filename=str(filename or "upload.pdf"),
+                    )
+                    continue
+                raise ValueError(f"Поле {normalized_name or name} содержит некорректные байты (ожидается текст UTF-8)") from error
         return payload
 
     @classmethod

@@ -8,6 +8,8 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
         html = Path('public/guest_feed.html').read_text(encoding='utf-8')
         self.assertIn('id="addDocumentBtn"', html)
         self.assertIn('id="addDocumentForm"', html)
+        self.assertIn('id="documentFileInput"', html)
+        self.assertIn('Файл документа (PDF)', html)
         self.assertIn('Добавить документ', html)
         self.assertIn('id="driverOverviewDocuments"', html)
         self.assertIn('Профиль водителя', html)
@@ -18,6 +20,8 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
         self.assertIn('loadDriverDocuments', script)
         self.assertIn('submitDriverDocument', script)
         self.assertIn('/api/driver/documents', script)
+        self.assertIn('/api/driver/documents/upload', script)
+        self.assertIn('uploadDriverDocumentFile', script)
         self.assertIn('renderDriverOverviewDocuments', script)
         self.assertIn('mapDocumentStatus', script)
         self.assertRegex(
