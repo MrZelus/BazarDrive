@@ -4,6 +4,7 @@ import tempfile
 import unittest
 
 from app.db import repository
+from app.services.waybill_service import WaybillService
 
 
 class GuestFeedRepositoryTests(unittest.TestCase):
@@ -157,6 +158,38 @@ class GuestFeedRepositoryTests(unittest.TestCase):
                     "vehicle_condition": "Исправен",
                 },
             )
+
+    def test_get_active_waybill_expires_outdated_open_shift(self) -> None:
+        outdated = repository.create_driver_document(
+            profile_id="driver-main",
+            type="waybill",
+            number="WB-OLD-1",
+            valid_until="2000-01-01",
+            status="open",
+        )
+        active_waybill = WaybillService.get_active_waybill("driver-main")
+        self.assertIsNone(active_waybill)
+
+        listed_docs = repository.list_driver_documents(profile_id="driver-main")
+        expired_waybill = next(item for item in listed_docs if item["id"] == outdated["id"])
+        self.assertEqual(expired_waybill["status"], "expired")
+
+    def test_open_shift_ignores_outdated_open_waybill_after_auto_expire(self) -> None:
+        repository.create_driver_document(
+            profile_id="driver-main",
+            type="waybill",
+            number="WB-OLD-2",
+            valid_until="2000-01-01",
+            status="open",
+        )
+
+        new_waybill_id = WaybillService.open_shift(profile_id="driver-main", vehicle_condition="Исправен")
+        self.assertGreater(new_waybill_id, 0)
+
+        listed_docs = repository.list_driver_documents(profile_id="driver-main")
+        statuses = {item["id"]: item["status"] for item in listed_docs}
+        self.assertIn("expired", statuses.values())
+        self.assertEqual(statuses[new_waybill_id], "open")
 
     def test_guest_feed_comments_repository_crud_and_cascade(self) -> None:
         created_post = repository.create_guest_feed_post(

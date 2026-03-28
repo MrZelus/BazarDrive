@@ -10,11 +10,30 @@ from app.db.repository import get_db_path
 
 class WaybillService:
     @staticmethod
+    def _expire_outdated_open_waybills(profile_id: str, conn: sqlite3.Connection) -> None:
+        updated_at = datetime.utcnow().isoformat()
+        conn.execute(
+            """
+            UPDATE driver_documents
+            SET status = 'expired',
+                closed_at = COALESCE(closed_at, ?),
+                updated_at = ?
+            WHERE profile_id = ?
+              AND type = 'waybill'
+              AND status = 'open'
+              AND COALESCE(valid_until, '') != ''
+              AND substr(valid_until, 1, 10) < date('now')
+            """,
+            (updated_at, updated_at, profile_id),
+        )
+
+    @staticmethod
     def open_shift(profile_id: str, vehicle_condition: str) -> int:
         normalized_profile_id = str(profile_id or "driver-main").strip() or "driver-main"
         normalized_vehicle_condition = str(vehicle_condition or "").strip() or None
 
         with closing(sqlite3.connect(get_db_path())) as conn:
+            WaybillService._expire_outdated_open_waybills(normalized_profile_id, conn)
             cur = conn.cursor()
 
             cur.execute(
@@ -129,6 +148,8 @@ class WaybillService:
         normalized_profile_id = str(profile_id or "driver-main").strip() or "driver-main"
 
         with closing(sqlite3.connect(get_db_path())) as conn:
+            WaybillService._expire_outdated_open_waybills(normalized_profile_id, conn)
+            conn.commit()
             conn.row_factory = sqlite3.Row
             cur = conn.cursor()
             cur.execute(
