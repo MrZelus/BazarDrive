@@ -1378,7 +1378,20 @@ components:
       properties:
         id: { type: integer }
         profile_id: { type: string }
-        type: { type: string }
+        type:
+          type: string
+          enum:
+            - passport
+            - inn
+            - ogrnip
+            - taxi_license
+            - waybill
+            - driver_license
+            - sts
+            - osago
+            - osgop
+            - diagnostic_card
+            - self_employed_certificate
         number: { type: string }
         valid_until: { type: string, nullable: true }
         file_url: { type: string, nullable: true }
@@ -1403,7 +1416,20 @@ components:
       type: object
       properties:
         profile_id: { type: string }
-        type: { type: string }
+        type:
+          type: string
+          enum:
+            - passport
+            - inn
+            - ogrnip
+            - taxi_license
+            - waybill
+            - driver_license
+            - sts
+            - osago
+            - osgop
+            - diagnostic_card
+            - self_employed_certificate
         number: { type: string }
         valid_until: { type: string, nullable: true }
         file_url: { type: string, nullable: true }
