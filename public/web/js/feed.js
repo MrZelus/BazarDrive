@@ -2009,35 +2009,31 @@
       }
     }
 
-    function buildDocSearchText(doc) {
-      const tokens = [doc?.title, doc?.description, doc?.summary];
-      if (Array.isArray(doc?.tags)) {
-        tokens.push(...doc.tags);
-      }
-      if (Array.isArray(doc?.sections)) {
-        doc.sections.forEach((section) => {
-          tokens.push(section?.title);
-          if (Array.isArray(section?.items)) {
-            tokens.push(...section.items);
-          }
-          if (Array.isArray(section?.orderedItems)) {
-            tokens.push(...section.orderedItems);
-          }
-        });
-      }
-      return tokens
-        .map((token) => String(token || '').trim())
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-    }
-
     function renderDocs(query = '') {
       const normalized = query.trim().toLowerCase();
       const shouldFilter = normalized.length >= 2;
       const filteredDocs = docs.filter((doc) => {
         if (!shouldFilter) return true;
-        const haystack = buildDocSearchText(doc);
+        const tokens = [doc?.title, doc?.description, doc?.summary];
+        if (Array.isArray(doc?.tags)) {
+          tokens.push(...doc.tags);
+        }
+        if (Array.isArray(doc?.sections)) {
+          doc.sections.forEach((section) => {
+            tokens.push(section?.title);
+            if (Array.isArray(section?.items)) {
+              tokens.push(...section.items);
+            }
+            if (Array.isArray(section?.orderedItems)) {
+              tokens.push(...section.orderedItems);
+            }
+          });
+        }
+        const haystack = tokens
+          .map((token) => String(token || '').trim())
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
         return haystack.includes(normalized);
       });
 

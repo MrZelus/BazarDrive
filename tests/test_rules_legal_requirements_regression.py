@@ -22,16 +22,15 @@ class RulesLegalRequirementsRegressionTests(unittest.TestCase):
         self.assertIn("'Путевой лист с предсменным и послесменным медосмотром водителя (подпись медработника или ЭП).'", self.script)
 
     def test_rules_search_and_render_support_deep_legal_sections(self) -> None:
-        self.assertIn("function buildDocSearchText(doc)", self.script)
         self.assertIn("tokens.push(...doc.tags);", self.script)
         self.assertIn("tokens.push(...section.items);", self.script)
         self.assertIn("tokens.push(...section.orderedItems);", self.script)
-        self.assertIn("const haystack = buildDocSearchText(doc);", self.script)
+        self.assertIn("const haystack = tokens", self.script)
         self.assertIn("detailsSummary.textContent = 'Показать перечень обязательных сведений';", self.script)
         self.assertRegex(
             self.script,
             re.compile(
-                r"if \(Array\.isArray\(doc\.sections\) && doc\.sections\.length\)\s*\{[\s\S]+const details = document\.createElement\('details'\);",
+                r"const filteredDocs = docs\.filter\(\(doc\) => \{[\s\S]+const haystack = tokens[\s\S]+if \(Array\.isArray\(doc\.sections\) && doc\.sections\.length\)\s*\{[\s\S]+const details = document\.createElement\('details'\);",
                 re.MULTILINE,
             ),
         )
