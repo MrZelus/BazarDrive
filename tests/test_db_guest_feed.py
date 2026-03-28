@@ -224,43 +224,55 @@ class GuestFeedRepositoryTests(unittest.TestCase):
         second_ids = {int(item["id"]) for item in second_page}
         self.assertEqual(len(first_ids.intersection(second_ids)), 0)
 
-    def test_list_guest_feed_posts_search_query_is_case_insensitive(self) -> None:
-        repository.create_guest_feed_post(author="Taxi Expert", text="Поездка в аэропорт", guest_profile_id="guest-search")
-        repository.create_guest_feed_post(author="Food Lover", text="Лучшие кафе", guest_profile_id="guest-search")
-        repository.create_guest_feed_post(author="City TAXI", text="Ночная смена", guest_profile_id="guest-search")
+    def test_guest_feed_search_case_insensitive_for_cyrillic_in_list_cursor_and_count(self) -> None:
+        repository.create_guest_feed_post(
+            author="ИВАН",
+            text="Поездка до МОСКВА",
+            guest_profile_id="guest-search-ru",
+        )
+        repository.create_guest_feed_post(
+            author="ПЕТР",
+            text="Поездка до СОЧИ",
+            guest_profile_id="guest-search-ru",
+        )
+        repository.create_guest_feed_post(
+            author="Мария",
+            text="Маршрут через Москва",
+            guest_profile_id="guest-search-ru",
+        )
 
-        filtered = repository.list_guest_feed_posts(limit=10, offset=0, search_query="TaXi")
-        self.assertEqual(len(filtered), 2)
-        for item in filtered:
-            haystack = f"{item.get('author', '')} {item.get('text', '')}".lower()
-            self.assertIn("taxi", haystack)
+        listed_by_author = repository.list_guest_feed_posts(limit=10, offset=0, search_query="иван")
+        self.assertEqual(len(listed_by_author), 1)
+        self.assertEqual(str(listed_by_author[0]["author"]), "ИВАН")
 
-        self.assertEqual(repository.count_guest_feed_posts(search_query="TaXi"), 2)
+        listed_by_city = repository.list_guest_feed_posts(limit=10, offset=0, search_query="москва")
+        self.assertEqual(len(listed_by_city), 2)
+        self.assertEqual(repository.count_guest_feed_posts(search_query="москва"), 2)
 
-    def test_list_guest_feed_posts_by_cursor_respects_search_query(self) -> None:
-        repository.create_guest_feed_post(author="Alpha Driver", text="alpha ride", guest_profile_id="guest-search-cursor")
-        repository.create_guest_feed_post(author="Beta Driver", text="beta ride", guest_profile_id="guest-search-cursor")
-        repository.create_guest_feed_post(author="Alpha Courier", text="alpha delivery", guest_profile_id="guest-search-cursor")
-
-        first_page = repository.list_guest_feed_posts_by_cursor(limit=1, search_query="alpha")
+        first_page = repository.list_guest_feed_posts_by_cursor(limit=1, search_query="москва")
         self.assertEqual(len(first_page), 1)
+        next_cursor = first_page[-1]
 
-        cursor_post = first_page[-1]
         second_page = repository.list_guest_feed_posts_by_cursor(
             limit=1,
-            cursor_created_at=str(cursor_post["created_at"]),
-            cursor_id=int(cursor_post["id"]),
-            search_query="alpha",
+            cursor_created_at=str(next_cursor["created_at"]),
+            cursor_id=int(next_cursor["id"]),
+            search_query="москва",
         )
         self.assertEqual(len(second_page), 1)
+        self.assertNotEqual(int(first_page[0]["id"]), int(second_page[0]["id"]))
 
-        first_ids = {int(item["id"]) for item in first_page}
-        second_ids = {int(item["id"]) for item in second_page}
-        self.assertEqual(len(first_ids.intersection(second_ids)), 0)
-        for item in [*first_page, *second_page]:
-            haystack = f"{item.get('author', '')} {item.get('text', '')}".lower()
-            self.assertIn("alpha", haystack)
+    def test_guest_feed_search_normalizes_width_and_case(self) -> None:
+        repository.create_guest_feed_post(
+            author="Ｔａｘｉ Driver",
+            text="Маршрут до Москва",
+            guest_profile_id="guest-search-normalized",
+        )
 
+        listed = repository.list_guest_feed_posts(limit=10, offset=0, search_query="taxi")
+        self.assertEqual(len(listed), 1)
+        self.assertEqual(str(listed[0]["author"]), "Ｔａｘｉ Driver")
+        self.assertEqual(repository.count_guest_feed_posts(search_query="TAXI"), 1)
 
 
 if __name__ == "__main__":
