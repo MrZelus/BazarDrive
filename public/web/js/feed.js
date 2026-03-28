@@ -12,6 +12,79 @@
 
     const docs = [
       {
+        id: 'taxi-legal-requirements',
+        title: 'Обязательные требования к водителю такси',
+        description: 'Перечень данных и документов для законной работы по 580-ФЗ, подзаконным актам и правилам сервиса.',
+        tags: ['580-фз', 'документы', 'такси', 'лицензия', 'путевой лист', 'осаго', 'осгоп'],
+        type: 'Регламент',
+        summary: 'Водитель и перевозчик должны поддерживать актуальность документов, иначе возможны штрафы и ограничения допуска к заказам.',
+        sections: [
+          {
+            title: 'Личные данные и квалификация',
+            items: [
+              'Фамилия, имя, отчество и контактные данные.',
+              'Водительское удостоверение категории B, стаж управления от 3 лет и отсутствие медицинских противопоказаний.',
+              'Отсутствие неснятой или непогашенной судимости и более трёх неоплаченных штрафов.',
+              'Подтверждённые трудовые отношения: водитель работает у перевозчика или является ИП/физлицом с разрешением на перевозку.',
+            ],
+          },
+          {
+            title: 'Сведения о предпринимателе (для ИП)',
+            items: [
+              'ИНН и ОГРНИП.',
+              'Дата регистрации и налоговый режим (например, УСН «Доходы» 6%).',
+              'Регион осуществления деятельности.',
+            ],
+          },
+          {
+            title: 'Сведения об автомобиле',
+            items: [
+              'Марка, модель и регистрационный номер такси.',
+              'СТС (оригинал).',
+              'Диагностическая карта (данные техосмотра).',
+              'ОСАГО с отметкой «Такси».',
+              'ОСГОП — обязательное страхование ответственности перевозчика.',
+              'Разрешение перевозчика (лицензия на таксомоторную деятельность).',
+              'Наличие обязательного оборудования: цветографическая схема, оранжевый фонарь, при необходимости таксометр.',
+              'В путевой лист вносятся дата, время и результат предрейсового/предсменного контроля технического состояния авто.',
+            ],
+          },
+          {
+            title: 'Документы для поездок',
+            items: [
+              'Водительское удостоверение (оригинал).',
+              'СТС.',
+              'ОСАГО с отметкой «Такси».',
+              'Полис ОСГОП.',
+              'Разрешение на перевозку (лицензия).',
+              'Путевой лист с предсменным и послесменным медосмотром водителя (подпись медработника или ЭП).',
+              'Допускаются оригиналы или электронные документы; сканы бумажных оригиналов не принимаются.',
+            ],
+          },
+          {
+            title: 'Журнал регистрации заказов',
+            orderedItems: [
+              'Номер заказа.',
+              'Дата и время принятия заказа.',
+              'Дата выполнения заказа.',
+              'Адрес подачи и адрес окончания поездки.',
+              'Марка, модель, госномер автомобиля и Ф. И. О. водителя.',
+              'Планируемое и фактическое время прибытия и окончания поездки.',
+              'Способ направления заказа и контактный телефон пассажира.',
+              'Дополнительные требования (например, детское кресло, перевозка человека с инвалидностью).',
+            ],
+          },
+          {
+            title: 'Дополнительные данные',
+            items: [
+              'Реквизиты для выплат (банковский счёт или карта).',
+              'Безопасность аккаунта: 2FA и контроль активных устройств.',
+              'Рейтинг водителя, статистика поездок и доходов в профиле.',
+            ],
+          },
+        ],
+      },
+      {
         id: 'platform-rules',
         title: 'Правила платформы',
         description: 'Основные требования к безопасности, коммуникации и публикациям.',
@@ -1936,12 +2009,35 @@
       }
     }
 
+    function buildDocSearchText(doc) {
+      const tokens = [doc?.title, doc?.description, doc?.summary];
+      if (Array.isArray(doc?.tags)) {
+        tokens.push(...doc.tags);
+      }
+      if (Array.isArray(doc?.sections)) {
+        doc.sections.forEach((section) => {
+          tokens.push(section?.title);
+          if (Array.isArray(section?.items)) {
+            tokens.push(...section.items);
+          }
+          if (Array.isArray(section?.orderedItems)) {
+            tokens.push(...section.orderedItems);
+          }
+        });
+      }
+      return tokens
+        .map((token) => String(token || '').trim())
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+    }
+
     function renderDocs(query = '') {
       const normalized = query.trim().toLowerCase();
       const shouldFilter = normalized.length >= 2;
       const filteredDocs = docs.filter((doc) => {
         if (!shouldFilter) return true;
-        const haystack = `${doc.title} ${doc.description} ${doc.tags.join(' ')}`.toLowerCase();
+        const haystack = buildDocSearchText(doc);
         return haystack.includes(normalized);
       });
 
@@ -1977,6 +2073,63 @@
           });
 
           article.append(top, tags);
+
+          if (doc.summary) {
+            const summary = document.createElement('p');
+            summary.className = 'mt-3 text-sm text-textSoft';
+            summary.textContent = String(doc.summary || '').trim();
+            article.appendChild(summary);
+          }
+
+          if (Array.isArray(doc.sections) && doc.sections.length) {
+            const details = document.createElement('details');
+            details.className = 'mt-3 rounded-xl border border-textSoft/20 bg-panelSoft px-3 py-2';
+
+            const detailsSummary = document.createElement('summary');
+            detailsSummary.className = 'cursor-pointer text-sm font-medium text-text';
+            detailsSummary.textContent = 'Показать перечень обязательных сведений';
+            details.appendChild(detailsSummary);
+
+            const contentWrap = document.createElement('div');
+            contentWrap.className = 'mt-2 space-y-2';
+
+            doc.sections.forEach((section) => {
+              const sectionEl = document.createElement('section');
+              sectionEl.className = 'space-y-1';
+
+              const sectionTitle = document.createElement('p');
+              sectionTitle.className = 'text-xs font-semibold uppercase tracking-wide text-textSoft';
+              sectionTitle.textContent = String(section.title || '').trim();
+              sectionEl.appendChild(sectionTitle);
+
+              if (Array.isArray(section.items) && section.items.length) {
+                const list = document.createElement('ul');
+                list.className = 'list-disc space-y-1 pl-5 text-sm text-textSoft';
+                section.items.forEach((item) => {
+                  const li = document.createElement('li');
+                  li.textContent = String(item || '').trim();
+                  list.appendChild(li);
+                });
+                sectionEl.appendChild(list);
+              }
+
+              if (Array.isArray(section.orderedItems) && section.orderedItems.length) {
+                const orderedList = document.createElement('ol');
+                orderedList.className = 'list-decimal space-y-1 pl-5 text-sm text-textSoft';
+                section.orderedItems.forEach((item) => {
+                  const li = document.createElement('li');
+                  li.textContent = String(item || '').trim();
+                  orderedList.appendChild(li);
+                });
+                sectionEl.appendChild(orderedList);
+              }
+
+              contentWrap.appendChild(sectionEl);
+            });
+
+            details.appendChild(contentWrap);
+            article.appendChild(details);
+          }
           docsList.appendChild(article);
         });
       } else {
