@@ -124,6 +124,33 @@ class FeedAPIValidationTests(unittest.TestCase):
         conn.close()
         return response.status, parsed, response_headers
 
+    def _seed_driver_ready_profile(self, profile_id: str = "driver-main") -> None:
+        repository.upsert_driver_compliance_profile(
+            profile_id=profile_id,
+            payload={
+                "last_name": "Иванов",
+                "first_name": "Иван",
+                "phone": "+79990001122",
+                "driver_license_category": "B",
+                "driving_experience_years": 5,
+                "has_medical_contraindications": 0,
+                "criminal_record_cleared": 1,
+                "unpaid_fines_count": 0,
+                "employment_type": "self_employed",
+                "vehicle_make": "Lada",
+                "vehicle_model": "Vesta",
+                "vehicle_license_plate": "А001АА77",
+            },
+        )
+        for doc_type in {"driver_license", "sts", "osago", "osgop", "taxi_license"}:
+            repository.upsert_driver_document(
+                profile_id=profile_id,
+                doc_type=doc_type,
+                number=f"{doc_type}-001",
+                valid_until="2030-12-31",
+                status="approved",
+            )
+
     def test_profile_validation_returns_400(self) -> None:
         status, payload, _ = self._post("/api/feed/profiles", {"id": "short", "display_name": "A"})
         self.assertEqual(status, 400)
@@ -490,6 +517,30 @@ class FeedAPIValidationTests(unittest.TestCase):
         status, payload, _ = self._post("/api/driver/accept-order", {"profile_id": "driver-main"})
         self.assertEqual(status, 400)
         self.assertEqual(payload.get("error"), "order_id required")
+
+    def test_driver_summary_returns_red_when_waybill_is_missing(self) -> None:
+        status, payload, _ = self._get("/api/driver/summary?profile_id=driver-main")
+        self.assertEqual(status, 200)
+        self.assertEqual(payload.get("level"), "red")
+        self.assertEqual(payload.get("title"), "⛔ Выход на линию запрещён")
+        self.assertIn("Нет открытого путевого листа", payload.get("problems", []))
+        self.assertIn("Открыть смену", payload.get("actions", []))
+
+    def test_driver_summary_returns_green_when_driver_is_ready(self) -> None:
+        self._seed_driver_ready_profile("driver-main")
+        open_status, _, _ = self._post(
+            "/api/driver/shift/open",
+            {"profile_id": "driver-main", "vehicle_condition": "Исправен"},
+        )
+        self.assertEqual(open_status, 200)
+
+        status, payload, _ = self._get("/api/driver/summary?profile_id=driver-main")
+        self.assertEqual(status, 200)
+        self.assertEqual(payload.get("level"), "green")
+        self.assertEqual(payload.get("title"), "✅ Можно работать")
+        self.assertEqual(payload.get("reason"), "Все проверки пройдены")
+        self.assertEqual(payload.get("problems"), [])
+        self.assertEqual(payload.get("actions"), [])
 
     def test_driver_shift_open_and_close_flow(self) -> None:
         open_status, open_payload, _ = self._post(
