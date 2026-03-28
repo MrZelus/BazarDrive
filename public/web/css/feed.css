@@ -102,10 +102,10 @@ body {
 }
 
 .role-btn.active {
-  background-color: rgb(var(--feed-accent-rgb));
-  color: #fff;
-  border-color: rgb(var(--feed-accent-rgb));
-  box-shadow: none;
+  background-color: rgb(var(--feed-panel-soft-rgb)) !important;
+  color: rgb(var(--feed-accent-rgb)) !important;
+  border-color: rgb(var(--feed-accent-rgb)) !important;
+  box-shadow: 0 0 0 1px rgb(var(--feed-accent-rgb) / 0.12) inset;
 }
 
 .tab-btn:disabled,
