@@ -15,6 +15,7 @@ from app.config import get_api_settings
 from app.db import repository
 from app.logging_setup import configure_logging
 from app.services.driver_compliance_service import DriverComplianceService
+from app.services.driver_guard import DriverGuard, DriverGuardError
 from app.services.feed_service import FeedAccessDeniedError, FeedPayloadTooLargeError, FeedService
 
 
@@ -597,6 +598,14 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
 
         if path == "/api/driver/compliance/check":
             self._handle_driver_compliance_check()
+            return
+
+        if path == "/api/driver/go-online":
+            self._handle_driver_go_online()
+            return
+
+        if path == "/api/driver/accept-order":
+            self._handle_driver_accept_order()
             return
 
         if path == "/api/driver/documents/upload":
@@ -1202,6 +1211,71 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             )
         except Exception:
             logger.exception("compliance check failed")
+            self._send_internal_error()
+
+    def _handle_driver_go_online(self) -> None:
+        payload, error, status = self._parse_feed_request_payload()
+        if error:
+            self._send_json(status, error)
+            return
+
+        if payload is None:
+            self._send_json(400, {"error": "Некорректный payload"})
+            return
+
+        try:
+            profile_id = str(payload.get("profile_id", "driver-main")).strip() or "driver-main"
+            DriverGuard.ensure_can_go_online(profile_id)
+            self._send_json(200, {"ok": True, "status": "online"})
+        except DriverGuardError as error:
+            self._send_json(
+                403,
+                {
+                    "ok": False,
+                    "error": str(error),
+                    "code": error.code,
+                },
+            )
+        except Exception:
+            logger.exception("go-online failed")
+            self._send_internal_error()
+
+    def _handle_driver_accept_order(self) -> None:
+        payload, error, status = self._parse_feed_request_payload()
+        if error:
+            self._send_json(status, error)
+            return
+
+        if payload is None:
+            self._send_json(400, {"error": "Некорректный payload"})
+            return
+
+        try:
+            profile_id = str(payload.get("profile_id", "driver-main")).strip() or "driver-main"
+            order_id = payload.get("order_id")
+            if not order_id:
+                self._send_json(400, {"error": "order_id required"})
+                return
+            DriverGuard.ensure_can_accept_orders(profile_id)
+            self._send_json(
+                200,
+                {
+                    "ok": True,
+                    "order_id": order_id,
+                    "status": "accepted",
+                },
+            )
+        except DriverGuardError as error:
+            self._send_json(
+                403,
+                {
+                    "ok": False,
+                    "error": str(error),
+                    "code": error.code,
+                },
+            )
+        except Exception:
+            logger.exception("accept order failed")
             self._send_internal_error()
 
 def run_api() -> None:

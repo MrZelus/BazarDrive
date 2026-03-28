@@ -469,6 +469,28 @@ class FeedAPIValidationTests(unittest.TestCase):
             else:
                 os.environ["MAX_REQUEST_BYTES"] = previous_limit
 
+    def test_driver_go_online_is_blocked_when_profile_not_ready(self) -> None:
+        status, payload, _ = self._post("/api/driver/go-online", {"profile_id": "driver-main"})
+        self.assertEqual(status, 403)
+        self.assertFalse(payload.get("ok"))
+        self.assertEqual(payload.get("code"), "driver_cannot_go_online")
+        self.assertIn("Профиль допуска водителя не заполнен", str(payload.get("error", "")))
+
+    def test_driver_accept_order_is_blocked_when_profile_not_ready(self) -> None:
+        status, payload, _ = self._post(
+            "/api/driver/accept-order",
+            {"profile_id": "driver-main", "order_id": 1},
+        )
+        self.assertEqual(status, 403)
+        self.assertFalse(payload.get("ok"))
+        self.assertEqual(payload.get("code"), "driver_cannot_accept_orders")
+        self.assertIn("Профиль допуска водителя не заполнен", str(payload.get("error", "")))
+
+    def test_driver_accept_order_requires_order_id(self) -> None:
+        status, payload, _ = self._post("/api/driver/accept-order", {"profile_id": "driver-main"})
+        self.assertEqual(status, 400)
+        self.assertEqual(payload.get("error"), "order_id required")
+
     def test_driver_document_pdf_upload_and_link_persistence(self) -> None:
         boundary = "----BazarDrivePdfBoundary"
         pdf_payload = b"%PDF-1.4\n\xff\xfe\x00binary\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF"
