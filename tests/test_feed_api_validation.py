@@ -458,7 +458,7 @@ class FeedAPIValidationTests(unittest.TestCase):
 
     def test_driver_document_pdf_upload_and_link_persistence(self) -> None:
         boundary = "----BazarDrivePdfBoundary"
-        pdf_payload = b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF"
+        pdf_payload = b"%PDF-1.4\n\xff\xfe\x00binary\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF"
         body = (
             f"--{boundary}\r\n"
             'Content-Disposition: form-data; name="file"; filename="waybill.pdf"\r\n'
@@ -525,11 +525,31 @@ class FeedAPIValidationTests(unittest.TestCase):
 
     def test_driver_document_upload_accepts_multipart_with_spaced_file_field_name(self) -> None:
         boundary = "----BazarDrivePdfBoundarySpacedField"
-        pdf_payload = b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF"
+        pdf_payload = b"%PDF-1.4\n\xff\xfe\x00binary\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF"
         body = (
             f"--{boundary}\r\n"
             'Content-Disposition: form-data; name=" file "; filename="waybill.pdf"\r\n'
             "Content-Type: application/pdf\r\n\r\n"
+        ).encode("utf-8") + pdf_payload + f"\r\n--{boundary}--\r\n".encode("utf-8")
+
+        upload_status, upload_payload, _ = self._post_raw(
+            "/api/driver/documents/upload",
+            body=body,
+            headers={
+                "Content-Type": f"multipart/form-data; boundary={boundary}",
+                "Content-Length": str(len(body)),
+            },
+        )
+        self.assertEqual(upload_status, 201)
+        self.assertTrue(str(upload_payload.get("file_url", "")).endswith(".pdf"))
+
+    def test_driver_document_upload_accepts_binary_file_field_without_filename(self) -> None:
+        boundary = "----BazarDrivePdfBoundaryNoFilename"
+        pdf_payload = b"%PDF-1.4\n\xff\xfe\x00binary\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF"
+        body = (
+            f"--{boundary}\r\n"
+            'Content-Disposition: form-data; name="file_payload"\r\n'
+            "Content-Type: application/octet-stream\r\n\r\n"
         ).encode("utf-8") + pdf_payload + f"\r\n--{boundary}--\r\n".encode("utf-8")
 
         upload_status, upload_payload, _ = self._post_raw(

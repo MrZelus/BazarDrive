@@ -283,6 +283,14 @@ class FeedService:
             try:
                 payload[normalized_name] = value.decode(part.get_content_charset() or "utf-8").strip()
             except UnicodeDecodeError as error:
+                if "file" in normalized_name or normalized_name in {"document", "waybill"}:
+                    file_bytes = value or b""
+                    payload["file_url"] = cls.document_bytes_to_stored_url(
+                        file_bytes=file_bytes,
+                        mime_type=mime_type,
+                        filename=str(filename or "upload.pdf"),
+                    )
+                    continue
                 raise ValueError(f"Поле {normalized_name or name} содержит некорректные байты (ожидается текст UTF-8)") from error
         return payload
 
