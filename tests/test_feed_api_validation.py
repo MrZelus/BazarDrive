@@ -490,6 +490,99 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertEqual(create_payload.get("type"), "waybill")
         self.assertEqual(create_payload.get("file_url"), upload_payload.get("file_url"))
 
+    def test_driver_waybill_close_endpoint_updates_closing_fields(self) -> None:
+        create_status, create_payload, _ = self._post(
+            "/api/driver/documents",
+            {
+                "profile_id": "driver-main",
+                "type": "waybill",
+                "number": "WB-CLOSE-001",
+                "valid_until": "2030-12-31",
+                "status": "open",
+            },
+        )
+        self.assertEqual(create_status, 201)
+        waybill_id = int(create_payload["id"])
+
+        close_status, close_payload, _ = self._patch(
+            f"/api/driver/documents/{waybill_id}/close",
+            {
+                "postshift_medical_at": "2026-03-28T20:10:00Z",
+                "postshift_medical_result": "Допущен",
+                "actual_return_at": "2026-03-28T20:20:00Z",
+                "odometer_end": 120543,
+                "distance_km": 182.5,
+                "fuel_spent_liters": 14.2,
+                "vehicle_condition": "Исправен",
+                "stops_info": "2 короткие остановки",
+                "notes": "Смена завершена штатно",
+            },
+        )
+        self.assertEqual(close_status, 200)
+        self.assertEqual(close_payload.get("status"), "closed")
+        self.assertEqual(close_payload.get("postshift_medical_result"), "Допущен")
+        self.assertEqual(close_payload.get("vehicle_condition"), "Исправен")
+        self.assertEqual(int(close_payload.get("odometer_end")), 120543)
+        self.assertAlmostEqual(float(close_payload.get("distance_km")), 182.5)
+        self.assertIsNotNone(close_payload.get("closed_at"))
+
+        list_status, list_payload, _ = self._get("/api/driver/documents?profile_id=driver-main")
+        self.assertEqual(list_status, 200)
+        target = next((item for item in list_payload.get("items", []) if int(item.get("id", 0)) == waybill_id), None)
+        self.assertIsNotNone(target)
+        self.assertEqual(str(target.get("status")), "closed")
+        self.assertEqual(str(target.get("postshift_medical_result")), "Допущен")
+
+    def test_driver_waybill_close_endpoint_rejects_non_waybill(self) -> None:
+        create_status, create_payload, _ = self._post(
+            "/api/driver/documents",
+            {"profile_id": "driver-main", "type": "passport", "number": "PASS-001"},
+        )
+        self.assertEqual(create_status, 201)
+        doc_id = int(create_payload["id"])
+
+        close_status, close_payload, _ = self._patch(
+            f"/api/driver/documents/{doc_id}/close",
+            {
+                "postshift_medical_at": "2026-03-28T20:10:00Z",
+                "postshift_medical_result": "Допущен",
+                "actual_return_at": "2026-03-28T20:20:00Z",
+                "odometer_end": 10,
+                "distance_km": 1.0,
+                "vehicle_condition": "Исправен",
+            },
+        )
+        self.assertEqual(close_status, 400)
+        self.assertIn("error", close_payload)
+
+    def test_driver_waybill_close_endpoint_validation_errors(self) -> None:
+        create_status, create_payload, _ = self._post(
+            "/api/driver/documents",
+            {"profile_id": "driver-main", "type": "waybill", "number": "WB-CLOSE-VALIDATION", "status": "open"},
+        )
+        self.assertEqual(create_status, 201)
+        waybill_id = int(create_payload["id"])
+
+        close_status, close_payload, _ = self._patch(
+            f"/api/driver/documents/{waybill_id}/close",
+            {
+                "postshift_medical_at": "",
+                "postshift_medical_result": "ok",
+                "actual_return_at": "",
+                "odometer_end": -1,
+                "distance_km": -3,
+                "vehicle_condition": "x",
+            },
+        )
+        self.assertEqual(close_status, 400)
+        self.assertEqual(close_payload.get("error"), "validation_error")
+        fields = close_payload.get("fields", {})
+        self.assertIn("postshift_medical_at", fields)
+        self.assertIn("actual_return_at", fields)
+        self.assertIn("odometer_end", fields)
+        self.assertIn("distance_km", fields)
+        self.assertIn("vehicle_condition", fields)
+
     def test_driver_document_upload_accepts_octet_stream_for_pdf_filename(self) -> None:
         boundary = "----BazarDrivePdfOctetBoundary"
         pdf_payload = b"%PDF-1.7\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF"

@@ -19,6 +19,10 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
         script = Path('public/web/js/feed.js').read_text(encoding='utf-8')
         self.assertIn('loadDriverDocuments', script)
         self.assertIn('submitDriverDocument', script)
+        self.assertIn('submitWaybillClose', script)
+        self.assertIn('toggleWaybillCloseForm', script)
+        self.assertIn('setDocumentStatusForType', script)
+        self.assertIn('/api/driver/documents/${docId}/close', script)
         self.assertIn('/api/driver/documents', script)
         self.assertIn('/api/driver/documents/upload', script)
         self.assertIn('uploadDriverDocumentFile', script)
@@ -28,6 +32,25 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
             script,
             re.compile(r"function setActiveProfileTab\(tab\)[\s\S]+if \(tab === 'documents'\)\s*\{\s*loadDriverDocuments\(\);", re.MULTILINE),
         )
+
+    def test_waybill_close_form_and_controls_exist(self) -> None:
+        html = Path('public/guest_feed.html').read_text(encoding='utf-8')
+        script = Path('public/web/js/feed.js').read_text(encoding='utf-8')
+        self.assertIn('id="waybillCloseForm"', html)
+        self.assertIn('id="submitWaybillCloseBtn"', html)
+        self.assertIn('id="cancelWaybillCloseBtn"', html)
+        self.assertIn('id="waybillPostshiftMedicalAt"', html)
+        self.assertIn('id="waybillPostshiftMedicalResult"', html)
+        self.assertIn('id="waybillActualReturnAt"', html)
+        self.assertIn('id="waybillOdometerEnd"', html)
+        self.assertIn('id="waybillDistanceKm"', html)
+        self.assertIn('id="waybillFuelSpentLiters"', html)
+        self.assertIn('id="waybillVehicleCondition"', html)
+        self.assertIn('id="waybillStopsInfo"', html)
+        self.assertIn('id="waybillCloseNotes"', html)
+        self.assertIn('Закрыть путевой лист', html)
+        self.assertIn("open: 'Открыт'", script)
+        self.assertIn("closed: 'Закрыт'", script)
 
     def test_documents_list_covers_loading_empty_and_error_states(self) -> None:
         html = Path('public/guest_feed.html').read_text(encoding='utf-8')

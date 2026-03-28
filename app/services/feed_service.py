@@ -30,6 +30,11 @@ from app.models.feed import (
     DRIVER_DOCUMENT_FILE_URL_MAX_LEN,
     DRIVER_DOCUMENT_NUMBER_MAX_LEN,
     DRIVER_DOCUMENT_NUMBER_MIN_LEN,
+    DRIVER_WAYBILL_MED_RESULT_MAX_LEN,
+    DRIVER_WAYBILL_MED_RESULT_MIN_LEN,
+    DRIVER_WAYBILL_STOPS_INFO_MAX_LEN,
+    DRIVER_WAYBILL_VEHICLE_CONDITION_MAX_LEN,
+    DRIVER_WAYBILL_VEHICLE_CONDITION_MIN_LEN,
     TEXT_MAX_LEN,
     TEXT_MIN_LEN,
 )
@@ -569,7 +574,10 @@ class FeedService:
         number = str(payload.get("number", "")).strip()
         valid_until = str(payload.get("valid_until", "")).strip() or None
         file_url = str(payload.get("file_url", "")).strip() or None
-        status = str(payload.get("status", "uploaded")).strip() or "uploaded"
+        status_raw = payload.get("status")
+        status = str(status_raw).strip() if status_raw is not None else ""
+        if not status:
+            status = "open" if document_type == "waybill" else "uploaded"
 
         errors: dict[str, str] = {}
 
@@ -596,6 +604,99 @@ class FeedService:
             "valid_until": valid_until,
             "file_url": file_url,
             "status": status,
+        }
+        return cleaned, errors
+
+    @staticmethod
+    def validate_waybill_close_payload(payload: dict[str, object]) -> tuple[dict[str, object], dict[str, str]]:
+        postshift_medical_at = str(payload.get("postshift_medical_at", "")).strip()
+        postshift_medical_result = str(payload.get("postshift_medical_result", "")).strip()
+        actual_return_at = str(payload.get("actual_return_at", "")).strip()
+        odometer_end_raw = payload.get("odometer_end")
+        distance_km_raw = payload.get("distance_km")
+        fuel_spent_liters_raw = payload.get("fuel_spent_liters")
+        vehicle_condition = str(payload.get("vehicle_condition", "")).strip()
+        stops_info = str(payload.get("stops_info", "")).strip()
+        notes = str(payload.get("notes", "")).strip()
+        closed_at = str(payload.get("closed_at", "")).strip()
+
+        errors: dict[str, str] = {}
+
+        if not postshift_medical_at:
+            errors["postshift_medical_at"] = "Укажите дату и время послесменного медосмотра"
+        else:
+            try:
+                datetime.fromisoformat(postshift_medical_at.replace("Z", "+00:00"))
+            except ValueError:
+                errors["postshift_medical_at"] = "Некорректный формат postshift_medical_at (ожидается ISO 8601)"
+
+        if len(postshift_medical_result) < DRIVER_WAYBILL_MED_RESULT_MIN_LEN:
+            errors["postshift_medical_result"] = (
+                f"Укажите результат послесменного медосмотра (минимум {DRIVER_WAYBILL_MED_RESULT_MIN_LEN} символа)"
+            )
+        elif len(postshift_medical_result) > DRIVER_WAYBILL_MED_RESULT_MAX_LEN:
+            errors["postshift_medical_result"] = "Результат медосмотра слишком длинный"
+
+        if not actual_return_at:
+            errors["actual_return_at"] = "Укажите фактическое время возвращения"
+        else:
+            try:
+                datetime.fromisoformat(actual_return_at.replace("Z", "+00:00"))
+            except ValueError:
+                errors["actual_return_at"] = "Некорректный формат actual_return_at (ожидается ISO 8601)"
+
+        try:
+            odometer_end = int(odometer_end_raw)
+            if odometer_end < 0:
+                raise ValueError
+        except (TypeError, ValueError):
+            errors["odometer_end"] = "Укажите корректный конечный километраж (целое число >= 0)"
+            odometer_end = 0
+
+        try:
+            distance_km = float(distance_km_raw)
+            if distance_km < 0:
+                raise ValueError
+        except (TypeError, ValueError):
+            errors["distance_km"] = "Укажите корректный пробег (число >= 0)"
+            distance_km = 0.0
+
+        fuel_spent_liters: float | None = None
+        if str(fuel_spent_liters_raw).strip():
+            try:
+                fuel_spent_liters = float(fuel_spent_liters_raw)
+                if fuel_spent_liters < 0:
+                    raise ValueError
+            except (TypeError, ValueError):
+                errors["fuel_spent_liters"] = "Укажите корректный расход топлива (число >= 0)"
+
+        if len(vehicle_condition) < DRIVER_WAYBILL_VEHICLE_CONDITION_MIN_LEN:
+            errors["vehicle_condition"] = (
+                f"Укажите состояние автомобиля (минимум {DRIVER_WAYBILL_VEHICLE_CONDITION_MIN_LEN} символа)"
+            )
+        elif len(vehicle_condition) > DRIVER_WAYBILL_VEHICLE_CONDITION_MAX_LEN:
+            errors["vehicle_condition"] = "Описание состояния автомобиля слишком длинное"
+
+        if len(stops_info) > DRIVER_WAYBILL_STOPS_INFO_MAX_LEN:
+            errors["stops_info"] = "Сведения об остановках слишком длинные"
+
+        if closed_at:
+            try:
+                datetime.fromisoformat(closed_at.replace("Z", "+00:00"))
+            except ValueError:
+                errors["closed_at"] = "Некорректный формат closed_at (ожидается ISO 8601)"
+
+        cleaned = {
+            "postshift_medical_at": postshift_medical_at or None,
+            "postshift_medical_result": postshift_medical_result,
+            "actual_return_at": actual_return_at or None,
+            "odometer_end": odometer_end,
+            "distance_km": distance_km,
+            "fuel_spent_liters": fuel_spent_liters,
+            "vehicle_condition": vehicle_condition,
+            "stops_info": stops_info or None,
+            "notes": notes or None,
+            "closed_at": closed_at or None,
         }
         return cleaned, errors
 

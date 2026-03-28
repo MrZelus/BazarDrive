@@ -192,6 +192,9 @@
           <p class="text-sm text-textSoft">Профиль публикации: обязательное условие для публикации постов в ленте.</p>
           <div id="driverDocumentsSection" class="space-y-3">
             <hr class="border-textSoft/25 my-2" />
+            <div class="rounded-xl border border-textSoft/20 bg-panelSoft px-3 py-2 text-xs text-textSoft">
+              Путевой лист: оформите перед сменой, загрузите PDF в день работы, после смены внесите фактические данные и закройте документ.
+            </div>
             <div class="flex items-center justify-between gap-2">
               <p class="text-base font-semibold">Документы водителя</p>
               <button id="addDocumentBtn" type="button" class="ui-btn ui-btn--primary h-10 rounded-xl px-4 text-sm font-medium">Добавить документ</button>
@@ -234,7 +237,7 @@
               </div>
             </div>
             <div class="space-y-1">
-              <label class="block text-xs text-textSoft" for="documentValidUntil">Действует до</label>
+              <label id="documentValidUntilLabel" class="block text-xs text-textSoft" for="documentValidUntil">Действует до</label>
               <input id="documentValidUntil" type="date" class="h-11 w-full rounded-xl border border-textSoft/20 bg-panel px-3 text-sm outline-none transition focus:border-accent" />
               <p id="documentValidUntilError" class="hidden text-xs text-warning"></p>
             </div>
@@ -248,6 +251,57 @@
               <button id="submitDocumentBtn" type="submit" class="ui-btn ui-btn--primary h-10 rounded-xl px-4 text-sm font-medium">Сохранить</button>
               <button id="cancelDocumentBtn" type="button" class="ui-btn ui-btn--secondary h-10 rounded-xl px-4 text-sm">Отмена</button>
             </div>
+            </form>
+            <form id="waybillCloseForm" class="hidden space-y-2 rounded-xl border border-textSoft/25 bg-panelSoft p-3">
+              <input id="waybillCloseDocumentId" type="hidden" />
+              <p class="text-sm font-medium">Закрытие путевого листа после смены</p>
+              <div id="waybillCloseAlert" class="hidden rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning"></div>
+              <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div class="space-y-1">
+                  <label class="block text-xs text-textSoft" for="waybillPostshiftMedicalAt">Послесменный медосмотр (дата и время)</label>
+                  <input id="waybillPostshiftMedicalAt" type="datetime-local" class="h-11 w-full rounded-xl border border-textSoft/20 bg-panel px-3 text-sm outline-none transition focus:border-accent" />
+                </div>
+                <div class="space-y-1">
+                  <label class="block text-xs text-textSoft" for="waybillPostshiftMedicalResult">Результат медосмотра</label>
+                  <input id="waybillPostshiftMedicalResult" type="text" maxlength="128" placeholder="Допущен" class="h-11 w-full rounded-xl border border-textSoft/20 bg-panel px-3 text-sm outline-none transition focus:border-accent" />
+                </div>
+              </div>
+              <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div class="space-y-1">
+                  <label class="block text-xs text-textSoft" for="waybillActualReturnAt">Фактическое возвращение на стоянку</label>
+                  <input id="waybillActualReturnAt" type="datetime-local" class="h-11 w-full rounded-xl border border-textSoft/20 bg-panel px-3 text-sm outline-none transition focus:border-accent" />
+                </div>
+                <div class="space-y-1">
+                  <label class="block text-xs text-textSoft" for="waybillVehicleCondition">Состояние автомобиля</label>
+                  <input id="waybillVehicleCondition" type="text" maxlength="256" placeholder="Исправен" class="h-11 w-full rounded-xl border border-textSoft/20 bg-panel px-3 text-sm outline-none transition focus:border-accent" />
+                </div>
+              </div>
+              <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <div class="space-y-1">
+                  <label class="block text-xs text-textSoft" for="waybillOdometerEnd">Одометр, км</label>
+                  <input id="waybillOdometerEnd" type="number" min="0" step="1" class="h-11 w-full rounded-xl border border-textSoft/20 bg-panel px-3 text-sm outline-none transition focus:border-accent" />
+                </div>
+                <div class="space-y-1">
+                  <label class="block text-xs text-textSoft" for="waybillDistanceKm">Пробег, км</label>
+                  <input id="waybillDistanceKm" type="number" min="0" step="0.1" class="h-11 w-full rounded-xl border border-textSoft/20 bg-panel px-3 text-sm outline-none transition focus:border-accent" />
+                </div>
+                <div class="space-y-1">
+                  <label class="block text-xs text-textSoft" for="waybillFuelSpentLiters">Расход топлива, л (опц.)</label>
+                  <input id="waybillFuelSpentLiters" type="number" min="0" step="0.1" class="h-11 w-full rounded-xl border border-textSoft/20 bg-panel px-3 text-sm outline-none transition focus:border-accent" />
+                </div>
+              </div>
+              <div class="space-y-1">
+                <label class="block text-xs text-textSoft" for="waybillStopsInfo">Остановки/маршрут (опц.)</label>
+                <textarea id="waybillStopsInfo" rows="2" maxlength="1000" class="w-full rounded-xl border border-textSoft/20 bg-panel px-3 py-2 text-sm outline-none transition focus:border-accent"></textarea>
+              </div>
+              <div class="space-y-1">
+                <label class="block text-xs text-textSoft" for="waybillCloseNotes">Примечание (опц.)</label>
+                <textarea id="waybillCloseNotes" rows="2" maxlength="500" class="w-full rounded-xl border border-textSoft/20 bg-panel px-3 py-2 text-sm outline-none transition focus:border-accent"></textarea>
+              </div>
+              <div class="flex items-center gap-2">
+                <button id="submitWaybillCloseBtn" type="submit" class="ui-btn ui-btn--primary h-10 rounded-xl px-4 text-sm font-medium">Закрыть путевой лист</button>
+                <button id="cancelWaybillCloseBtn" type="button" class="ui-btn ui-btn--secondary h-10 rounded-xl px-4 text-sm">Отмена</button>
+              </div>
             </form>
             <div id="driverDocumentsList" class="space-y-2"></div>
           </div>

@@ -242,12 +242,28 @@
     const documentTypeInput = document.getElementById('documentType');
     const documentNumberInput = document.getElementById('documentNumber');
     const documentValidUntilInput = document.getElementById('documentValidUntil');
+    const documentValidUntilLabel = document.getElementById('documentValidUntilLabel');
     const documentFileInput = document.getElementById('documentFileInput');
     const documentFileName = document.getElementById('documentFileName');
     const documentTypeError = document.getElementById('documentTypeError');
     const documentNumberError = document.getElementById('documentNumberError');
     const documentValidUntilError = document.getElementById('documentValidUntilError');
     const documentFileError = document.getElementById('documentFileError');
+    const waybillCloseForm = document.getElementById('waybillCloseForm');
+    const waybillCloseDocumentIdInput = document.getElementById('waybillCloseDocumentId');
+    const waybillCloseAlert = document.getElementById('waybillCloseAlert');
+    const waybillPostshiftMedicalAtInput = document.getElementById('waybillPostshiftMedicalAt');
+    const waybillPostshiftMedicalResultInput = document.getElementById('waybillPostshiftMedicalResult');
+    const waybillActualReturnAtInput = document.getElementById('waybillActualReturnAt');
+    const waybillVehicleConditionInput = document.getElementById('waybillVehicleCondition');
+    const waybillOdometerEndInput = document.getElementById('waybillOdometerEnd');
+    const waybillDistanceKmInput = document.getElementById('waybillDistanceKm');
+    const waybillFuelSpentLitersInput = document.getElementById('waybillFuelSpentLiters');
+    const waybillStopsInfoInput = document.getElementById('waybillStopsInfo');
+    const waybillCloseNotesInput = document.getElementById('waybillCloseNotes');
+    const submitWaybillCloseBtn = document.getElementById('submitWaybillCloseBtn');
+    const cancelWaybillCloseBtn = document.getElementById('cancelWaybillCloseBtn');
+    let isSubmittingWaybillClose = false;
     let isSubmittingDocument = false;
     const DOCUMENT_ALLOWED_MIME_TYPES = new Set(['application/pdf']);
     const DOCUMENT_MAX_BYTES = 10 * 1024 * 1024;
@@ -545,9 +561,28 @@
       return date.toLocaleDateString('ru-RU');
     }
 
+    function formatDateTimeForInput(dateValue) {
+      const value = String(dateValue || '').trim();
+      if (!value) return '';
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) return '';
+      const localCopy = new Date(parsed.getTime() - parsed.getTimezoneOffset() * 60000);
+      return localCopy.toISOString().slice(0, 16);
+    }
+
+    function normalizeDateTimeLocalToIso(value) {
+      const normalized = String(value || '').trim();
+      if (!normalized) return '';
+      const parsed = new Date(normalized);
+      if (Number.isNaN(parsed.getTime())) return '';
+      return parsed.toISOString();
+    }
+
     function mapDocumentStatus(status) {
       const labels = {
         uploaded: 'Загружен',
+        open: 'Открыт',
+        closed: 'Закрыт',
         checking: 'На проверке',
         pending_verification: 'На проверке',
         approved: 'Подтверждён',
@@ -556,6 +591,20 @@
         expired: 'Истёк',
       };
       return labels[String(status || '').trim()] || 'Неизвестно';
+    }
+
+    function formatWaybillMetaDateTime(value) {
+      const normalized = String(value || '').trim();
+      if (!normalized) return '—';
+      const parsed = new Date(normalized);
+      if (Number.isNaN(parsed.getTime())) return normalized;
+      return parsed.toLocaleString('ru-RU', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
     }
 
     function clearChildren(element) {
@@ -634,6 +683,21 @@
       documentsApiAlert.classList.remove('hidden');
     }
 
+    function setWaybillCloseAlert(message = '') {
+      if (!waybillCloseAlert) return;
+      const normalized = String(message || '').trim();
+      waybillCloseAlert.textContent = normalized;
+      waybillCloseAlert.classList.toggle('hidden', !normalized);
+    }
+
+    function setDocumentStatusForType(typeValue = '') {
+      const normalizedType = String(typeValue || '').trim();
+      if (documentValidUntilLabel) {
+        documentValidUntilLabel.textContent = normalizedType === 'waybill' ? 'Дата путевого листа' : 'Действует до';
+      }
+      return normalizedType === 'waybill' ? 'open' : 'uploaded';
+    }
+
     function applyDocumentLoadingState(isLoading) {
       isSubmittingDocument = Boolean(isLoading);
       if (submitDocumentBtn) {
@@ -651,6 +715,146 @@
         if (!field) return;
         field.disabled = isSubmittingDocument;
       });
+    }
+
+    function applyWaybillCloseLoadingState(isLoading) {
+      isSubmittingWaybillClose = Boolean(isLoading);
+      setButtonBusyState(submitWaybillCloseBtn, isSubmittingWaybillClose, 'Закрываем...', 'Закрыть путевой лист');
+      if (cancelWaybillCloseBtn) {
+        cancelWaybillCloseBtn.disabled = isSubmittingWaybillClose;
+        cancelWaybillCloseBtn.setAttribute('aria-disabled', String(isSubmittingWaybillClose));
+      }
+      [
+        waybillPostshiftMedicalAtInput,
+        waybillPostshiftMedicalResultInput,
+        waybillActualReturnAtInput,
+        waybillVehicleConditionInput,
+        waybillOdometerEndInput,
+        waybillDistanceKmInput,
+        waybillFuelSpentLitersInput,
+        waybillStopsInfoInput,
+        waybillCloseNotesInput,
+      ].forEach((field) => {
+        if (!field) return;
+        field.disabled = isSubmittingWaybillClose;
+      });
+    }
+
+    function fillWaybillCloseFormFromDocument(documentItem = null) {
+      if (!documentItem) return;
+      if (waybillCloseDocumentIdInput) {
+        waybillCloseDocumentIdInput.value = String(documentItem.id || '');
+      }
+      if (waybillPostshiftMedicalAtInput) {
+        waybillPostshiftMedicalAtInput.value = formatDateTimeForInput(documentItem.postshift_medical_at) || '';
+      }
+      if (waybillPostshiftMedicalResultInput) {
+        waybillPostshiftMedicalResultInput.value = String(documentItem.postshift_medical_result || '');
+      }
+      if (waybillActualReturnAtInput) {
+        waybillActualReturnAtInput.value = formatDateTimeForInput(documentItem.actual_return_at) || '';
+      }
+      if (waybillVehicleConditionInput) {
+        waybillVehicleConditionInput.value = String(documentItem.vehicle_condition || '');
+      }
+      if (waybillOdometerEndInput) {
+        waybillOdometerEndInput.value = Number.isFinite(Number(documentItem.odometer_end))
+          ? String(Math.max(0, Math.round(Number(documentItem.odometer_end))))
+          : '';
+      }
+      if (waybillDistanceKmInput) {
+        waybillDistanceKmInput.value = Number.isFinite(Number(documentItem.distance_km))
+          ? String(Math.max(0, Number(documentItem.distance_km)))
+          : '';
+      }
+      if (waybillFuelSpentLitersInput) {
+        waybillFuelSpentLitersInput.value = Number.isFinite(Number(documentItem.fuel_spent_liters))
+          ? String(Math.max(0, Number(documentItem.fuel_spent_liters)))
+          : '';
+      }
+      if (waybillStopsInfoInput) {
+        waybillStopsInfoInput.value = String(documentItem.stops_info || '');
+      }
+      if (waybillCloseNotesInput) {
+        waybillCloseNotesInput.value = String(documentItem.notes || '');
+      }
+    }
+
+    function toggleWaybillCloseForm(forceOpen, documentItem = null) {
+      if (!waybillCloseForm) return;
+      if (isSubmittingWaybillClose) return;
+      const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : waybillCloseForm.classList.contains('hidden');
+      if (shouldOpen && !documentItem) return;
+      waybillCloseForm.classList.toggle('hidden', !shouldOpen);
+      if (shouldOpen) {
+        toggleDocumentForm(false);
+        setWaybillCloseAlert('');
+        fillWaybillCloseFormFromDocument(documentItem);
+        return;
+      }
+      waybillCloseForm.reset();
+      if (waybillCloseDocumentIdInput) {
+        waybillCloseDocumentIdInput.value = '';
+      }
+      setWaybillCloseAlert('');
+    }
+
+    function collectWaybillClosePayload() {
+      const postshiftMedicalAt = normalizeDateTimeLocalToIso(waybillPostshiftMedicalAtInput?.value || '');
+      const actualReturnAt = normalizeDateTimeLocalToIso(waybillActualReturnAtInput?.value || '');
+      const odometerEndRaw = String(waybillOdometerEndInput?.value || '').trim();
+      const distanceKmRaw = String(waybillDistanceKmInput?.value || '').trim();
+      const fuelSpentRaw = String(waybillFuelSpentLitersInput?.value || '').trim();
+      return {
+        postshift_medical_at: postshiftMedicalAt,
+        postshift_medical_result: String(waybillPostshiftMedicalResultInput?.value || '').trim(),
+        actual_return_at: actualReturnAt,
+        odometer_end: odometerEndRaw ? Number(odometerEndRaw) : null,
+        distance_km: distanceKmRaw ? Number(distanceKmRaw) : null,
+        fuel_spent_liters: fuelSpentRaw ? Number(fuelSpentRaw) : null,
+        vehicle_condition: String(waybillVehicleConditionInput?.value || '').trim(),
+        stops_info: String(waybillStopsInfoInput?.value || '').trim(),
+        notes: String(waybillCloseNotesInput?.value || '').trim(),
+        closed_at: new Date().toISOString(),
+      };
+    }
+
+    async function submitWaybillClose(event) {
+      event.preventDefault();
+      setWaybillCloseAlert('');
+      const docId = Number(waybillCloseDocumentIdInput?.value || 0);
+      if (!docId) {
+        setWaybillCloseAlert('Не удалось определить путевой лист для закрытия.');
+        return;
+      }
+      const payload = collectWaybillClosePayload();
+      applyWaybillCloseLoadingState(true);
+      try {
+        const response = await fetch(`${FEED_API_BASE}/api/driver/documents/${docId}/close`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          if (data.error === 'validation_error' || response.status === 400) {
+            const fieldErrors = data.fields && typeof data.fields === 'object'
+              ? Object.values(data.fields).map((value) => String(value || '').trim()).filter(Boolean)
+              : [];
+            setWaybillCloseAlert(fieldErrors.join(' ') || String(data.error || 'Проверьте поля формы закрытия путевого листа.'));
+            return;
+          }
+          throw new Error(data.error || `Не удалось закрыть путевой лист (HTTP ${response.status})`);
+        }
+        toggleWaybillCloseForm(false);
+        await loadDriverDocuments();
+        showAppNotification('Путевой лист закрыт и сохранён в системе.', 'success');
+      } catch (error) {
+        console.error(error);
+        setWaybillCloseAlert(error.message || 'Не удалось закрыть путевой лист.');
+      } finally {
+        applyWaybillCloseLoadingState(false);
+      }
     }
 
     function setDriverDocumentsListState(state, errorMessage = '') {
@@ -719,6 +923,22 @@
         title.className = 'text-sm font-medium';
         title.textContent = String(item.title || 'Документ');
 
+        const actions = document.createElement('div');
+        actions.className = 'inline-flex items-center gap-2';
+
+        const canCloseWaybill = item.type === 'waybill' && ['uploaded', 'open'].includes(String(item.status || '').trim().toLowerCase());
+        if (canCloseWaybill) {
+          const closeButton = document.createElement('button');
+          closeButton.type = 'button';
+          closeButton.className = 'text-xs text-accent hover:underline';
+          closeButton.textContent = 'Закрыть путевой лист';
+          closeButton.setAttribute('aria-label', `Закрыть путевой лист: ${String(item.number || 'без номера')}`);
+          closeButton.addEventListener('click', () => {
+            toggleWaybillCloseForm(true, item);
+          });
+          actions.appendChild(closeButton);
+        }
+
         const deleteButton = document.createElement('button');
         deleteButton.type = 'button';
         deleteButton.className = 'text-xs text-warning hover:underline';
@@ -741,8 +961,9 @@
             setButtonBusyState(deleteButton, false, '', 'Удалить');
           }
         });
+        actions.appendChild(deleteButton);
 
-        header.append(title, deleteButton);
+        header.append(title, actions);
 
         const metaGrid = document.createElement('dl');
         metaGrid.className = 'grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 text-xs';
@@ -753,6 +974,10 @@
           ['Срок действия', item.validUntilLabel],
           ['Обновлён', item.updatedAtLabel],
         ];
+        if (item.type === 'waybill') {
+          entries.push(['Возвращение', formatDocumentDate(item.actual_return_at)]);
+          entries.push(['Закрыт', formatDocumentDate(item.closed_at)]);
+        }
 
         entries.forEach(([label, value]) => {
           const wrapper = document.createElement('div');
@@ -774,6 +999,28 @@
           link.rel = 'noopener noreferrer';
           link.textContent = 'Открыть PDF-документ';
           article.appendChild(link);
+        }
+        const hasWaybillClosingDetails = item.type === 'waybill' && (
+          item.postshift_medical_result ||
+          item.vehicle_condition ||
+          item.distance_km ||
+          item.odometer_end
+        );
+        if (hasWaybillClosingDetails) {
+          const closureSummary = document.createElement('div');
+          closureSummary.className = 'rounded-lg border border-textSoft/20 bg-panel px-2 py-2 text-xs text-textSoft space-y-1';
+          const summaryLines = [
+            item.postshift_medical_result ? `Послесменный медосмотр: ${String(item.postshift_medical_result)}` : '',
+            item.vehicle_condition ? `Состояние авто: ${String(item.vehicle_condition)}` : '',
+            Number.isFinite(Number(item.odometer_end)) ? `Одометр: ${Math.max(0, Math.round(Number(item.odometer_end)))} км` : '',
+            Number.isFinite(Number(item.distance_km)) ? `Пробег: ${Math.max(0, Number(item.distance_km)).toFixed(1)} км` : '',
+            item.actual_return_at ? `Возвращение: ${formatWaybillMetaDateTime(item.actual_return_at)}` : '',
+            item.closed_at ? `Закрыт: ${formatWaybillMetaDateTime(item.closed_at)}` : '',
+          ].filter(Boolean);
+          if (summaryLines.length) {
+            closureSummary.textContent = summaryLines.join(' • ');
+            article.appendChild(closureSummary);
+          }
         }
         driverDocumentsList.appendChild(article);
       });
@@ -806,6 +1053,9 @@
       if (!addDocumentForm) return;
       if (isSubmittingDocument) return;
       const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : addDocumentForm.classList.contains('hidden');
+      if (shouldOpen) {
+        toggleWaybillCloseForm(false);
+      }
       addDocumentForm.classList.toggle('hidden', !shouldOpen);
       if (!shouldOpen) {
         addDocumentForm.reset();
@@ -835,7 +1085,7 @@
           type,
           number,
           valid_until: validUntil || null,
-          status: 'uploaded',
+          status: setDocumentStatusForType(type),
         },
         errors,
       };
@@ -1852,6 +2102,7 @@
         driverDocumentsSection.setAttribute('aria-hidden', String(!showDriverDocuments));
         if (!showDriverDocuments) {
           toggleDocumentForm(false);
+          toggleWaybillCloseForm(false);
         }
       }
 	      updateProfileTabButtonAccess(role);
@@ -2010,6 +2261,12 @@
         event.preventDefault();
       }
     });
+    waybillCloseForm?.addEventListener('submit', submitWaybillClose);
+    cancelWaybillCloseBtn?.addEventListener('click', () => toggleWaybillCloseForm(false));
+    documentTypeInput?.addEventListener('change', () => {
+      setDocumentStatusForType(documentTypeInput.value);
+    });
+    setDocumentStatusForType(documentTypeInput?.value || '');
     [profileNameInput, profileEmailInput, profilePhoneInput, profileAboutInput].forEach((field) => {
       field.addEventListener('input', updateGuestProfileStatus);
     });

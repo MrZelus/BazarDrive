@@ -301,7 +301,7 @@ BAZAR_DB_PATH=/tmp/bazardrive-test.db python -m unittest tests.test_db_guest_fee
 }
 ```
 
-Допустимые значения `status` в payload: `uploaded`, `checking`, `approved`, `rejected`, `expired`.
+Допустимые значения `status` в payload: `uploaded`, `open`, `closed`, `checking`, `approved`, `rejected`, `expired`.
 
 Пример успешного ответа (`201 Created`) при создании:
 

@@ -104,6 +104,60 @@ class GuestFeedRepositoryTests(unittest.TestCase):
         self.assertTrue(deleted)
         self.assertEqual(repository.list_driver_documents(profile_id="driver-main"), [])
 
+    def test_close_driver_waybill_persists_shift_facts_and_status(self) -> None:
+        created_doc = repository.create_driver_document(
+            profile_id="driver-main",
+            type="waybill",
+            number="WB-500790280312",
+            valid_until="2026-03-29",
+            status="open",
+        )
+
+        closed_doc = repository.close_driver_waybill(
+            created_doc["id"],
+            {
+                "postshift_medical_at": "2026-03-29T00:10:00Z",
+                "postshift_medical_result": "Допущен",
+                "actual_return_at": "2026-03-29T00:08:00Z",
+                "odometer_end": 171_599,
+                "distance_km": 289.4,
+                "fuel_spent_liters": 22.3,
+                "vehicle_condition": "Технически исправен",
+                "stops_info": "Город / пригород",
+                "notes": "Смена завершена штатно",
+                "closed_at": "2026-03-29T00:12:00Z",
+            },
+        )
+        self.assertIsNotNone(closed_doc)
+        self.assertEqual(closed_doc["status"], "closed")
+        self.assertEqual(closed_doc["postshift_medical_result"], "Допущен")
+        self.assertEqual(closed_doc["actual_return_at"], "2026-03-29T00:08:00Z")
+        self.assertEqual(closed_doc["odometer_end"], 171_599)
+        self.assertAlmostEqual(float(closed_doc["distance_km"]), 289.4, places=3)
+        self.assertAlmostEqual(float(closed_doc["fuel_spent_liters"]), 22.3, places=3)
+        self.assertEqual(closed_doc["vehicle_condition"], "Технически исправен")
+        self.assertEqual(closed_doc["notes"], "Смена завершена штатно")
+
+    def test_close_driver_waybill_fails_for_non_waybill_document(self) -> None:
+        created_doc = repository.create_driver_document(
+            profile_id="driver-main",
+            type="passport",
+            number="4010 123456",
+            status="uploaded",
+        )
+        with self.assertRaises(ValueError):
+            repository.close_driver_waybill(
+                created_doc["id"],
+                {
+                    "postshift_medical_at": "2026-03-29T00:10:00Z",
+                    "postshift_medical_result": "Допущен",
+                    "actual_return_at": "2026-03-29T00:08:00Z",
+                    "odometer_end": 1,
+                    "distance_km": 1.0,
+                    "vehicle_condition": "Исправен",
+                },
+            )
+
     def test_guest_feed_comments_repository_crud_and_cascade(self) -> None:
         created_post = repository.create_guest_feed_post(
             author="Ivan Guest",

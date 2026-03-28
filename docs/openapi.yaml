@@ -968,6 +968,53 @@ paths:
               schema:
                 $ref: '#/components/schemas/AuthErrorResponse'
 
+  /api/driver/documents/{id}/close:
+    patch:
+      tags: [Driver documents]
+      summary: Закрыть путевой лист после смены
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloseWaybillRequest'
+      responses:
+        '200':
+          description: Путевой лист закрыт
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverDocument'
+        '400':
+          description: Ошибка валидации или документ не является путевым листом
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '404':
+          description: Документ не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        '401':
+          description: В prod для write-операций не переданы или невалидны auth credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+        '403':
+          description: Origin заблокирован CORS-политикой (актуально для prod)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+
 components:
   securitySchemes:
     ApiKeyAuth:
@@ -1333,10 +1380,21 @@ components:
         profile_id: { type: string }
         type: { type: string }
         number: { type: string }
-        issue_date: { type: string, nullable: true }
-        expiry_date: { type: string, nullable: true }
-        issuer: { type: string, nullable: true }
+        valid_until: { type: string, nullable: true }
+        file_url: { type: string, nullable: true }
+        status:
+          type: string
+          enum: [uploaded, open, closed, checking, approved, rejected, expired]
+        postshift_medical_at: { type: string, nullable: true }
+        postshift_medical_result: { type: string, nullable: true }
+        actual_return_at: { type: string, nullable: true }
+        odometer_end: { type: integer, nullable: true }
+        distance_km: { type: number, nullable: true }
+        fuel_spent_liters: { type: number, nullable: true }
+        vehicle_condition: { type: string, nullable: true }
+        stops_info: { type: string, nullable: true }
         notes: { type: string, nullable: true }
+        closed_at: { type: string, nullable: true }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
       required: [id, profile_id, type, number, created_at, updated_at]
@@ -1347,11 +1405,34 @@ components:
         profile_id: { type: string }
         type: { type: string }
         number: { type: string }
-        issue_date: { type: string, nullable: true }
-        expiry_date: { type: string, nullable: true }
-        issuer: { type: string, nullable: true }
+        valid_until: { type: string, nullable: true }
+        file_url: { type: string, nullable: true }
+        status:
+          type: string
+          enum: [uploaded, open, closed, checking, approved, rejected, expired]
         notes: { type: string, nullable: true }
       required: [profile_id, type, number]
+
+    CloseWaybillRequest:
+      type: object
+      properties:
+        postshift_medical_at: { type: string, description: ISO 8601 timestamp }
+        postshift_medical_result: { type: string, minLength: 2, maxLength: 128 }
+        actual_return_at: { type: string, description: ISO 8601 timestamp }
+        odometer_end: { type: integer, minimum: 0 }
+        distance_km: { type: number, minimum: 0 }
+        fuel_spent_liters: { type: number, nullable: true, minimum: 0 }
+        vehicle_condition: { type: string, minLength: 2, maxLength: 256 }
+        stops_info: { type: string, nullable: true, maxLength: 1000 }
+        notes: { type: string, nullable: true }
+        closed_at: { type: string, nullable: true, description: ISO 8601 timestamp }
+      required:
+        - postshift_medical_at
+        - postshift_medical_result
+        - actual_return_at
+        - odometer_end
+        - distance_km
+        - vehicle_condition
 
     DriverDocumentListResponse:
       type: object

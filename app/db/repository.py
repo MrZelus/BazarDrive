@@ -1070,7 +1070,11 @@ def list_driver_documents(profile_id: str = "driver-main") -> list[dict[str, Any
         cur = conn.cursor()
         cur.execute(
             """
-            SELECT id, profile_id, type, number, valid_until, file_url, status, created_at, updated_at
+            SELECT id, profile_id, type, number, valid_until, file_url, status,
+                   postshift_medical_at, postshift_medical_result, actual_return_at,
+                   odometer_end, distance_km, fuel_spent_liters, vehicle_condition,
+                   stops_info, notes, closed_at,
+                   created_at, updated_at
             FROM driver_documents
             WHERE profile_id = ?
             ORDER BY datetime(created_at) DESC, id DESC
@@ -1087,22 +1091,46 @@ def create_driver_document(
     valid_until: Optional[str] = None,
     file_url: Optional[str] = None,
     status: str = "uploaded",
+    postshift_medical_at: Optional[str] = None,
+    postshift_medical_result: Optional[str] = None,
+    actual_return_at: Optional[str] = None,
+    odometer_end: Optional[int] = None,
+    distance_km: Optional[float] = None,
+    fuel_spent_liters: Optional[float] = None,
+    vehicle_condition: Optional[str] = None,
+    stops_info: Optional[str] = None,
+    notes: Optional[str] = None,
+    closed_at: Optional[str] = None,
 ) -> dict[str, Any]:
     with closing(sqlite3.connect(get_db_path())) as conn:
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
         cur.execute(
             """
-            INSERT INTO driver_documents (profile_id, type, number, valid_until, file_url, status)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO driver_documents (
+                profile_id, type, number, valid_until, file_url, status,
+                postshift_medical_at, postshift_medical_result, actual_return_at,
+                odometer_end, distance_km, fuel_spent_liters, vehicle_condition,
+                stops_info, notes, closed_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (profile_id, type, number, valid_until, file_url, status),
+            (
+                profile_id, type, number, valid_until, file_url, status,
+                postshift_medical_at, postshift_medical_result, actual_return_at,
+                odometer_end, distance_km, fuel_spent_liters, vehicle_condition,
+                stops_info, notes, closed_at,
+            ),
         )
         conn.commit()
         new_id = cur.lastrowid
         cur.execute(
             """
-            SELECT id, profile_id, type, number, valid_until, file_url, status, created_at, updated_at
+            SELECT id, profile_id, type, number, valid_until, file_url, status,
+                   postshift_medical_at, postshift_medical_result, actual_return_at,
+                   odometer_end, distance_km, fuel_spent_liters, vehicle_condition,
+                   stops_info, notes, closed_at,
+                   created_at, updated_at
             FROM driver_documents
             WHERE id = ?
             """,
@@ -1118,7 +1146,11 @@ def find_driver_document_duplicate(profile_id: str, type: str, number: str) -> O
         cur = conn.cursor()
         cur.execute(
             """
-            SELECT id, profile_id, type, number, valid_until, file_url, status, created_at, updated_at
+            SELECT id, profile_id, type, number, valid_until, file_url, status,
+                   postshift_medical_at, postshift_medical_result, actual_return_at,
+                   odometer_end, distance_km, fuel_spent_liters, vehicle_condition,
+                   stops_info, notes, closed_at,
+                   created_at, updated_at
             FROM driver_documents
             WHERE profile_id = ?
               AND type = ?
@@ -1139,6 +1171,16 @@ def update_driver_document(
     valid_until: Optional[str] = None,
     file_url: Optional[str] = None,
     status: str = "uploaded",
+    postshift_medical_at: Optional[str] = None,
+    postshift_medical_result: Optional[str] = None,
+    actual_return_at: Optional[str] = None,
+    odometer_end: Optional[int] = None,
+    distance_km: Optional[float] = None,
+    fuel_spent_liters: Optional[float] = None,
+    vehicle_condition: Optional[str] = None,
+    stops_info: Optional[str] = None,
+    notes: Optional[str] = None,
+    closed_at: Optional[str] = None,
 ) -> Optional[dict[str, Any]]:
     with closing(sqlite3.connect(get_db_path())) as conn:
         conn.row_factory = sqlite3.Row
@@ -1151,10 +1193,26 @@ def update_driver_document(
                 valid_until = ?,
                 file_url = ?,
                 status = ?,
+                postshift_medical_at = ?,
+                postshift_medical_result = ?,
+                actual_return_at = ?,
+                odometer_end = ?,
+                distance_km = ?,
+                fuel_spent_liters = ?,
+                vehicle_condition = ?,
+                stops_info = ?,
+                notes = ?,
+                closed_at = ?,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
             """,
-            (type, number, valid_until, file_url, status, doc_id),
+            (
+                type, number, valid_until, file_url, status,
+                postshift_medical_at, postshift_medical_result, actual_return_at,
+                odometer_end, distance_km, fuel_spent_liters, vehicle_condition,
+                stops_info, notes, closed_at,
+                doc_id,
+            ),
         )
         if cur.rowcount == 0:
             conn.rollback()
@@ -1162,7 +1220,11 @@ def update_driver_document(
         conn.commit()
         cur.execute(
             """
-            SELECT id, profile_id, type, number, valid_until, file_url, status, created_at, updated_at
+            SELECT id, profile_id, type, number, valid_until, file_url, status,
+                   postshift_medical_at, postshift_medical_result, actual_return_at,
+                   odometer_end, distance_km, fuel_spent_liters, vehicle_condition,
+                   stops_info, notes, closed_at,
+                   created_at, updated_at
             FROM driver_documents
             WHERE id = ?
             """,
@@ -1178,3 +1240,72 @@ def delete_driver_document(doc_id: int) -> bool:
         cur.execute("DELETE FROM driver_documents WHERE id = ?", (doc_id,))
         conn.commit()
         return cur.rowcount > 0
+
+
+def close_driver_waybill(doc_id: int, closure_payload: dict[str, Any]) -> Optional[dict[str, Any]]:
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT id, type, profile_id
+            FROM driver_documents
+            WHERE id = ?
+            """,
+            (doc_id,),
+        )
+        row = cur.fetchone()
+        if not row:
+            return None
+        if str(row["type"]).strip() != "waybill":
+            raise ValueError("Закрытие доступно только для документов типа waybill")
+
+        cur.execute(
+            """
+            UPDATE driver_documents
+            SET status = 'closed',
+                postshift_medical_at = ?,
+                postshift_medical_result = ?,
+                actual_return_at = ?,
+                odometer_end = ?,
+                distance_km = ?,
+                fuel_spent_liters = ?,
+                vehicle_condition = ?,
+                stops_info = ?,
+                notes = ?,
+                closed_at = COALESCE(?, CURRENT_TIMESTAMP),
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (
+                closure_payload.get("postshift_medical_at"),
+                closure_payload.get("postshift_medical_result"),
+                closure_payload.get("actual_return_at"),
+                closure_payload.get("odometer_end"),
+                closure_payload.get("distance_km"),
+                closure_payload.get("fuel_spent_liters"),
+                closure_payload.get("vehicle_condition"),
+                closure_payload.get("stops_info"),
+                closure_payload.get("notes"),
+                closure_payload.get("closed_at"),
+                doc_id,
+            ),
+        )
+        if cur.rowcount == 0:
+            conn.rollback()
+            return None
+        conn.commit()
+        cur.execute(
+            """
+            SELECT id, profile_id, type, number, valid_until, file_url, status,
+                   postshift_medical_at, postshift_medical_result, actual_return_at,
+                   odometer_end, distance_km, fuel_spent_liters, vehicle_condition,
+                   stops_info, notes, closed_at,
+                   created_at, updated_at
+            FROM driver_documents
+            WHERE id = ?
+            """,
+            (doc_id,),
+        )
+        updated = cur.fetchone()
+        return dict(updated) if updated else None
