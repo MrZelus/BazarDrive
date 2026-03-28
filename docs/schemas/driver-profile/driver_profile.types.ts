@@ -125,6 +125,7 @@ export type DocumentType =
   | 'inn'
   | 'ogrnip'
   | 'taxi_license'
+  | 'waybill'
   | 'driver_license'
   | 'sts'
   | 'osago'

@@ -22,6 +22,7 @@ ALLOWED_DRIVER_DOCUMENT_TYPES = {
     'inn',
     'ogrnip',
     'taxi_license',
+    'waybill',
     'driver_license',
     'sts',
     'osago',
