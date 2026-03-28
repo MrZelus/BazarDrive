@@ -23,6 +23,9 @@ class DriverTabContentRegressionTests(unittest.TestCase):
         self.assertIn('id="driverOverviewDocuments"', block)
         self.assertIn('id="driverAddDocumentBtn"', block)
         self.assertIn("Добавить/обновить документы", block)
+        self.assertIn("580-ФЗ", self.html)
+        self.assertIn("ОСГОП", self.html)
+        self.assertIn("Журнал заказов", self.html)
 
     def test_driver_tab_does_not_render_financial_block(self) -> None:
         block = self._driver_tab_block()

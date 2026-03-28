@@ -129,6 +129,7 @@ export type DocumentType =
   | 'driver_license'
   | 'sts'
   | 'osago'
+  | 'osgop'
   | 'diagnostic_card'
   | 'self_employed_certificate';
 
