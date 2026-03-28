@@ -74,6 +74,17 @@ body {
   transform: translateY(1px);
 }
 
+.role-btn {
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 120ms ease;
+}
+
+.role-btn:active {
+  background-color: rgb(var(--feed-accent-rgb) / 0.92);
+  color: rgb(var(--feed-panel-soft-rgb));
+  border-color: rgb(var(--feed-accent-rgb));
+  -webkit-text-fill-color: currentColor;
+}
+
 .tab-btn:hover,
 .profile-menu-btn:hover,
 .role-btn:hover {
