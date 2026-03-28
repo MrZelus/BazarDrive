@@ -1309,3 +1309,301 @@ def close_driver_waybill(doc_id: int, closure_payload: dict[str, Any]) -> Option
         )
         updated = cur.fetchone()
         return dict(updated) if updated else None
+from datetime import date, datetime
+
+
+def get_driver_compliance_profile(profile_id: str) -> Optional[dict[str, Any]]:
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT *
+            FROM driver_compliance_profiles
+            WHERE profile_id = ?
+            """,
+            (profile_id,),
+        )
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+
+def upsert_driver_compliance_profile(profile_id: str, payload: dict[str, Any]) -> None:
+    allowed_fields = {
+        "last_name",
+        "first_name",
+        "middle_name",
+        "phone",
+        "email",
+        "driver_license_category",
+        "driving_experience_years",
+        "has_medical_contraindications",
+        "criminal_record_cleared",
+        "unpaid_fines_count",
+        "employment_type",
+        "inn",
+        "ogrnip",
+        "registration_date",
+        "tax_regime",
+        "activity_region",
+        "vehicle_make",
+        "vehicle_model",
+        "vehicle_license_plate",
+        "has_checker_pattern",
+        "has_roof_light",
+        "has_taximeter",
+        "two_factor_enabled",
+        "compliance_status",
+        "compliance_reason",
+    }
+    filtered = {k: v for k, v in payload.items() if k in allowed_fields}
+    if not filtered:
+        return
+
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT OR IGNORE INTO driver_compliance_profiles (profile_id)
+            VALUES (?)
+            """,
+            (profile_id,),
+        )
+
+        assignments = ", ".join(f"{field} = ?" for field in filtered.keys())
+        values = list(filtered.values())
+        values.extend([profile_id])
+
+        cur.execute(
+            f"""
+            UPDATE driver_compliance_profiles
+            SET {assignments},
+                updated_at = CURRENT_TIMESTAMP
+            WHERE profile_id = ?
+            """,
+            values,
+        )
+        conn.commit()
+
+
+def list_driver_documents(profile_id: str) -> list[dict[str, Any]]:
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT *
+            FROM driver_documents
+            WHERE profile_id = ?
+            ORDER BY datetime(created_at) DESC, id DESC
+            """,
+            (profile_id,),
+        )
+        return [dict(row) for row in cur.fetchall()]
+
+
+def get_driver_document(profile_id: str, doc_type: str) -> Optional[dict[str, Any]]:
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT *
+            FROM driver_documents
+            WHERE profile_id = ? AND type = ?
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (profile_id, doc_type),
+        )
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+
+def upsert_driver_document(
+    profile_id: str,
+    doc_type: str,
+    number: str,
+    valid_until: Optional[str] = None,
+    file_url: Optional[str] = None,
+    status: str = "uploaded",
+    issued_at: Optional[str] = None,
+    rejection_reason: Optional[str] = None,
+    verified_by: Optional[str] = None,
+    verified_at: Optional[str] = None,
+    is_required: int = 1,
+    updated_by: Optional[str] = None,
+) -> int:
+    existing = get_driver_document(profile_id, doc_type)
+
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        cur = conn.cursor()
+
+        if existing:
+            cur.execute(
+                """
+                UPDATE driver_documents
+                SET number = ?,
+                    valid_until = ?,
+                    file_url = ?,
+                    status = ?,
+                    issued_at = ?,
+                    rejection_reason = ?,
+                    verified_by = ?,
+                    verified_at = ?,
+                    is_required = ?,
+                    updated_by = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (
+                    number,
+                    valid_until,
+                    file_url,
+                    status,
+                    issued_at,
+                    rejection_reason,
+                    verified_by,
+                    verified_at,
+                    is_required,
+                    updated_by,
+                    existing["id"],
+                ),
+            )
+            conn.commit()
+            return int(existing["id"])
+
+        cur.execute(
+            """
+            INSERT INTO driver_documents (
+                profile_id,
+                type,
+                number,
+                valid_until,
+                file_url,
+                status,
+                issued_at,
+                rejection_reason,
+                verified_by,
+                verified_at,
+                is_required,
+                updated_by
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                profile_id,
+                doc_type,
+                number,
+                valid_until,
+                file_url,
+                status,
+                issued_at,
+                rejection_reason,
+                verified_by,
+                verified_at,
+                is_required,
+                updated_by,
+            ),
+        )
+        conn.commit()
+        return int(cur.lastrowid)
+
+
+def get_active_waybill(profile_id: str, target_date: Optional[str] = None) -> Optional[dict[str, Any]]:
+    target_date = target_date or date.today().isoformat()
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT *
+            FROM driver_documents
+            WHERE profile_id = ?
+              AND type = 'waybill'
+              AND status = 'open'
+              AND substr(COALESCE(valid_until, ''), 1, 10) >= ?
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (profile_id, target_date),
+        )
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+
+def update_driver_compliance_status(profile_id: str, status: str, reason: str) -> None:
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT OR IGNORE INTO driver_compliance_profiles (
+                profile_id,
+                compliance_status,
+                compliance_reason
+            )
+            VALUES (?, ?, ?)
+            """,
+            (profile_id, status, reason),
+        )
+        cur.execute(
+            """
+            UPDATE driver_compliance_profiles
+            SET compliance_status = ?,
+                compliance_reason = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE profile_id = ?
+            """,
+            (status, reason, profile_id),
+        )
+        conn.commit()
+
+
+def create_order_journal_record(payload: dict[str, Any]) -> int:
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO order_journal_records (
+                order_number,
+                source_request_id,
+                accepted_at,
+                completed_at,
+                pickup_address,
+                dropoff_address,
+                vehicle_make,
+                vehicle_model,
+                vehicle_license_plate,
+                driver_full_name,
+                eta_planned,
+                arrived_at_actual,
+                ride_completed_at_actual,
+                order_source,
+                passenger_phone,
+                passenger_requirements,
+                profile_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                payload.get("order_number"),
+                payload.get("source_request_id"),
+                payload.get("accepted_at"),
+                payload.get("completed_at"),
+                payload.get("pickup_address"),
+                payload.get("dropoff_address"),
+                payload.get("vehicle_make"),
+                payload.get("vehicle_model"),
+                payload.get("vehicle_license_plate"),
+                payload.get("driver_full_name"),
+                payload.get("eta_planned"),
+                payload.get("arrived_at_actual"),
+                payload.get("ride_completed_at_actual"),
+                payload.get("order_source"),
+                payload.get("passenger_phone"),
+                payload.get("passenger_requirements"),
+                payload.get("profile_id"),
+            ),
+        )
+        conn.commit()
+        return int(cur.lastrowid)
