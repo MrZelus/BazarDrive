@@ -218,6 +218,7 @@
                   <option value="inn">ИНН</option>
                   <option value="ogrnip">ОГРНИП</option>
                   <option value="taxi_license">Разрешение на такси</option>
+                  <option value="waybill">Путевой лист</option>
                   <option value="driver_license">Водительское удостоверение</option>
                   <option value="sts">СТС</option>
                   <option value="osago">ОСАГО</option>
@@ -236,6 +237,12 @@
               <label class="block text-xs text-textSoft" for="documentValidUntil">Действует до</label>
               <input id="documentValidUntil" type="date" class="h-11 w-full rounded-xl border border-textSoft/20 bg-panel px-3 text-sm outline-none transition focus:border-accent" />
               <p id="documentValidUntilError" class="hidden text-xs text-warning"></p>
+            </div>
+            <div class="space-y-1">
+              <label class="block text-xs text-textSoft" for="documentFileInput">Файл документа (PDF)</label>
+              <input id="documentFileInput" type="file" accept="application/pdf,.pdf" class="h-11 w-full rounded-xl border border-textSoft/20 bg-panel px-3 text-sm outline-none transition focus:border-accent file:mr-3 file:h-8 file:rounded-lg file:border-0 file:bg-panelSoft file:px-2 file:text-xs" />
+              <p id="documentFileName" class="text-xs text-textSoft">Файл не выбран</p>
+              <p id="documentFileError" class="hidden text-xs text-warning"></p>
             </div>
             <div class="flex items-center gap-2">
               <button id="submitDocumentBtn" type="submit" class="ui-btn ui-btn--primary h-10 rounded-xl px-4 text-sm font-medium">Сохранить</button>
