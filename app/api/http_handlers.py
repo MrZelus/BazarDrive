@@ -341,6 +341,7 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             ".jpeg": "image/jpeg",
             ".png": "image/png",
             ".webp": "image/webp",
+            ".pdf": "application/pdf",
         }.get(extension, "application/octet-stream")
 
         with open(file_path, "rb") as file_obj:
@@ -579,6 +580,22 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
 
     def _handle_post(self) -> None:
         path = urlparse(self.path).path
+
+        if path == "/api/driver/documents/upload":
+            payload, error_payload, error_status = self._parse_feed_request_payload()
+            if error_payload is not None:
+                self._send_json(error_status, error_payload)
+                return
+            if payload is None:
+                self._send_json(400, {"error": "Некорректный payload"})
+                return
+            file_url = str(payload.get("file_url", "")).strip()
+            if not file_url:
+                self._send_json(400, {"error": "Не найден файл документа (ожидается поле file в multipart/form-data)"})
+                return
+            self._send_json(201, {"file_url": file_url})
+            return
+
         payload, error_payload, error_status = self._parse_feed_request_payload()
         if error_payload is not None:
             self._send_json(error_status, error_payload)

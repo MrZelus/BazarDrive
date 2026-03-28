@@ -242,10 +242,26 @@
     const documentTypeInput = document.getElementById('documentType');
     const documentNumberInput = document.getElementById('documentNumber');
     const documentValidUntilInput = document.getElementById('documentValidUntil');
+    const documentFileInput = document.getElementById('documentFileInput');
+    const documentFileName = document.getElementById('documentFileName');
     const documentTypeError = document.getElementById('documentTypeError');
     const documentNumberError = document.getElementById('documentNumberError');
     const documentValidUntilError = document.getElementById('documentValidUntilError');
+    const documentFileError = document.getElementById('documentFileError');
     let isSubmittingDocument = false;
+    const DOCUMENT_ALLOWED_MIME_TYPES = new Set(['application/pdf']);
+    const DOCUMENT_MAX_BYTES = 10 * 1024 * 1024;
+
+    function isPdfDocumentFile(file) {
+      if (!file) return false;
+      const fileType = String(file.type || '').trim().toLowerCase();
+      if (DOCUMENT_ALLOWED_MIME_TYPES.has(fileType)) return true;
+      if (fileType === 'application/octet-stream' || !fileType) {
+        const fileName = String(file.name || '').trim().toLowerCase();
+        return fileName.endsWith('.pdf');
+      }
+      return false;
+    }
     const MODERATION_ERROR_COPY = {
       prohibited: 'Публикация отклонена модерацией: обнаружена запрещённая тема.',
       links: 'Публикация отклонена: в одном посте можно указать не более 2 ссылок.',
@@ -584,7 +600,7 @@
 
 
     function clearDocumentErrors() {
-      [documentTypeError, documentNumberError, documentValidUntilError].forEach((el) => {
+      [documentTypeError, documentNumberError, documentValidUntilError, documentFileError].forEach((el) => {
         if (!el) return;
         el.textContent = '';
         el.classList.add('hidden');
@@ -596,6 +612,7 @@
         type: documentTypeError,
         number: documentNumberError,
         valid_until: documentValidUntilError,
+        file_url: documentFileError,
       };
       Object.entries(errors).forEach(([field, message]) => {
         const target = fieldToElement[field];
@@ -630,7 +647,7 @@
         addDocumentBtn.disabled = isSubmittingDocument;
         addDocumentBtn.setAttribute('aria-disabled', String(isSubmittingDocument));
       }
-      [documentTypeInput, documentNumberInput, documentValidUntilInput].forEach((field) => {
+      [documentTypeInput, documentNumberInput, documentValidUntilInput, documentFileInput].forEach((field) => {
         if (!field) return;
         field.disabled = isSubmittingDocument;
       });
@@ -678,6 +695,7 @@
 
       const labels = {
         passport: 'Паспорт', inn: 'ИНН', ogrnip: 'ОГРНИП', taxi_license: 'Разрешение на такси',
+        waybill: 'Путевой лист',
         driver_license: 'Водительское удостоверение', sts: 'СТС', osago: 'ОСАГО',
         diagnostic_card: 'Диагностическая карта', self_employed_certificate: 'Справка самозанятого'
       };
@@ -748,6 +766,15 @@
         });
 
         article.append(header, metaGrid);
+        if (item.file_url) {
+          const link = document.createElement('a');
+          link.className = 'text-xs text-accent hover:underline';
+          link.href = normalizeFeedMediaUrl(item.file_url);
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.textContent = 'Открыть PDF-документ';
+          article.appendChild(link);
+        }
         driverDocumentsList.appendChild(article);
       });
       renderDriverOverviewDocuments(normalizedItems);
@@ -784,6 +811,9 @@
         addDocumentForm.reset();
         clearDocumentErrors();
         setDocumentAlert('');
+        if (documentFileName) {
+          documentFileName.textContent = 'Файл не выбран';
+        }
       }
     }
 
@@ -811,12 +841,33 @@
       };
     }
 
+    async function uploadDriverDocumentFile(file) {
+      const formData = new FormData();
+      formData.append('file', file, file.name || 'waybill.pdf');
+      const response = await fetch(`${FEED_API_BASE}/api/driver/documents/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || `Не удалось загрузить PDF (HTTP ${response.status})`);
+      }
+      return String(data.file_url || '').trim();
+    }
+
     async function submitDriverDocument(event) {
       event.preventDefault();
       clearDocumentErrors();
       setDocumentAlert('');
 
       const { payload, errors } = validateDocumentForm();
+      const selectedFile = documentFileInput?.files?.[0] || null;
+      if (selectedFile && !isPdfDocumentFile(selectedFile)) {
+        errors.file_url = 'Поддерживается только PDF-файл';
+      }
+      if (selectedFile && selectedFile.size > DOCUMENT_MAX_BYTES) {
+        errors.file_url = 'PDF-файл слишком большой (максимум 10 МБ)';
+      }
       if (Object.keys(errors).length > 0) {
         showDocumentErrors(errors);
         return;
@@ -825,6 +876,9 @@
       applyDocumentLoadingState(true);
 
       try {
+        if (selectedFile) {
+          payload.file_url = await uploadDriverDocumentFile(selectedFile);
+        }
         const response = await fetch(`${FEED_API_BASE}/api/driver/documents`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -852,6 +906,17 @@
       } finally {
         applyDocumentLoadingState(false);
       }
+    }
+
+    if (documentFileInput && documentFileName) {
+      documentFileInput.addEventListener('change', () => {
+        const selectedFile = documentFileInput.files?.[0];
+        documentFileName.textContent = selectedFile ? selectedFile.name : 'Файл не выбран';
+        if (documentFileError) {
+          documentFileError.textContent = '';
+          documentFileError.classList.add('hidden');
+        }
+      });
     }
 
     function getStoredGuestProfile() {
