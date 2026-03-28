@@ -108,6 +108,21 @@ body {
   box-shadow: none;
 }
 
+.role-btn[aria-pressed='true'] {
+  background-color: rgb(var(--feed-accent-rgb));
+  color: rgb(var(--feed-panel-soft-rgb));
+  border-color: rgb(var(--feed-accent-rgb));
+  -webkit-text-fill-color: currentColor;
+}
+
+.role-btn[aria-pressed='true']:hover,
+.role-btn[aria-pressed='true']:focus-visible,
+.role-btn[aria-pressed='true']:active {
+  background-color: rgb(var(--feed-accent-rgb) / 0.9);
+  color: rgb(var(--feed-panel-soft-rgb));
+  border-color: rgb(var(--feed-accent-rgb));
+}
+
 .tab-btn:disabled,
 .tab-btn[aria-disabled='true'],
 .profile-menu-btn:disabled,
