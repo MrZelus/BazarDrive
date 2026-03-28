@@ -262,6 +262,18 @@ class GuestFeedRepositoryTests(unittest.TestCase):
         self.assertEqual(len(second_page), 1)
         self.assertNotEqual(int(first_page[0]["id"]), int(second_page[0]["id"]))
 
+    def test_guest_feed_search_normalizes_width_and_case(self) -> None:
+        repository.create_guest_feed_post(
+            author="Ｔａｘｉ Driver",
+            text="Маршрут до Москва",
+            guest_profile_id="guest-search-normalized",
+        )
+
+        listed = repository.list_guest_feed_posts(limit=10, offset=0, search_query="taxi")
+        self.assertEqual(len(listed), 1)
+        self.assertEqual(str(listed[0]["author"]), "Ｔａｘｉ Driver")
+        self.assertEqual(repository.count_guest_feed_posts(search_query="TAXI"), 1)
+
 
 if __name__ == "__main__":
     unittest.main()
