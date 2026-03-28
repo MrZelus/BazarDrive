@@ -1522,7 +1522,10 @@ def get_active_waybill(profile_id: str, target_date: Optional[str] = None) -> Op
             WHERE profile_id = ?
               AND type = 'waybill'
               AND status = 'open'
-              AND substr(COALESCE(valid_until, ''), 1, 10) >= ?
+              AND (
+                COALESCE(valid_until, '') = ''
+                OR substr(valid_until, 1, 10) >= ?
+              )
             ORDER BY id DESC
             LIMIT 1
             """,

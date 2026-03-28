@@ -474,7 +474,7 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertEqual(status, 403)
         self.assertFalse(payload.get("ok"))
         self.assertEqual(payload.get("code"), "driver_cannot_go_online")
-        self.assertIn("Профиль допуска водителя не заполнен", str(payload.get("error", "")))
+        self.assertIn("Нет открытого путевого листа", str(payload.get("error", "")))
 
     def test_driver_accept_order_is_blocked_when_profile_not_ready(self) -> None:
         status, payload, _ = self._post(
@@ -484,12 +484,62 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertEqual(status, 403)
         self.assertFalse(payload.get("ok"))
         self.assertEqual(payload.get("code"), "driver_cannot_accept_orders")
-        self.assertIn("Профиль допуска водителя не заполнен", str(payload.get("error", "")))
+        self.assertIn("Нет открытого путевого листа", str(payload.get("error", "")))
 
     def test_driver_accept_order_requires_order_id(self) -> None:
         status, payload, _ = self._post("/api/driver/accept-order", {"profile_id": "driver-main"})
         self.assertEqual(status, 400)
         self.assertEqual(payload.get("error"), "order_id required")
+
+    def test_driver_shift_open_and_close_flow(self) -> None:
+        open_status, open_payload, _ = self._post(
+            "/api/driver/shift/open",
+            {"profile_id": "driver-main", "vehicle_condition": "Исправен"},
+        )
+        self.assertEqual(open_status, 200)
+        self.assertTrue(int(open_payload.get("waybill_id", 0)) > 0)
+
+        duplicate_status, duplicate_payload, _ = self._post(
+            "/api/driver/shift/open",
+            {"profile_id": "driver-main", "vehicle_condition": "Исправен"},
+        )
+        self.assertEqual(duplicate_status, 409)
+        self.assertIn("Смена уже открыта", str(duplicate_payload.get("error", "")))
+
+        close_status, close_payload, _ = self._post(
+            "/api/driver/shift/close",
+            {
+                "profile_id": "driver-main",
+                "postshift_medical_at": "2026-03-28T20:10:00Z",
+                "postshift_medical_result": "Допущен",
+                "actual_return_at": "2026-03-28T20:20:00Z",
+                "odometer_end": 120543,
+                "distance_km": 182.5,
+                "fuel_spent_liters": 14.2,
+                "vehicle_condition": "Исправен",
+                "stops_info": "2 короткие остановки",
+                "notes": "Смена завершена штатно",
+            },
+        )
+        self.assertEqual(close_status, 200)
+        self.assertEqual(int(close_payload.get("waybill_id", 0)), int(open_payload.get("waybill_id")))
+
+    def test_driver_shift_close_requires_open_waybill(self) -> None:
+        status, payload, _ = self._post(
+            "/api/driver/shift/close",
+            {
+                "profile_id": "driver-main",
+                "postshift_medical_at": "2026-03-28T20:10:00Z",
+                "postshift_medical_result": "Допущен",
+                "actual_return_at": "2026-03-28T20:20:00Z",
+                "odometer_end": 12,
+                "distance_km": 4,
+                "fuel_spent_liters": 1.1,
+                "vehicle_condition": "Исправен",
+            },
+        )
+        self.assertEqual(status, 404)
+        self.assertIn("Нет открытого путевого листа", str(payload.get("error", "")))
 
     def test_driver_document_pdf_upload_and_link_persistence(self) -> None:
         boundary = "----BazarDrivePdfBoundary"

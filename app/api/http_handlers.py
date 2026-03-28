@@ -18,6 +18,7 @@ from app.services.driver_compliance_service import DriverComplianceService
 from app.services.driver_operation_service import DriverOperationService
 from app.services.exceptions import DriverNotAllowedError
 from app.services.feed_service import FeedAccessDeniedError, FeedPayloadTooLargeError, FeedService
+from app.services.waybill_service import WaybillService
 
 
 logger = logging.getLogger(__name__)
@@ -607,6 +608,14 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
 
         if path == "/api/driver/accept-order":
             self._handle_driver_accept_order()
+            return
+
+        if path in {"/api/driver/shift/open", "/driver/shift/open"}:
+            self._handle_driver_shift_open()
+            return
+
+        if path in {"/api/driver/shift/close", "/driver/shift/close"}:
+            self._handle_driver_shift_close()
             return
 
         if path == "/api/driver/documents/upload":
@@ -1260,6 +1269,55 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             )
         except Exception:
             logger.exception("accept order failed")
+            self._send_internal_error()
+
+    def _handle_driver_shift_open(self) -> None:
+        payload, error, status = self._parse_feed_request_payload()
+        if error:
+            self._send_json(status, error)
+            return
+        if payload is None:
+            self._send_json(400, {"error": "Некорректный payload"})
+            return
+
+        try:
+            profile_id = str(payload.get("profile_id", "driver-main")).strip() or "driver-main"
+            vehicle_condition = str(payload.get("vehicle_condition", "")).strip()
+            waybill_id = WaybillService.open_shift(
+                profile_id=profile_id,
+                vehicle_condition=vehicle_condition,
+            )
+            self._send_json(200, {"waybill_id": waybill_id})
+        except ValueError as error:
+            self._send_json(409, {"error": str(error)})
+        except Exception:
+            logger.exception("shift open failed")
+            self._send_internal_error()
+
+    def _handle_driver_shift_close(self) -> None:
+        payload, error, status = self._parse_feed_request_payload()
+        if error:
+            self._send_json(status, error)
+            return
+        if payload is None:
+            self._send_json(400, {"error": "Некорректный payload"})
+            return
+
+        try:
+            profile_id = str(payload.get("profile_id", "driver-main")).strip() or "driver-main"
+            closure_cleaned, closure_errors = FeedService.validate_waybill_close_payload(payload)
+            if closure_errors:
+                self._send_json(400, {"error": "validation_error", "fields": closure_errors})
+                return
+            waybill_id = WaybillService.close_shift(
+                profile_id=profile_id,
+                data=closure_cleaned,
+            )
+            self._send_json(200, {"waybill_id": waybill_id})
+        except ValueError as error:
+            self._send_json(404, {"error": str(error)})
+        except Exception:
+            logger.exception("shift close failed")
             self._send_internal_error()
 
 def run_api() -> None:
