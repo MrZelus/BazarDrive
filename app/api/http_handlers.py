@@ -14,6 +14,7 @@ from urllib.parse import parse_qs, urlparse
 from app.config import get_api_settings
 from app.db import repository
 from app.logging_setup import configure_logging
+from app.services.driver_compliance_service import DriverComplianceService
 from app.services.feed_service import FeedAccessDeniedError, FeedPayloadTooLargeError, FeedService
 
 
@@ -559,6 +560,9 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             self._send_json(200, profile)
             return
 
+        if path == "/api/driver/compliance":
+            self._handle_driver_compliance_get()
+            return
 
         if path == "/api/driver/documents":
             params = parse_qs(parsed.query)
@@ -582,6 +586,18 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
 
     def _handle_post(self) -> None:
         path = urlparse(self.path).path
+
+        if path == "/api/driver/compliance/profile":
+            self._handle_driver_compliance_profile_upsert()
+            return
+
+        if path == "/api/driver/compliance/document":
+            self._handle_driver_document_upsert()
+            return
+
+        if path == "/api/driver/compliance/check":
+            self._handle_driver_compliance_check()
+            return
 
         if path == "/api/driver/documents/upload":
             content_type_header = str(self.headers.get("Content-Type", "")).strip()
@@ -1102,6 +1118,91 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             self._send_json(404, {"error": "Документ не найден"})
             return
         self._send_json(200, {"ok": True})
+
+    def _handle_driver_compliance_get(self) -> None:
+        try:
+            query = parse_qs(urlparse(self.path).query)
+            profile_id = query.get("profile_id", ["driver-main"])[0]
+            result = DriverComplianceService.evaluate(profile_id)
+            self._send_json(200, {"ok": True, "data": result.to_dict()})
+        except Exception:
+            logger.exception("compliance get failed")
+            self._send_internal_error()
+
+    def _handle_driver_compliance_profile_upsert(self) -> None:
+        payload, error, status = self._parse_feed_request_payload()
+        if error:
+            self._send_json(status, error)
+            return
+
+        if payload is None:
+            self._send_json(400, {"error": "Некорректный payload"})
+            return
+
+        try:
+            profile_id = str(payload.get("profile_id", "driver-main")).strip() or "driver-main"
+            repository.upsert_driver_compliance_profile(profile_id=profile_id, payload=payload)
+            self._send_json(200, {"ok": True})
+        except Exception:
+            logger.exception("profile upsert failed")
+            self._send_internal_error()
+
+    def _handle_driver_document_upsert(self) -> None:
+        payload, error, status = self._parse_feed_request_payload()
+        if error:
+            self._send_json(status, error)
+            return
+
+        if payload is None:
+            self._send_json(400, {"error": "Некорректный payload"})
+            return
+
+        doc_type = str(payload.get("type", "")).strip()
+        number = str(payload.get("number", "")).strip()
+        if not doc_type or not number:
+            self._send_json(400, {"error": "Поля type и number обязательны"})
+            return
+
+        try:
+            repository.upsert_driver_document(
+                profile_id=str(payload.get("profile_id", "driver-main")).strip() or "driver-main",
+                doc_type=doc_type,
+                number=number,
+                valid_until=payload.get("valid_until"),
+                file_url=payload.get("file_url"),
+                status=str(payload.get("status", "uploaded")),
+            )
+            self._send_json(200, {"ok": True})
+        except Exception:
+            logger.exception("document upsert failed")
+            self._send_internal_error()
+
+    def _handle_driver_compliance_check(self) -> None:
+        payload, error, status = self._parse_feed_request_payload()
+        if error:
+            self._send_json(status, error)
+            return
+
+        if payload is None:
+            self._send_json(400, {"error": "Некорректный payload"})
+            return
+
+        try:
+            profile_id = payload.get("profile_id", "driver-main")
+            result = DriverComplianceService.evaluate(profile_id)
+            self._send_json(
+                200,
+                {
+                    "ok": True,
+                    "can_accept_orders": result.can_accept_orders,
+                    "can_go_online": result.can_go_online,
+                    "status": result.status,
+                    "reason": result.reason,
+                },
+            )
+        except Exception:
+            logger.exception("compliance check failed")
+            self._send_internal_error()
 
 def run_api() -> None:
     configure_logging("feed-api")
