@@ -1219,21 +1219,23 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             self._send_json(status, error)
             return
 
-        if payload is None:
-            self._send_json(400, {"error": "Некорректный payload"})
-            return
-
         try:
-            profile_id = str(payload.get("profile_id", "driver-main")).strip() or "driver-main"
+            profile_id = payload.get("profile_id", "driver-main")
             DriverGuard.ensure_can_go_online(profile_id)
-            self._send_json(200, {"ok": True, "status": "online"})
-        except DriverGuardError as error:
+            self._send_json(
+                200,
+                {
+                    "ok": True,
+                    "status": "online",
+                },
+            )
+        except DriverGuardError as e:
             self._send_json(
                 403,
                 {
                     "ok": False,
-                    "error": str(error),
-                    "code": error.code,
+                    "error": str(e),
+                    "code": e.code,
                 },
             )
         except Exception:
@@ -1246,12 +1248,8 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             self._send_json(status, error)
             return
 
-        if payload is None:
-            self._send_json(400, {"error": "Некорректный payload"})
-            return
-
         try:
-            profile_id = str(payload.get("profile_id", "driver-main")).strip() or "driver-main"
+            profile_id = payload.get("profile_id", "driver-main")
             order_id = payload.get("order_id")
             if not order_id:
                 self._send_json(400, {"error": "order_id required"})
@@ -1265,13 +1263,13 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
                     "status": "accepted",
                 },
             )
-        except DriverGuardError as error:
+        except DriverGuardError as e:
             self._send_json(
                 403,
                 {
                     "ok": False,
-                    "error": str(error),
-                    "code": error.code,
+                    "error": str(e),
+                    "code": e.code,
                 },
             )
         except Exception:
