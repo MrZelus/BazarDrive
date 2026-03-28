@@ -53,6 +53,8 @@ class FeedService:
     STORAGE_DIR = os.path.abspath(get_feed_upload_dir())
     STORAGE_URL_PREFIX = "/uploads/feed/"
     SUPPORTED_IMAGE_MIME_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
+    SUPPORTED_DOCUMENT_MIME_TYPES = {"application/pdf": ".pdf"}
+    MAX_DOCUMENT_BYTES = 10 * 1024 * 1024
     SUPPORTED_VIDEO_MIME_TYPES = {"video/mp4"}
     MAX_VIDEO_BYTES = 20 * 1024 * 1024
     MAX_URLS_PER_POST = 2
@@ -157,6 +159,21 @@ class FeedService:
         return cls.image_bytes_to_stored_url(image_bytes=image_bytes, mime_type=mime_type)
 
     @classmethod
+    def document_bytes_to_stored_url(cls, file_bytes: bytes, mime_type: str) -> str:
+        extension = cls.SUPPORTED_DOCUMENT_MIME_TYPES.get(mime_type)
+        if extension is None:
+            raise ValueError("Неподдерживаемый тип документа. Допустимые значения: application/pdf")
+        if len(file_bytes) > cls.MAX_DOCUMENT_BYTES:
+            raise FeedPayloadTooLargeError(f"Файл документа слишком большой (максимум {cls.MAX_DOCUMENT_BYTES} байт)")
+
+        cls.ensure_storage_dir()
+        filename = f"{uuid.uuid4().hex}{extension}"
+        destination = os.path.join(cls.STORAGE_DIR, filename)
+        with open(destination, "xb") as file_obj:
+            file_obj.write(file_bytes)
+        return f"{cls.STORAGE_URL_PREFIX}{filename}"
+
+    @classmethod
     def validate_post_media_payload(cls, payload: dict[str, object]) -> tuple[list[dict[str, object]], str | None]:
         media_payload = payload.get("media")
         raw_legacy_image_url = payload.get("image_url")
@@ -239,6 +256,11 @@ class FeedService:
             if is_image_part:
                 image_bytes = part.get_payload(decode=True) or b""
                 payload["image_url"] = cls.image_bytes_to_stored_url(image_bytes=image_bytes, mime_type=mime_type)
+                continue
+            is_document_part = name in {"file", "document", "waybill"} or (filename and mime_type in cls.SUPPORTED_DOCUMENT_MIME_TYPES)
+            if is_document_part:
+                file_bytes = part.get_payload(decode=True) or b""
+                payload["file_url"] = cls.document_bytes_to_stored_url(file_bytes=file_bytes, mime_type=mime_type)
                 continue
             if not name:
                 continue
