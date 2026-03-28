@@ -582,18 +582,59 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
 
         if path == "/api/driver/documents/upload":
-            payload, error_payload, error_status = self._parse_feed_request_payload()
-            if error_payload is not None:
-                self._send_json(error_status, error_payload)
+            content_type_header = str(self.headers.get("Content-Type", "")).strip()
+            content_type = content_type_header.lower()
+            if content_type.startswith("multipart/form-data"):
+                payload, error_payload, error_status = self._parse_feed_request_payload()
+                if error_payload is not None:
+                    self._send_json(error_status, error_payload)
+                    return
+                if payload is None:
+                    self._send_json(400, {"error": "Некорректный payload"})
+                    return
+                file_url = str(payload.get("file_url", "")).strip()
+                if not file_url:
+                    self._send_json(400, {"error": "Не найден файл документа (ожидается поле file в multipart/form-data)"})
+                    return
+                self._send_json(201, {"file_url": file_url})
                 return
-            if payload is None:
-                self._send_json(400, {"error": "Некорректный payload"})
+
+            if content_type.startswith("application/pdf") or content_type.startswith("application/octet-stream"):
+                max_request_bytes = self._get_max_request_bytes()
+                try:
+                    raw_len = int(self.headers.get("Content-Length", "0"))
+                except ValueError:
+                    raw_len = 0
+                if raw_len <= 0:
+                    self._send_json(400, {"error": "Пустой файл документа"})
+                    return
+                if raw_len > max_request_bytes:
+                    self._send_json(413, self._payload_too_large_error(max_request_bytes))
+                    return
+                raw = self.rfile.read(raw_len)
+                if len(raw) > max_request_bytes:
+                    self._send_json(413, self._payload_too_large_error(max_request_bytes))
+                    return
+
+                filename = str(self.headers.get("X-File-Name", "")).strip()
+                mime_type = "application/pdf"
+                try:
+                    file_url = FeedService.document_bytes_to_stored_url(raw, mime_type=mime_type, filename=filename)
+                except FeedPayloadTooLargeError as error:
+                    self._send_json(413, {"error": str(error)})
+                    return
+                except ValueError as error:
+                    self._send_json(400, {"error": str(error)})
+                    return
+                self._send_json(201, {"file_url": file_url})
                 return
-            file_url = str(payload.get("file_url", "")).strip()
-            if not file_url:
-                self._send_json(400, {"error": "Не найден файл документа (ожидается поле file в multipart/form-data)"})
-                return
-            self._send_json(201, {"file_url": file_url})
+
+            self._send_json(
+                400,
+                {
+                    "error": "Неподдерживаемый Content-Type для загрузки документа. Используйте multipart/form-data или application/pdf",
+                },
+            )
             return
 
         payload, error_payload, error_status = self._parse_feed_request_payload()

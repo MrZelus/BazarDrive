@@ -510,6 +510,19 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertEqual(upload_status, 201)
         self.assertTrue(str(upload_payload.get("file_url", "")).endswith(".pdf"))
 
+    def test_driver_document_upload_accepts_raw_application_pdf_body(self) -> None:
+        pdf_payload = b"%PDF-1.5\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF"
+        upload_status, upload_payload, _ = self._post_raw(
+            "/api/driver/documents/upload",
+            body=pdf_payload,
+            headers={
+                "Content-Type": "application/pdf",
+                "Content-Length": str(len(pdf_payload)),
+            },
+        )
+        self.assertEqual(upload_status, 201)
+        self.assertTrue(str(upload_payload.get("file_url", "")).endswith(".pdf"))
+
     def test_health_endpoint_returns_ok(self) -> None:
         conn = HTTPConnection(self.host, self.port, timeout=5)
         conn.request("GET", "/health")
