@@ -1745,7 +1745,9 @@
 
 	    function setRole(role) {
       roleButtons.forEach((btn) => {
-        btn.classList.toggle('active', btn.dataset.role === role);
+        const isActive = btn.dataset.role === role;
+        btn.classList.toggle('active', isActive);
+        btn.setAttribute('aria-pressed', String(isActive));
       });
 
 	      if (role === 'driver') {
