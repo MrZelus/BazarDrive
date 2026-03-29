@@ -77,6 +77,29 @@ DRIVER_DOCUMENT_PENDING_STATUSES = {"checking"}
 DRIVER_DOCUMENT_REJECTED_STATUSES = {"rejected"}
 DRIVER_DOCUMENT_EXPIRED_STATUSES = {"expired"}
 
+DRIVER_LEGAL_PROFILE_STATUSES = {
+    "draft",
+    "pending_review",
+    "approved",
+    "blocked",
+}
+
+VEHICLE_COMPLIANCE_STATUSES = {
+    "pending_review",
+    "compliant",
+    "restricted",
+    "blocked",
+    "expired",
+}
+
+COMPLIANCE_CHECK_STATUSES = {
+    "queued",
+    "in_review",
+    "passed",
+    "failed",
+    "blocked",
+}
+
 DRIVER_REQUIRED_CATEGORY = "B"
 DRIVER_MIN_EXPERIENCE_YEARS = 3
 DRIVER_MAX_UNPAID_FINES = 3

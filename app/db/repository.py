@@ -1312,6 +1312,173 @@ def close_driver_waybill(doc_id: int, closure_payload: dict[str, Any]) -> Option
 from datetime import date, datetime
 
 
+def get_driver_legal_profile(driver_id: str) -> Optional[dict[str, Any]]:
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT *
+            FROM driver_legal_profile
+            WHERE driver_id = ?
+            """,
+            (driver_id,),
+        )
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+
+def upsert_driver_legal_profile(driver_id: str, payload: dict[str, Any]) -> None:
+    allowed_fields = {
+        "legal_entity_type",
+        "inn",
+        "ogrnip",
+        "company_name",
+        "tax_regime",
+        "registration_address",
+        "status",
+        "status_reason",
+        "approved_by",
+        "approved_at",
+    }
+    filtered = {k: v for k, v in payload.items() if k in allowed_fields}
+
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT OR IGNORE INTO driver_legal_profile (driver_id)
+            VALUES (?)
+            """,
+            (driver_id,),
+        )
+        if filtered:
+            assignments = ", ".join(f"{field} = ?" for field in filtered.keys())
+            values = list(filtered.values())
+            values.extend([driver_id])
+            cur.execute(
+                f"""
+                UPDATE driver_legal_profile
+                SET {assignments},
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE driver_id = ?
+                """,
+                values,
+            )
+        conn.commit()
+
+
+def get_vehicle_compliance(driver_id: str) -> Optional[dict[str, Any]]:
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT *
+            FROM vehicle_compliance
+            WHERE driver_id = ?
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (driver_id,),
+        )
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+
+def upsert_vehicle_compliance(driver_id: str, payload: dict[str, Any]) -> None:
+    allowed_fields = {
+        "vehicle_id",
+        "status",
+        "status_reason",
+        "inspection_expires_at",
+        "insurance_expires_at",
+        "permit_expires_at",
+        "verified_by",
+        "verified_at",
+    }
+    filtered = {k: v for k, v in payload.items() if k in allowed_fields}
+    if not filtered:
+        return
+
+    columns = ", ".join(["driver_id", *filtered.keys()])
+    placeholders = ", ".join(["?", *(["?"] * len(filtered))])
+    values = [driver_id, *filtered.values()]
+
+    update_assignments = ", ".join(f"{field} = excluded.{field}" for field in filtered.keys())
+
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        cur = conn.cursor()
+        cur.execute(
+            f"""
+            INSERT INTO vehicle_compliance ({columns})
+            VALUES ({placeholders})
+            ON CONFLICT(driver_id) DO UPDATE SET
+                {update_assignments},
+                updated_at = CURRENT_TIMESTAMP
+            """,
+            values,
+        )
+        conn.commit()
+
+
+def create_compliance_check(driver_id: str, payload: dict[str, Any]) -> int:
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO compliance_checks (
+                driver_id,
+                check_type,
+                status,
+                block_reason,
+                details,
+                checked_by,
+                checked_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                driver_id,
+                payload.get("check_type"),
+                payload.get("status", "queued"),
+                payload.get("block_reason"),
+                payload.get("details"),
+                payload.get("checked_by"),
+                payload.get("checked_at"),
+            ),
+        )
+        conn.commit()
+        return int(cur.lastrowid)
+
+
+def list_compliance_checks(driver_id: str, status: Optional[str] = None) -> list[dict[str, Any]]:
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        if status:
+            cur.execute(
+                """
+                SELECT *
+                FROM compliance_checks
+                WHERE driver_id = ? AND status = ?
+                ORDER BY datetime(created_at) DESC, id DESC
+                """,
+                (driver_id, status),
+            )
+        else:
+            cur.execute(
+                """
+                SELECT *
+                FROM compliance_checks
+                WHERE driver_id = ?
+                ORDER BY datetime(created_at) DESC, id DESC
+                """,
+                (driver_id,),
+            )
+        return [dict(row) for row in cur.fetchall()]
+
+
 def get_driver_compliance_profile(profile_id: str) -> Optional[dict[str, Any]]:
     with closing(sqlite3.connect(get_db_path())) as conn:
         conn.row_factory = sqlite3.Row
