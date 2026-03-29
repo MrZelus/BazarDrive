@@ -538,6 +538,20 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertEqual(payload.get("error"), "Поле is_required должно быть 0 или 1")
 
+    def test_driver_compliance_document_endpoint_uses_document_field_validation(self) -> None:
+        status, payload, _ = self._post(
+            "/api/driver/compliance/document",
+            {
+                "profile_id": "driver-main",
+                "type": "osago",
+                "number": "OSAGO-ERR-STATUS",
+                "status": "unknown_status",
+            },
+        )
+        self.assertEqual(status, 400)
+        self.assertEqual(payload.get("error"), "validation_error")
+        self.assertEqual(payload.get("fields", {}).get("status"), "Некорректный статус документа")
+
     def test_driver_go_online_is_blocked_when_profile_not_ready(self) -> None:
         status, payload, _ = self._post("/api/driver/go-online", {"profile_id": "driver-main"})
         self.assertEqual(status, 403)

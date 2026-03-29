@@ -1252,10 +1252,32 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             self._send_json(400, {"error": "Некорректный payload"})
             return
 
-        doc_type = str(payload.get("type", "")).strip()
-        number = str(payload.get("number", "")).strip()
-        if not doc_type or not number:
-            self._send_json(400, {"error": "Поля type и number обязательны"})
+        cleaned, errors = FeedService.validate_driver_document_fields(payload)
+        if errors:
+            self._send_json(400, {"error": "validation_error", "fields": errors})
+            return
+
+        rejection_reason = payload.get("rejection_reason")
+        if rejection_reason is not None:
+            rejection_reason = str(rejection_reason).strip() or None
+        verified_by = payload.get("verified_by")
+        if verified_by is not None:
+            verified_by = str(verified_by).strip() or None
+        verified_at = payload.get("verified_at")
+        if verified_at is not None:
+            verified_at = str(verified_at).strip() or None
+        issued_at = payload.get("issued_at")
+        if issued_at is not None:
+            issued_at = str(issued_at).strip() or None
+        updated_by = payload.get("updated_by")
+        if updated_by is not None:
+            updated_by = str(updated_by).strip() or None
+
+        is_required = payload.get("is_required", 1)
+        try:
+            is_required = 1 if int(is_required) else 0
+        except (TypeError, ValueError):
+            self._send_json(400, {"error": "Поле is_required должно быть 0 или 1"})
             return
 
         status = str(payload.get("status", "uploaded")).strip() or "uploaded"
@@ -1290,11 +1312,11 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
         try:
             repository.upsert_driver_document(
                 profile_id=str(payload.get("profile_id", "driver-main")).strip() or "driver-main",
-                doc_type=doc_type,
-                number=number,
-                valid_until=payload.get("valid_until"),
-                file_url=payload.get("file_url"),
-                status=status,
+                doc_type=str(cleaned.get("type", "")),
+                number=str(cleaned.get("number", "")),
+                valid_until=cleaned.get("valid_until"),
+                file_url=cleaned.get("file_url"),
+                status=str(cleaned.get("status", "uploaded")),
                 issued_at=issued_at,
                 rejection_reason=rejection_reason,
                 verified_by=verified_by,
