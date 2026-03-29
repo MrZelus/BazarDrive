@@ -11,6 +11,7 @@ from telegram.ext import (
     filters,
 )
 
+from app.bot.driver_status_handlers import get_driver_status_handlers
 from app.db import repository
 from app.logging_setup import configure_logging
 from app.models.bot_settings import load_bot_settings
@@ -308,9 +309,9 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("pending", pending))
     app.add_handler(CommandHandler("feed", feed))
-    app.add_handler(CommandHandler("status", driver_status))
     app.add_handler(CommandHandler("accept_order", accept_order_handler))
-    app.add_handler(MessageHandler(filters.Regex("^📊 Мой статус$"), driver_status))
+    for handler in get_driver_status_handlers():
+        app.add_handler(handler)
 
     app.add_handler(
         ConversationHandler(
@@ -344,7 +345,6 @@ def build_application() -> Application:
         )
     )
 
-    app.add_handler(CallbackQueryHandler(open_shift_callback, pattern=r"^open_shift$"))
     app.add_handler(CallbackQueryHandler(moderation_action, pattern=r"^(approve|reject):(ad|post):\\d+$"))
     app.add_error_handler(_error_handler)
     return app
