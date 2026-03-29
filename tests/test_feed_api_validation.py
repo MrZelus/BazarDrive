@@ -497,6 +497,47 @@ class FeedAPIValidationTests(unittest.TestCase):
             else:
                 os.environ["MAX_REQUEST_BYTES"] = previous_limit
 
+    def test_driver_compliance_document_endpoint_persists_verification_fields(self) -> None:
+        status, payload, _ = self._post(
+            "/api/driver/compliance/document",
+            {
+                "profile_id": "driver-main",
+                "type": "osago",
+                "number": "OSAGO-123",
+                "valid_until": "2030-12-31",
+                "status": "approved",
+                "issued_at": "2026-03-29",
+                "verified_by": "moderator-1",
+                "verified_at": "2026-03-29T10:00:00",
+                "updated_by": "moderator-1",
+                "is_required": 1,
+            },
+        )
+        self.assertEqual(status, 200)
+        self.assertTrue(payload.get("ok"))
+
+        saved = repository.get_driver_document("driver-main", "osago")
+        self.assertIsNotNone(saved)
+        assert saved is not None
+        self.assertEqual(saved.get("status"), "approved")
+        self.assertEqual(saved.get("issued_at"), "2026-03-29")
+        self.assertEqual(saved.get("verified_by"), "moderator-1")
+        self.assertEqual(saved.get("verified_at"), "2026-03-29T10:00:00")
+        self.assertEqual(saved.get("updated_by"), "moderator-1")
+
+    def test_driver_compliance_document_endpoint_rejects_invalid_is_required(self) -> None:
+        status, payload, _ = self._post(
+            "/api/driver/compliance/document",
+            {
+                "profile_id": "driver-main",
+                "type": "osago",
+                "number": "OSAGO-ERR",
+                "is_required": "abc",
+            },
+        )
+        self.assertEqual(status, 400)
+        self.assertEqual(payload.get("error"), "Поле is_required должно быть 0 или 1")
+
     def test_driver_go_online_is_blocked_when_profile_not_ready(self) -> None:
         status, payload, _ = self._post("/api/driver/go-online", {"profile_id": "driver-main"})
         self.assertEqual(status, 403)
