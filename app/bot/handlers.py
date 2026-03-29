@@ -14,6 +14,11 @@ from telegram.ext import (
 from app.db import repository
 from app.logging_setup import configure_logging
 from app.models.bot_settings import load_bot_settings
+from app.services.driver_guard_service import DriverGuardService
+from app.services.driver_reminder_service import DriverReminderService
+from app.services.driver_summary_service import DriverSummaryService
+from app.services.exceptions import DriverOrderBlockedError
+from app.services.waybill_service import WaybillService
 from app.services import moderation_service
 
 
@@ -27,7 +32,7 @@ def get_settings():
     return SETTINGS
 
 
-MAIN_MENU = [["🚕 Такси", "📢 Объявление"], ["📝 Пост в группу"]]
+MAIN_MENU = [["🚕 Такси", "📢 Объявление"], ["📝 Пост в группу", "📊 Мой статус"]]
 TAXI_FROM, TAXI_TO, TAXI_TIME, TAXI_COMMENT = range(4)
 AD_TITLE, AD_TEXT = range(10, 12)
 POST_TEXT = 20
@@ -228,6 +233,62 @@ async def feed(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(text)
 
 
+async def driver_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user = update.effective_user
+    if not user or not update.message:
+        return
+
+    profile_id = str(user.id)
+    summary = DriverSummaryService.build(profile_id)
+    reminders = DriverReminderService.get_reminders(profile_id)
+
+    text = f"{summary.title}\n\n{summary.reason}"
+    if summary.problems:
+        text += "\n\nПроблемы:\n" + "\n".join(f"• {problem}" for problem in summary.problems)
+    if reminders:
+        text += "\n\n🔔 Напоминания:\n" + "\n".join(f"• {item['message']}" for item in reminders)
+
+    rows: list[list[InlineKeyboardButton]] = []
+    if "Открыть смену" in summary.actions:
+        rows.append([InlineKeyboardButton("🚕 Открыть смену", callback_data="open_shift")])
+    if "Загрузить документы" in summary.actions:
+        rows.append([InlineKeyboardButton("📄 Загрузить документы", callback_data="upload_docs")])
+
+    markup = InlineKeyboardMarkup(rows) if rows else None
+    await update.message.reply_text(text, reply_markup=markup)
+
+
+async def open_shift_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if not query:
+        return
+
+    await query.answer()
+    profile_id = str(query.from_user.id)
+
+    try:
+        WaybillService.open_shift(profile_id, "OK")
+        await query.message.reply_text("✅ Смена открыта")
+        return
+    except ValueError as error:
+        await query.message.reply_text(f"⛔ {error}")
+
+
+async def accept_order_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user = update.effective_user
+    if not user or not update.message:
+        return
+
+    profile_id = str(user.id)
+    try:
+        DriverGuardService.ensure_can_accept_order(profile_id)
+    except DriverOrderBlockedError as error:
+        await update.message.reply_text(f"⛔ {error.reason}")
+        return
+
+    await update.message.reply_text("✅ Заказ принят")
+
+
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await update.message.reply_text("Действие отменено.")
     return ConversationHandler.END
@@ -247,6 +308,9 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("pending", pending))
     app.add_handler(CommandHandler("feed", feed))
+    app.add_handler(CommandHandler("status", driver_status))
+    app.add_handler(CommandHandler("accept_order", accept_order_handler))
+    app.add_handler(MessageHandler(filters.Regex("^📊 Мой статус$"), driver_status))
 
     app.add_handler(
         ConversationHandler(
@@ -280,6 +344,7 @@ def build_application() -> Application:
         )
     )
 
+    app.add_handler(CallbackQueryHandler(open_shift_callback, pattern=r"^open_shift$"))
     app.add_handler(CallbackQueryHandler(moderation_action, pattern=r"^(approve|reject):(ad|post):\\d+$"))
     app.add_error_handler(_error_handler)
     return app
