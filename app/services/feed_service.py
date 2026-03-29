@@ -30,6 +30,10 @@ from app.models.feed import (
     DRIVER_DOCUMENT_FILE_URL_MAX_LEN,
     DRIVER_DOCUMENT_NUMBER_MAX_LEN,
     DRIVER_DOCUMENT_NUMBER_MIN_LEN,
+    DRIVER_EMPLOYMENT_TYPES,
+    DRIVER_MAX_UNPAID_FINES,
+    DRIVER_MIN_EXPERIENCE_YEARS,
+    DRIVER_REQUIRED_CATEGORY,
     DRIVER_WAYBILL_MED_RESULT_MAX_LEN,
     DRIVER_WAYBILL_MED_RESULT_MIN_LEN,
     DRIVER_WAYBILL_STOPS_INFO_MAX_LEN,
@@ -604,6 +608,85 @@ class FeedService:
             "valid_until": valid_until,
             "file_url": file_url,
             "status": status,
+        }
+        return cleaned, errors
+
+    @staticmethod
+    def validate_driver_compliance_profile_fields(payload: dict[str, object]) -> tuple[dict[str, object], dict[str, str]]:
+        profile_id = str(payload.get("profile_id", "driver-main")).strip() or "driver-main"
+        last_name = str(payload.get("last_name", "")).strip()
+        first_name = str(payload.get("first_name", "")).strip()
+        middle_name = str(payload.get("middle_name", "")).strip()
+        phone = str(payload.get("phone", "")).strip()
+        email = str(payload.get("email", "")).strip()
+        driver_license_category = str(payload.get("driver_license_category", "")).strip().upper()
+        employment_type = str(payload.get("employment_type", "")).strip()
+
+        errors: dict[str, str] = {}
+
+        if not last_name:
+            errors["last_name"] = "Укажите фамилию"
+        if not first_name:
+            errors["first_name"] = "Укажите имя"
+        if not phone:
+            errors["phone"] = "Укажите телефон"
+        if not email:
+            errors["email"] = "Укажите email"
+
+        if driver_license_category and DRIVER_REQUIRED_CATEGORY not in set(driver_license_category):
+            errors["driver_license_category"] = "Категория прав должна включать минимум B"
+
+        try:
+            driving_experience_years = int(payload.get("driving_experience_years", 0))
+            if driving_experience_years < 0:
+                raise ValueError
+        except (TypeError, ValueError):
+            errors["driving_experience_years"] = "Стаж вождения должен быть целым числом >= 0"
+            driving_experience_years = 0
+
+        if not employment_type:
+            errors["employment_type"] = "Укажите тип занятости"
+        elif employment_type not in DRIVER_EMPLOYMENT_TYPES:
+            errors["employment_type"] = "Некорректный тип занятости"
+
+        try:
+            has_medical_contraindications = 1 if int(payload.get("has_medical_contraindications", 0)) else 0
+        except (TypeError, ValueError):
+            errors["has_medical_contraindications"] = "Поле has_medical_contraindications должно быть 0 или 1"
+            has_medical_contraindications = 0
+
+        try:
+            criminal_record_cleared = 1 if int(payload.get("criminal_record_cleared", 0)) else 0
+        except (TypeError, ValueError):
+            errors["criminal_record_cleared"] = "Поле criminal_record_cleared должно быть 0 или 1"
+            criminal_record_cleared = 0
+
+        try:
+            unpaid_fines_count = int(payload.get("unpaid_fines_count", 0))
+            if unpaid_fines_count < 0:
+                raise ValueError
+        except (TypeError, ValueError):
+            errors["unpaid_fines_count"] = "Количество неоплаченных штрафов должно быть целым числом >= 0"
+            unpaid_fines_count = 0
+
+        if driving_experience_years < DRIVER_MIN_EXPERIENCE_YEARS:
+            errors.setdefault("driving_experience_years", "Для допуска к заказам нужен стаж от 3 лет")
+        if unpaid_fines_count > DRIVER_MAX_UNPAID_FINES:
+            errors.setdefault("unpaid_fines_count", "Для полного допуска нужно не более 3 неоплаченных штрафов")
+
+        cleaned = {
+            "profile_id": profile_id,
+            "last_name": last_name,
+            "first_name": first_name,
+            "middle_name": middle_name or None,
+            "phone": phone,
+            "email": email,
+            "driver_license_category": driver_license_category or DRIVER_REQUIRED_CATEGORY,
+            "driving_experience_years": driving_experience_years,
+            "has_medical_contraindications": has_medical_contraindications,
+            "criminal_record_cleared": criminal_record_cleared,
+            "unpaid_fines_count": unpaid_fines_count,
+            "employment_type": employment_type,
         }
         return cleaned, errors
 
