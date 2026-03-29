@@ -603,6 +603,10 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             )
             return
 
+        if path == "/api/driver/order-journal":
+            self._handle_driver_order_journal_get(parsed.query)
+            return
+
         if path == "/api/feed/approved":
             self._send_json(200, {"items": repository.list_approved_posts(limit=50, offset=0, include_ads=True)})
             return
@@ -637,6 +641,18 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
 
         if path == "/api/driver/accept-order":
             self._handle_driver_accept_order()
+            return
+
+        if path == "/api/driver/assign-order":
+            self._handle_driver_assign_order()
+            return
+
+        if path == "/api/driver/complete-order":
+            self._handle_driver_complete_order()
+            return
+
+        if path == "/api/driver/cancel-order":
+            self._handle_driver_cancel_order()
             return
 
         if path in {"/api/driver/shift/open", "/driver/shift/open"}:
@@ -1321,6 +1337,72 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
         except Exception:
             logger.exception("accept order failed")
             self._send_internal_error()
+
+    def _handle_driver_assign_order(self) -> None:
+        self._handle_driver_order_transition("assigned")
+
+    def _handle_driver_complete_order(self) -> None:
+        self._handle_driver_order_transition("completed")
+
+    def _handle_driver_cancel_order(self) -> None:
+        self._handle_driver_order_transition("canceled")
+
+    def _handle_driver_order_transition(self, status: str) -> None:
+        payload, error, response_status = self._parse_feed_request_payload()
+        if error:
+            self._send_json(response_status, error)
+            return
+        if payload is None:
+            self._send_json(400, {"error": "Некорректный payload"})
+            return
+        try:
+            profile_id = str(payload.get("profile_id", "driver-main")).strip() or "driver-main"
+            order_id = payload.get("order_id")
+            if not order_id:
+                self._send_json(400, {"error": "order_id required"})
+                return
+            if status == "assigned":
+                result = DriverOperationService.assign_order(order_id, profile_id, payload)
+            elif status == "completed":
+                result = DriverOperationService.complete_order(order_id, profile_id, payload)
+            else:
+                result = DriverOperationService.cancel_order(order_id, profile_id, payload)
+            self._send_json(200, result)
+        except Exception:
+            logger.exception("order transition failed")
+            self._send_internal_error()
+
+    def _handle_driver_order_journal_get(self, query: str) -> None:
+        params = parse_qs(query)
+        profile_id = str(params.get("profile_id", ["driver-main"])[0] or "driver-main").strip() or "driver-main"
+        status_filter = str(params.get("status", [""])[0]).strip() or None
+        date_from = str(params.get("date_from", [""])[0]).strip() or None
+        date_to = str(params.get("date_to", [""])[0]).strip() or None
+        try:
+            limit = max(1, min(200, int(str(params.get("limit", ["100"])[0]))))
+        except (TypeError, ValueError):
+            limit = 100
+        try:
+            offset = max(0, int(str(params.get("offset", ["0"])[0])))
+        except (TypeError, ValueError):
+            offset = 0
+        items = repository.list_order_journal_records(
+            profile_id,
+            status=status_filter,
+            date_from=date_from,
+            date_to=date_to,
+            limit=limit,
+            offset=offset,
+        )
+        self._send_json(
+            200,
+            {
+                "items": items,
+                "total": len(items),
+                "profile_id": profile_id,
+                "filters": {"status": status_filter, "date_from": date_from, "date_to": date_to},
+            },
+        )
 
     def _handle_driver_shift_open(self) -> None:
         payload, error, status = self._parse_feed_request_payload()

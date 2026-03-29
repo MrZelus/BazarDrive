@@ -1737,6 +1737,8 @@ def create_order_journal_record(payload: dict[str, Any]) -> int:
             INSERT INTO order_journal_records (
                 order_number,
                 source_request_id,
+                order_status,
+                event_at,
                 accepted_at,
                 completed_at,
                 pickup_address,
@@ -1753,11 +1755,13 @@ def create_order_journal_record(payload: dict[str, Any]) -> int:
                 passenger_requirements,
                 profile_id
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 payload.get("order_number"),
                 payload.get("source_request_id"),
+                payload.get("order_status"),
+                payload.get("event_at"),
                 payload.get("accepted_at"),
                 payload.get("completed_at"),
                 payload.get("pickup_address"),
@@ -1777,3 +1781,45 @@ def create_order_journal_record(payload: dict[str, Any]) -> int:
         )
         conn.commit()
         return int(cur.lastrowid)
+
+
+def list_order_journal_records(
+    profile_id: str,
+    *,
+    status: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[dict[str, Any]]:
+    normalized_limit = max(1, min(int(limit), 200))
+    normalized_offset = max(0, int(offset))
+    clauses = ["profile_id = ?"]
+    values: list[Any] = [profile_id]
+
+    if status:
+        clauses.append("order_status = ?")
+        values.append(status)
+    if date_from:
+        clauses.append("substr(COALESCE(event_at, created_at), 1, 10) >= ?")
+        values.append(date_from)
+    if date_to:
+        clauses.append("substr(COALESCE(event_at, created_at), 1, 10) <= ?")
+        values.append(date_to)
+
+    where_clause = " AND ".join(clauses)
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute(
+            f"""
+            SELECT *
+            FROM order_journal_records
+            WHERE {where_clause}
+            ORDER BY COALESCE(event_at, created_at) DESC, id DESC
+            LIMIT ? OFFSET ?
+            """,
+            (*values, normalized_limit, normalized_offset),
+        )
+        rows = cur.fetchall()
+    return [dict(row) for row in rows]

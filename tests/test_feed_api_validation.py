@@ -535,6 +535,70 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertEqual(payload.get("error"), "order_id required")
 
+    def test_driver_order_journal_contains_records_after_order_transitions(self) -> None:
+        self._seed_driver_ready_profile("driver-main")
+        open_status, _, _ = self._post(
+            "/api/driver/shift/open",
+            {"profile_id": "driver-main", "vehicle_condition": "Исправен"},
+        )
+        self.assertEqual(open_status, 200)
+
+        order_id = 10001
+        assign_status, assign_payload, _ = self._post(
+            "/api/driver/assign-order",
+            {
+                "profile_id": "driver-main",
+                "order_id": order_id,
+                "pickup_address": "Москва, ул. Ленина, 1",
+                "dropoff_address": "Москва, ул. Тверская, 10",
+            },
+        )
+        self.assertEqual(assign_status, 200)
+        self.assertEqual(assign_payload.get("status"), "assigned")
+
+        accept_status, accept_payload, _ = self._post(
+            "/api/driver/accept-order",
+            {"profile_id": "driver-main", "order_id": order_id},
+        )
+        self.assertEqual(accept_status, 200)
+        self.assertEqual(accept_payload.get("status"), "accepted")
+
+        complete_status, complete_payload, _ = self._post(
+            "/api/driver/complete-order",
+            {
+                "profile_id": "driver-main",
+                "order_id": order_id,
+                "pickup_address": "Москва, ул. Ленина, 1",
+                "dropoff_address": "Москва, ул. Тверская, 10",
+            },
+        )
+        self.assertEqual(complete_status, 200)
+        self.assertEqual(complete_payload.get("status"), "completed")
+
+        cancel_status, cancel_payload, _ = self._post(
+            "/api/driver/cancel-order",
+            {
+                "profile_id": "driver-main",
+                "order_id": order_id + 1,
+                "pickup_address": "Москва, пр. Мира, 2",
+                "dropoff_address": "Москва, пр. Мира, 20",
+            },
+        )
+        self.assertEqual(cancel_status, 200)
+        self.assertEqual(cancel_payload.get("status"), "canceled")
+
+        journal_status, journal_payload, _ = self._get("/api/driver/order-journal?profile_id=driver-main")
+        self.assertEqual(journal_status, 200)
+        statuses = {item.get("order_status") for item in journal_payload.get("items", [])}
+        self.assertTrue({"assigned", "accepted", "completed", "canceled"}.issubset(statuses))
+
+        filtered_status, filtered_payload, _ = self._get(
+            "/api/driver/order-journal?profile_id=driver-main&status=completed&date_from=2020-01-01&date_to=2030-01-01"
+        )
+        self.assertEqual(filtered_status, 200)
+        self.assertGreaterEqual(filtered_payload.get("total", 0), 1)
+        self.assertTrue(all(item.get("order_status") == "completed" for item in filtered_payload.get("items", [])))
+
     def test_driver_summary_returns_red_when_waybill_is_missing(self) -> None:
         status, payload, _ = self._get("/api/driver/summary?profile_id=driver-main")
         self.assertEqual(status, 200)
