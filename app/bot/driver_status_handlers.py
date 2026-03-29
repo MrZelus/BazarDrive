@@ -1,6 +1,7 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import CallbackQueryHandler, CommandHandler, ContextTypes, MessageHandler, filters
 
+from app.services.driver_reminder_service import DriverReminderService
 from app.services.driver_summary_service import DriverSummaryService
 from app.services.waybill_service import WaybillService
 
@@ -63,8 +64,12 @@ async def driver_status_command(update: Update, context: ContextTypes.DEFAULT_TY
 
     profile_id = str(user.id)
     summary = DriverSummaryService.build(profile_id).to_dict()
+    reminders = DriverReminderService.get_reminders(profile_id)
     reply_markup = _build_status_keyboard(summary.get("actions", []))
     text = _render_summary_text(summary)
+    if reminders:
+        text += "\n\n🔔 Напоминания:\n"
+        text += "\n".join(f"• {item.message}" for item in reminders[:5])
 
     message = update.effective_message
     if message:
@@ -83,7 +88,11 @@ async def open_shift_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         WaybillService.open_shift(profile_id=profile_id, vehicle_condition="OK")
         summary = DriverSummaryService.build(profile_id).to_dict()
         reply_markup = _build_status_keyboard(summary.get("actions", []))
+        reminders = DriverReminderService.get_reminders(profile_id)
         text = "✅ Смена открыта\n\n" + _render_summary_text(summary)
+        if reminders:
+            text += "\n\n🔔 Напоминания:\n"
+            text += "\n".join(f"• {item.message}" for item in reminders[:5])
         if query.message:
             await query.message.edit_text(text, reply_markup=reply_markup)
     except Exception as exc:
