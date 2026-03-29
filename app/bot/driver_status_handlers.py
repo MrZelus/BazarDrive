@@ -6,30 +6,52 @@ from app.services.waybill_service import WaybillService
 
 
 def _build_status_keyboard(actions: list[str]) -> InlineKeyboardMarkup | None:
-    rows: list[list[InlineKeyboardButton]] = []
+    rows = []
 
     if "Открыть смену" in actions:
         rows.append([InlineKeyboardButton("🚕 Открыть смену", callback_data="driver:open_shift")])
 
-    if "Загрузить документы" in actions or "Обновить документы" in actions or "Проверить документы" in actions:
-        rows.append([InlineKeyboardButton("📄 Загрузить документы", callback_data="driver:upload_docs")])
+    if "Загрузить документы" in actions or "Обновить документы" in actions:
+        rows.append([InlineKeyboardButton("📄 Документы", callback_data="driver:upload_docs")])
 
-    if not rows:
-        return None
-
-    return InlineKeyboardMarkup(rows)
+    return InlineKeyboardMarkup(rows) if rows else None
 
 
 def _render_summary_text(summary: dict) -> str:
-    text = f"{summary['title']}\n\nПричина:\n{summary['reason']}"
+    level = summary.get("level")
+    title = summary.get("title")
+    reason = summary.get("reason")
+
+    text = f"{title}\n\nПричина:\n{reason}"
 
     problems = summary.get("problems") or []
     if problems:
         text += "\n\nПроблемы:\n" + "\n".join(f"• {item}" for item in problems)
 
     actions = summary.get("actions") or []
-    if actions:
-        text += "\n\nЧто сделать:\n" + "\n".join(f"• {item}" for item in actions)
+    if level == "red":
+        text += "\n\nЧто нельзя:\n"
+        text += "• Выйти на линию\n"
+        text += "• Принимать заказы"
+
+        if actions:
+            text += "\n\nЧто сделать:\n"
+            text += "\n".join(f"• {a}" for a in actions)
+
+        return text
+
+    if level == "yellow":
+        text += "\n\nЧто можно:\n"
+        text += "• Завершить текущую поездку"
+
+        text += "\n\nЧто нельзя:\n"
+        text += "• Принимать новые заказы"
+
+        if actions:
+            text += "\n\nЧто сделать:\n"
+            text += "\n".join(f"• {a}" for a in actions)
+
+        return text
 
     return text
 
@@ -63,7 +85,7 @@ async def open_shift_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         reply_markup = _build_status_keyboard(summary.get("actions", []))
         text = "✅ Смена открыта\n\n" + _render_summary_text(summary)
         if query.message:
-            await query.message.reply_text(text, reply_markup=reply_markup)
+            await query.message.edit_text(text, reply_markup=reply_markup)
     except Exception as exc:
         if query.message:
             await query.message.reply_text(f"❌ Не удалось открыть смену: {exc}")
