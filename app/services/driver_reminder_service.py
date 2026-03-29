@@ -37,77 +37,79 @@ class DriverReminderService:
         with closing(sqlite3.connect(get_db_path())) as conn:
             conn.row_factory = sqlite3.Row
             cur = conn.cursor()
-
-            cur.execute(
-                """
-                SELECT type, valid_until
-                FROM driver_documents
-                WHERE profile_id = ?
-                  AND valid_until IS NOT NULL
-                """,
-                (profile_id,),
-            )
-            for row in cur.fetchall():
-                valid_until = str(row["valid_until"] or "").strip()
-                if not valid_until:
-                    continue
-
-                try:
-                    dt = datetime.fromisoformat(valid_until[:19])
-                except ValueError:
-                    try:
-                        dt = datetime.fromisoformat(valid_until[:10] + "T00:00:00")
-                    except ValueError:
+            try:
+                cur.execute(
+                    """
+                    SELECT type, valid_until
+                    FROM driver_documents
+                    WHERE profile_id = ?
+                      AND valid_until IS NOT NULL
+                    """,
+                    (profile_id,),
+                )
+                for row in cur.fetchall():
+                    valid_until = str(row["valid_until"] or "").strip()
+                    if not valid_until:
                         continue
 
-                if dt <= now:
-                    reminders.append(
-                        DriverReminder(
-                            type="document_expired",
-                            message=f"Документ {row['type']} уже просрочен",
-                            severity="critical",
-                            action="Обновить документы",
-                        )
-                    )
-                elif dt - now <= timedelta(days=cls.EXPIRY_WARNING_DAYS):
-                    reminders.append(
-                        DriverReminder(
-                            type="document_expiring",
-                            message=f"Документ {row['type']} истекает скоро",
-                            severity="warning",
-                            action="Проверить документы",
-                        )
-                    )
+                    try:
+                        dt = datetime.fromisoformat(valid_until[:19])
+                    except ValueError:
+                        try:
+                            dt = datetime.fromisoformat(valid_until[:10] + "T00:00:00")
+                        except ValueError:
+                            continue
 
-            cur.execute(
-                """
-                SELECT created_at
-                FROM driver_documents
-                WHERE profile_id = ?
-                  AND type = 'waybill'
-                  AND status = 'open'
-                ORDER BY id DESC
-                LIMIT 1
-                """,
-                (profile_id,),
-            )
-            row = cur.fetchone()
-            if row:
-                created_at = str(row["created_at"] or "").strip()
-                try:
-                    created_dt = datetime.fromisoformat(created_at[:19])
-                except ValueError:
-                    created_dt = None
-
-                if created_dt and now - created_dt > timedelta(hours=cls.WAYBILL_OPEN_TOO_LONG_HOURS):
-                    reminders.append(
-                        DriverReminder(
-                            type="waybill_open_too_long",
-                            message="Смена долго не закрыта",
-                            severity="warning",
-                            action="Закрыть смену",
+                    if dt <= now:
+                        reminders.append(
+                            DriverReminder(
+                                type="document_expired",
+                                message=f"Документ {row['type']} уже просрочен",
+                                severity="critical",
+                                action="Обновить документы",
+                            )
                         )
-                    )
+                    elif dt - now <= timedelta(days=cls.EXPIRY_WARNING_DAYS):
+                        reminders.append(
+                            DriverReminder(
+                                type="document_expiring",
+                                message=f"Документ {row['type']} истекает скоро",
+                                severity="warning",
+                                action="Проверить документы",
+                            )
+                        )
+
+                cur.execute(
+                    """
+                    SELECT created_at
+                    FROM driver_documents
+                    WHERE profile_id = ?
+                      AND type = 'waybill'
+                      AND status = 'open'
+                    ORDER BY id DESC
+                    LIMIT 1
+                    """,
+                    (profile_id,),
+                )
+                row = cur.fetchone()
+                if row:
+                    created_at = str(row["created_at"] or "").strip()
+                    try:
+                        created_dt = datetime.fromisoformat(created_at[:19])
+                    except ValueError:
+                        created_dt = None
+
+                    if created_dt and now - created_dt > timedelta(hours=cls.WAYBILL_OPEN_TOO_LONG_HOURS):
+                        reminders.append(
+                            DriverReminder(
+                                type="waybill_open_too_long",
+                                message="Смена долго не закрыта",
+                                severity="warning",
+                                action="Закрыть смену",
+                            )
+                        )
+            except sqlite3.OperationalError:
+                return []
 
         return reminders
 
