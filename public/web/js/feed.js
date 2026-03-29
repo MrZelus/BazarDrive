@@ -389,6 +389,35 @@
     const roleButtons = document.querySelectorAll('.role-btn');
     const roleDriver = document.getElementById('role-driver');
     const roleCommon = document.getElementById('role-common');
+    const driverComplianceFullName = document.getElementById('driverComplianceFullName');
+    const driverComplianceMeta = document.getElementById('driverComplianceMeta');
+    const driverComplianceStatusBadge = document.getElementById('driverComplianceStatusBadge');
+    const driverComplianceSectionStatus = document.getElementById('driverComplianceSectionStatus');
+    const driverComplianceReason = document.getElementById('driverComplianceReason');
+    const driverComplianceCompletionText = document.getElementById('driverComplianceCompletionText');
+    const driverComplianceMissingExtra = document.getElementById('driverComplianceMissingExtra');
+    const driverComplianceRequiredItems = Array.from(
+      document.querySelectorAll('[data-driver-required-field]')
+    );
+    const DRIVER_COMPLIANCE_REQUIRED_FIELDS = [
+      'last_name',
+      'first_name',
+      'middle_name',
+      'phone',
+      'email',
+      'driver_license_category',
+      'driving_experience_years',
+      'has_medical_contraindications',
+      'criminal_record_cleared',
+      'unpaid_fines_count',
+      'employment_type',
+    ];
+    const DRIVER_COMPLIANCE_FALLBACK_STATUS = {
+      status: 'profile_incomplete',
+      section_status: 'incomplete',
+      reason: 'Профиль допуска водителя не заполнен',
+      missing_required_fields: ['profile'],
+    };
     const driverOverviewDocuments = document.getElementById('driverOverviewDocuments');
     const driverAddDocumentBtn = document.getElementById('driverAddDocumentBtn');
     const openDriverDocumentsTabBtn = document.getElementById('openDriverDocumentsTabBtn');
@@ -820,6 +849,216 @@
       });
     }
 
+    function normalizeDriverComplianceProfile(rawProfile = {}) {
+      const profile = rawProfile && typeof rawProfile === 'object' ? rawProfile : {};
+      return {
+        last_name: String(profile.last_name || '').trim(),
+        first_name: String(profile.first_name || '').trim(),
+        middle_name: String(profile.middle_name || '').trim(),
+        phone: String(profile.phone || '').trim(),
+        email: String(profile.email || '').trim(),
+        driver_license_category: String(profile.driver_license_category || '').trim().toUpperCase(),
+        driving_experience_years: Number.isFinite(Number(profile.driving_experience_years))
+          ? Number(profile.driving_experience_years)
+          : null,
+        has_medical_contraindications: Number.isFinite(Number(profile.has_medical_contraindications))
+          ? Number(profile.has_medical_contraindications)
+          : null,
+        criminal_record_cleared: Number.isFinite(Number(profile.criminal_record_cleared))
+          ? Number(profile.criminal_record_cleared)
+          : null,
+        unpaid_fines_count: Number.isFinite(Number(profile.unpaid_fines_count))
+          ? Number(profile.unpaid_fines_count)
+          : null,
+        employment_type: String(profile.employment_type || '').trim(),
+      };
+    }
+
+    function getDriverEmploymentTypeLabel(value = '') {
+      const labels = {
+        employee: 'Сотрудник',
+        individual_entrepreneur: 'ИП',
+        self_employed: 'Самозанятый',
+        individual_with_permit: 'Физлицо с разрешением',
+      };
+      const normalized = String(value || '').trim();
+      return labels[normalized] || 'Тип занятости не указан';
+    }
+
+    function isDriverRequiredFieldFilled(fieldName, profile) {
+      if (!profile || typeof profile !== 'object') return false;
+      if (['last_name', 'first_name', 'middle_name', 'phone', 'email', 'employment_type'].includes(fieldName)) {
+        return Boolean(String(profile[fieldName] || '').trim());
+      }
+      if (fieldName === 'driver_license_category') {
+        return Boolean(String(profile.driver_license_category || '').trim());
+      }
+      if (fieldName === 'driving_experience_years') {
+        return Number.isFinite(Number(profile.driving_experience_years)) && Number(profile.driving_experience_years) >= 0;
+      }
+      if (fieldName === 'has_medical_contraindications') {
+        return Number.isFinite(Number(profile.has_medical_contraindications));
+      }
+      if (fieldName === 'criminal_record_cleared') {
+        return Number.isFinite(Number(profile.criminal_record_cleared));
+      }
+      if (fieldName === 'unpaid_fines_count') {
+        return Number.isFinite(Number(profile.unpaid_fines_count)) && Number(profile.unpaid_fines_count) >= 0;
+      }
+      return false;
+    }
+
+    function applyDriverComplianceStatusBadge(complianceData = {}) {
+      if (!driverComplianceStatusBadge) return;
+      const labels = {
+        ready_for_orders: 'Допущен к заказам',
+        profile_incomplete: 'Профиль не заполнен',
+        restricted: 'Доступ ограничен',
+        docs_under_review: 'Документы на проверке',
+        expired_documents: 'Есть просроченные документы',
+        waybill_required: 'Нужен путевой лист',
+      };
+      const status = String(complianceData.status || '').trim();
+      const eligibilityStatus = String(complianceData.eligibility_status || '').trim();
+      const isSuccess = eligibilityStatus === 'eligible';
+      const badgeLabel = labels[status] || 'Проверяем данные';
+      driverComplianceStatusBadge.textContent = badgeLabel;
+      driverComplianceStatusBadge.classList.remove(
+        'border-success/40',
+        'bg-success/10',
+        'text-success',
+        'border-warning/40',
+        'bg-warning/10',
+        'text-warning',
+      );
+      if (isSuccess) {
+        driverComplianceStatusBadge.classList.add('border-success/40', 'bg-success/10', 'text-success');
+      } else {
+        driverComplianceStatusBadge.classList.add('border-warning/40', 'bg-warning/10', 'text-warning');
+      }
+    }
+
+    function renderDriverComplianceRequiredFields(profileData = {}, complianceData = {}) {
+      const missingFromApi = Array.isArray(complianceData.missing_required_fields)
+        ? complianceData.missing_required_fields.map((item) => String(item || '').trim()).filter(Boolean)
+        : [];
+      const missingSet = new Set(missingFromApi);
+      const profileMissing = missingSet.has('profile');
+      let filledCount = 0;
+
+      driverComplianceRequiredItems.forEach((item) => {
+        const fieldName = String(item.dataset.driverRequiredField || '').trim();
+        if (!fieldName) return;
+        const isFilled = isDriverRequiredFieldFilled(fieldName, profileData);
+        if (isFilled) {
+          filledCount += 1;
+        }
+        const isMissing = !isFilled || profileMissing || missingSet.has(fieldName);
+        item.classList.remove(
+          'border-success/40',
+          'bg-success/10',
+          'text-success',
+          'border-warning/40',
+          'bg-warning/10',
+          'text-warning',
+          'border-textSoft/20',
+          'bg-panelSoft',
+          'text-textSoft',
+        );
+        if (isFilled) {
+          item.classList.add('border-success/40', 'bg-success/10', 'text-success');
+        } else if (isMissing) {
+          item.classList.add('border-warning/40', 'bg-warning/10', 'text-warning');
+        } else {
+          item.classList.add('border-textSoft/20', 'bg-panelSoft', 'text-textSoft');
+        }
+      });
+
+      if (driverComplianceCompletionText) {
+        driverComplianceCompletionText.textContent = `Заполнено: ${filledCount}/${DRIVER_COMPLIANCE_REQUIRED_FIELDS.length}`;
+      }
+
+      if (!driverComplianceMissingExtra) return;
+      const knownFields = new Set([...DRIVER_COMPLIANCE_REQUIRED_FIELDS, 'profile']);
+      const extraMissing = missingFromApi.filter((fieldName) => !knownFields.has(fieldName));
+      if (extraMissing.length > 0) {
+        driverComplianceMissingExtra.textContent = `Дополнительно требуется: ${extraMissing.join(', ')}`;
+        driverComplianceMissingExtra.classList.remove('hidden');
+      } else {
+        driverComplianceMissingExtra.textContent = '';
+        driverComplianceMissingExtra.classList.add('hidden');
+      }
+    }
+
+    function renderDriverComplianceOverview(profilePayload = {}, compliancePayload = {}) {
+      const profileData = normalizeDriverComplianceProfile(profilePayload);
+      const complianceData = {
+        ...DRIVER_COMPLIANCE_FALLBACK_STATUS,
+        ...(compliancePayload && typeof compliancePayload === 'object' ? compliancePayload : {}),
+      };
+
+      if (driverComplianceFullName) {
+        const fullName = [profileData.last_name, profileData.first_name, profileData.middle_name]
+          .filter(Boolean)
+          .join(' ')
+          .trim();
+        driverComplianceFullName.textContent = fullName || 'Данные не заполнены';
+      }
+
+      if (driverComplianceMeta) {
+        const metaParts = [];
+        if (profileData.phone) metaParts.push(profileData.phone);
+        if (profileData.email) metaParts.push(profileData.email);
+        metaParts.push(getDriverEmploymentTypeLabel(profileData.employment_type));
+        driverComplianceMeta.textContent = metaParts.join(' • ');
+      }
+
+      applyDriverComplianceStatusBadge(complianceData);
+
+      if (driverComplianceSectionStatus) {
+        const sectionStatus = String(complianceData.section_status || '').trim();
+        const label = sectionStatus === 'filled' ? 'заполнен' : 'незаполнен';
+        driverComplianceSectionStatus.textContent = `Раздел: ${label}`;
+      }
+      if (driverComplianceReason) {
+        const reason = String(complianceData.reason || '').trim();
+        driverComplianceReason.textContent = reason ? `Причина: ${reason}` : '';
+      }
+
+      renderDriverComplianceRequiredFields(profileData, complianceData);
+    }
+
+    async function loadDriverComplianceOverview() {
+      if (!roleDriver || roleDriver.classList.contains('hidden')) return;
+      try {
+        const [profileResponse, complianceResponse] = await Promise.all([
+          fetch(`${FEED_API_BASE}/api/driver/compliance/profile?profile_id=driver-main`),
+          fetch(`${FEED_API_BASE}/api/driver/compliance?profile_id=driver-main`),
+        ]);
+
+        const profilePayload = await profileResponse.json().catch(() => ({}));
+        const compliancePayload = await complianceResponse.json().catch(() => ({}));
+        if (!profileResponse.ok) {
+          throw new Error(
+            profilePayload.error || `Не удалось загрузить профиль допуска (HTTP ${profileResponse.status})`
+          );
+        }
+        if (!complianceResponse.ok) {
+          throw new Error(
+            compliancePayload.error || `Не удалось загрузить статус допуска (HTTP ${complianceResponse.status})`
+          );
+        }
+        renderDriverComplianceOverview(profilePayload.data || {}, compliancePayload.data || {});
+      } catch (error) {
+        console.error(error);
+        renderDriverComplianceOverview({}, {
+          ...DRIVER_COMPLIANCE_FALLBACK_STATUS,
+          reason: String(error.message || 'Не удалось загрузить сведения о допуске'),
+          missing_required_fields: [...DRIVER_COMPLIANCE_REQUIRED_FIELDS],
+        });
+      }
+    }
+
 
     function clearDocumentErrors() {
       [documentTypeError, documentNumberError, documentValidUntilError, documentFileError].forEach((el) => {
@@ -1020,7 +1259,8 @@
           throw new Error(data.error || `Не удалось закрыть путевой лист (HTTP ${response.status})`);
         }
         toggleWaybillCloseForm(false);
-        await loadDriverDocuments();
+        await refreshDriverProfileData();
+        await loadDriverComplianceOverview();
         showAppNotification('Путевой лист закрыт и сохранён в системе.', 'success');
       } catch (error) {
         console.error(error);
@@ -1127,7 +1367,7 @@
             if (!response.ok) {
               throw new Error(`Не удалось удалить документ (HTTP ${response.status})`);
             }
-            await loadDriverDocuments();
+            await refreshDriverProfileData();
           } catch (error) {
             console.error(error);
             setDocumentAlert(error.message || 'Не удалось удалить документ');
@@ -1240,6 +1480,10 @@
           setDriverDocumentsListState('ready');
         }
       }
+    }
+
+    async function refreshDriverProfileData() {
+      await Promise.all([loadDriverDocuments(), loadDriverComplianceOverview()]);
     }
 
     function toggleDocumentForm(forceOpen) {
@@ -1360,7 +1604,7 @@
         }
 
         toggleDocumentForm(false);
-        await loadDriverDocuments();
+        await refreshDriverProfileData();
       } catch (error) {
         console.error(error);
         setDocumentAlert(error.message || 'Не удалось добавить документ');
@@ -2309,6 +2553,9 @@
 
       if (normalizedTab === 'profile') {
         updateGuestProfileStatus();
+        if (getCurrentRole() === 'driver') {
+          loadDriverComplianceOverview();
+        }
       }
     }
 
@@ -2361,8 +2608,8 @@
 	        screen.setAttribute('aria-hidden', String(!isActive));
 	        screen.toggleAttribute('inert', !isActive);
 	      });
-	      if (tab === 'documents') {
-	        loadDriverDocuments();
+	      if (activeTab === 'documents') {
+	        refreshDriverProfileData();
 	      }
 	    }
 
@@ -2376,7 +2623,7 @@
 	      if (role === 'driver') {
 	        roleDriver.classList.remove('hidden');
 	        roleCommon.classList.add('hidden');
-	        loadDriverDocuments();
+	        refreshDriverProfileData();
 	      } else {
 	        roleDriver.classList.add('hidden');
 	        roleCommon.classList.remove('hidden');
@@ -2567,7 +2814,7 @@
     ensureFeedInfiniteScroll();
     loadPosts({ reset: true });
     renderDocs();
-    loadDriverDocuments();
+    refreshDriverProfileData();
     hydrateProfileForm();
     hydrateThemeStyle();
     setRole(initialRole);

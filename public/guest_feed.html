@@ -157,13 +157,39 @@
           <div id="role-driver" class="role-screen space-y-3">
             <div class="bg-panel rounded-2xl p-4 border border-textSoft/20">
               <p class="text-sm text-textSoft">Профиль водителя</p>
-              <p class="text-lg font-semibold mt-1">Алексей Смирнов</p>
-              <p class="mt-1 text-sm text-textSoft">Роль: водитель такси • ИП • УСН «Доходы»</p>
+              <p id="driverComplianceFullName" class="text-lg font-semibold mt-1">Данные не заполнены</p>
+              <p id="driverComplianceMeta" class="mt-1 text-sm text-textSoft">Заполните юридические и квалификационные сведения для допуска.</p>
             </div>
             <div class="bg-panel rounded-2xl p-4 border border-textSoft/20">
-              <p class="text-sm text-textSoft">Статус профиля</p>
-              <p class="mt-1 inline-flex rounded-full border border-success/40 bg-success/10 px-2.5 py-1 text-xs text-success">Профиль подтвержден</p>
-              <p class="mt-2 text-xs text-textSoft">Документы проверяются автоматически после загрузки.</p>
+              <p class="text-sm text-textSoft">Статус допуска</p>
+              <p
+                id="driverComplianceStatusBadge"
+                class="mt-1 inline-flex rounded-full border border-warning/40 bg-warning/10 px-2.5 py-1 text-xs text-warning"
+              >
+                Проверяем данные
+              </p>
+              <p id="driverComplianceSectionStatus" class="mt-2 text-xs text-textSoft">Раздел: проверка...</p>
+              <p id="driverComplianceReason" class="mt-1 text-xs text-warning">Причина: статус допуска обновляется.</p>
+            </div>
+            <div class="bg-panel rounded-2xl p-4 border border-textSoft/20">
+              <div class="flex items-center justify-between gap-2">
+                <p class="text-sm font-medium">Обязательные поля раздела</p>
+                <p id="driverComplianceCompletionText" class="text-xs text-textSoft">Заполнено: 0/11</p>
+              </div>
+              <ul id="driverComplianceRequiredList" class="mt-2 grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
+                <li data-driver-required-field="last_name" class="rounded-lg border border-textSoft/20 bg-panelSoft px-2 py-1 text-textSoft">Фамилия</li>
+                <li data-driver-required-field="first_name" class="rounded-lg border border-textSoft/20 bg-panelSoft px-2 py-1 text-textSoft">Имя</li>
+                <li data-driver-required-field="middle_name" class="rounded-lg border border-textSoft/20 bg-panelSoft px-2 py-1 text-textSoft">Отчество</li>
+                <li data-driver-required-field="phone" class="rounded-lg border border-textSoft/20 bg-panelSoft px-2 py-1 text-textSoft">Телефон</li>
+                <li data-driver-required-field="email" class="rounded-lg border border-textSoft/20 bg-panelSoft px-2 py-1 text-textSoft">Email</li>
+                <li data-driver-required-field="driver_license_category" class="rounded-lg border border-textSoft/20 bg-panelSoft px-2 py-1 text-textSoft">Категория водительского удостоверения</li>
+                <li data-driver-required-field="driving_experience_years" class="rounded-lg border border-textSoft/20 bg-panelSoft px-2 py-1 text-textSoft">Стаж вождения</li>
+                <li data-driver-required-field="has_medical_contraindications" class="rounded-lg border border-textSoft/20 bg-panelSoft px-2 py-1 text-textSoft">Медицинские противопоказания</li>
+                <li data-driver-required-field="criminal_record_cleared" class="rounded-lg border border-textSoft/20 bg-panelSoft px-2 py-1 text-textSoft">Проверка судимости</li>
+                <li data-driver-required-field="unpaid_fines_count" class="rounded-lg border border-textSoft/20 bg-panelSoft px-2 py-1 text-textSoft">Неоплаченные штрафы</li>
+                <li data-driver-required-field="employment_type" class="rounded-lg border border-textSoft/20 bg-panelSoft px-2 py-1 text-textSoft">Тип занятости</li>
+              </ul>
+              <p id="driverComplianceMissingExtra" class="mt-2 hidden text-xs text-warning"></p>
             </div>
             <div class="bg-panel rounded-2xl p-4 border border-textSoft/20">
               <div class="flex items-center justify-between gap-2">

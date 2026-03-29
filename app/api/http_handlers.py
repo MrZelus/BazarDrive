@@ -567,6 +567,10 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             self._send_json(200, profile)
             return
 
+        if path == "/api/driver/compliance/profile":
+            self._handle_driver_compliance_profile_get()
+            return
+
         if path == "/api/driver/compliance":
             self._handle_driver_compliance_get()
             return
@@ -1222,6 +1226,16 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             self._send_json(200, {"ok": True, "data": result.to_dict()})
         except Exception:
             logger.exception("compliance get failed")
+            self._send_internal_error()
+
+    def _handle_driver_compliance_profile_get(self) -> None:
+        try:
+            query = parse_qs(urlparse(self.path).query)
+            profile_id = str(query.get("profile_id", ["driver-main"])[0] or "driver-main").strip() or "driver-main"
+            profile = repository.get_driver_compliance_profile(profile_id)
+            self._send_json(200, {"ok": True, "profile_id": profile_id, "data": profile or {}})
+        except Exception:
+            logger.exception("compliance profile get failed")
             self._send_internal_error()
 
     def _handle_driver_compliance_profile_upsert(self) -> None:
