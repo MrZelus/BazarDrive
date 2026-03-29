@@ -1235,8 +1235,12 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             return
 
         try:
-            profile_id = str(payload.get("profile_id", "driver-main")).strip() or "driver-main"
-            repository.upsert_driver_compliance_profile(profile_id=profile_id, payload=payload)
+            cleaned, errors = FeedService.validate_driver_compliance_profile_fields(payload)
+            if errors:
+                self._send_json(400, {"error": "validation_error", "fields": errors})
+                return
+            profile_id = str(cleaned.get("profile_id", "driver-main")).strip() or "driver-main"
+            repository.upsert_driver_compliance_profile(profile_id=profile_id, payload=cleaned)
             self._send_json(200, {"ok": True})
         except Exception:
             logger.exception("profile upsert failed")
