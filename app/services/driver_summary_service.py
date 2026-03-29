@@ -3,6 +3,7 @@ from typing import List
 
 from app.services.driver_compliance_service import DriverComplianceService
 from app.services.driver_guard_service import DriverGuardService
+from app.services.driver_scoring_service import DriverScoringService
 from app.services.waybill_service import WaybillService
 
 
@@ -13,6 +14,9 @@ class DriverSummary:
     reason: str
     problems: List[str]
     actions: List[str]
+    score: int | None = None
+    score_level: str | None = None
+    score_reasons: List[str] | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -21,6 +25,9 @@ class DriverSummary:
             "reason": self.reason,
             "problems": self.problems,
             "actions": self.actions,
+            "score": self.score,
+            "score_level": self.score_level,
+            "score_reasons": self.score_reasons or [],
         }
 
 
@@ -31,6 +38,7 @@ class DriverSummaryService:
         caps = DriverGuardService.get_capabilities(profile_id)
         mode = DriverGuardService.get_mode(profile_id)
         waybill = WaybillService.get_active_waybill(profile_id)
+        score = DriverScoringService.calculate(profile_id)
 
         problems: list[str] = []
         actions: list[str] = []
@@ -60,6 +68,9 @@ class DriverSummaryService:
                 reason=compliance.reason or "Нет допуска к работе",
                 problems=problems,
                 actions=actions,
+                score=score.score,
+                score_level=score.level,
+                score_reasons=score.reasons,
             )
 
         if not caps.can_accept_orders and caps.can_complete_orders:
@@ -69,6 +80,9 @@ class DriverSummaryService:
                 reason=caps.reason or "Нельзя принимать новые заказы",
                 problems=problems,
                 actions=actions,
+                score=score.score,
+                score_level=score.level,
+                score_reasons=score.reasons,
             )
 
         if compliance.expiring_documents:
@@ -78,6 +92,9 @@ class DriverSummaryService:
                 reason="Документы скоро истекают",
                 problems=problems,
                 actions=actions,
+                score=score.score,
+                score_level=score.level,
+                score_reasons=score.reasons,
             )
 
         return DriverSummary(
@@ -86,4 +103,7 @@ class DriverSummaryService:
             reason="Все проверки пройдены",
             problems=[],
             actions=[],
+            score=score.score,
+            score_level=score.level,
+            score_reasons=score.reasons,
         )
