@@ -1,37 +1,67 @@
+from dataclasses import dataclass
+
 from app.services.driver_compliance_service import DriverComplianceService
 from app.services.exceptions import DriverOfflineBlockedError, DriverOrderBlockedError
 from app.services.waybill_service import WaybillService
 
 
+@dataclass
+class DriverCapabilities:
+    can_go_online: bool
+    can_accept_orders: bool
+    can_complete_orders: bool
+    reason: str | None = None
+
+
 class DriverGuardService:
+    @staticmethod
+    def get_capabilities(profile_id: str) -> DriverCapabilities:
+        waybill = WaybillService.get_active_waybill(profile_id)
+        compliance = DriverComplianceService.evaluate(profile_id)
+
+        if not waybill:
+            return DriverCapabilities(
+                can_go_online=False,
+                can_accept_orders=False,
+                can_complete_orders=False,
+                reason="Нет открытого путевого листа",
+            )
+
+        if not compliance.can_go_online:
+            return DriverCapabilities(
+                can_go_online=False,
+                can_accept_orders=False,
+                can_complete_orders=False,
+                reason=compliance.reason,
+            )
+
+        if not compliance.can_accept_orders:
+            return DriverCapabilities(
+                can_go_online=True,
+                can_accept_orders=False,
+                can_complete_orders=True,
+                reason=compliance.reason,
+            )
+
+        return DriverCapabilities(
+            can_go_online=True,
+            can_accept_orders=True,
+            can_complete_orders=True,
+        )
 
     @staticmethod
     def ensure_can_go_online(profile_id: str):
-        waybill = WaybillService.get_active_waybill(profile_id)
-
-        if not waybill:
-            raise DriverOfflineBlockedError("Нет открытого путевого листа (смена не начата)")
-
-        result = DriverComplianceService.evaluate(profile_id)
-
-        if not result.can_go_online:
-            raise DriverOfflineBlockedError(reason=result.reason or "Нет допуска к выходу на линию")
-
-        return result
+        caps = DriverGuardService.get_capabilities(profile_id)
+        if not caps.can_go_online:
+            raise DriverOfflineBlockedError(reason=caps.reason or "Нельзя выйти на линию")
+        return caps
 
     @staticmethod
     def ensure_can_accept_order(profile_id: str):
-        waybill = WaybillService.get_active_waybill(profile_id)
-
-        if not waybill:
-            raise DriverOrderBlockedError("Нет активной смены — нельзя принимать заказы")
-
-        result = DriverComplianceService.evaluate(profile_id)
-
-        if not result.can_accept_orders:
-            raise DriverOrderBlockedError(reason=result.reason or "Нельзя принимать заказы")
-
-        return result
+        caps = DriverGuardService.get_capabilities(profile_id)
+        if not caps.can_accept_orders:
+            raise DriverOrderBlockedError(reason=caps.reason or "Нельзя принимать заказы")
+        return caps
 
     @staticmethod
     def get_mode(profile_id: str) -> str:
@@ -41,16 +71,9 @@ class DriverGuardService:
         limited  — нельзя брать новые заказы
         blocked  — ничего нельзя
         """
-        waybill = WaybillService.get_active_waybill(profile_id)
-        result = DriverComplianceService.evaluate(profile_id)
-
-        if not waybill:
+        caps = DriverGuardService.get_capabilities(profile_id)
+        if not caps.can_go_online:
             return "blocked"
-
-        if not result.can_go_online:
-            return "blocked"
-
-        if not result.can_accept_orders:
+        if not caps.can_accept_orders:
             return "limited"
-
         return "normal"

@@ -28,6 +28,7 @@ class DriverSummaryService:
     @staticmethod
     def build(profile_id: str) -> DriverSummary:
         compliance = DriverComplianceService.evaluate(profile_id)
+        caps = DriverGuardService.get_capabilities(profile_id)
         mode = DriverGuardService.get_mode(profile_id)
         waybill = WaybillService.get_active_waybill(profile_id)
 
@@ -61,11 +62,11 @@ class DriverSummaryService:
                 actions=actions,
             )
 
-        if mode == "limited":
+        if not caps.can_accept_orders and caps.can_complete_orders:
             return DriverSummary(
                 level="yellow",
-                title="⚠️ Доступ ограничен",
-                reason=compliance.reason or "Есть ограничения на работу",
+                title="⚠️ Ограниченный режим",
+                reason=caps.reason or "Нельзя принимать новые заказы",
                 problems=problems,
                 actions=actions,
             )
