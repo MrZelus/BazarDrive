@@ -37,14 +37,13 @@ class RulesLegalRequirementsRegressionTests(unittest.TestCase):
 
     def test_rules_docs_include_passenger_safe_order_tips_card(self) -> None:
         self.assertIn("id: 'passenger-safe-ordering-rules'", self.script)
-        self.assertIn("title: 'Правила заказа такси для пассажира'", self.script)
+        self.assertIn("title: 'Что пассажиру важно по закону при заказе такси (РФ)'", self.script)
         self.assertIn("type: 'Памятка'", self.script)
         self.assertIn("'пассажир'", self.script)
-        self.assertIn("'маршрут'", self.script)
-        self.assertIn("'тариф'", self.script)
-        self.assertIn("'Указывайте точный адрес подачи: ставьте точку на карте у подъезда или входа, а не «примерно рядом».',", self.script)
-        self.assertIn("'Сверяйте машину перед посадкой: номер, марка, цвет и имя водителя в приложении должны совпадать.',", self.script)
-        self.assertIn("'При проблемах сразу обращайтесь в поддержку: фиксируйте опоздание, несоответствие авто, грубость или аварийную ситуацию в приложении.',", self.script)
+        self.assertIn("РФ", self.script)
+        self.assertIn("'фз-580'", self.script)
+        self.assertIn("'пдд'", self.script)
+        self.assertIn("'Подавайте жалобы по цепочке: сначала в поддержку агрегатора или перевозчика, затем в уполномоченный орган по такси субъекта РФ, по потребительским нарушениям — в Роспотребнадзор, при угрозе безопасности — 112/полиция.',", self.script)
 
 
 if __name__ == "__main__":
