@@ -1280,6 +1280,35 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             self._send_json(400, {"error": "Поле is_required должно быть 0 или 1"})
             return
 
+        status = str(payload.get("status", "uploaded")).strip() or "uploaded"
+        valid_statuses = {"uploaded", "checking", "approved", "rejected", "open", "closed", "expired"}
+        if status not in valid_statuses:
+            self._send_json(400, {"error": "Некорректный статус документа"})
+            return
+
+        rejection_reason = payload.get("rejection_reason")
+        if rejection_reason is not None:
+            rejection_reason = str(rejection_reason).strip() or None
+        verified_by = payload.get("verified_by")
+        if verified_by is not None:
+            verified_by = str(verified_by).strip() or None
+        verified_at = payload.get("verified_at")
+        if verified_at is not None:
+            verified_at = str(verified_at).strip() or None
+        issued_at = payload.get("issued_at")
+        if issued_at is not None:
+            issued_at = str(issued_at).strip() or None
+        updated_by = payload.get("updated_by")
+        if updated_by is not None:
+            updated_by = str(updated_by).strip() or None
+
+        is_required = payload.get("is_required", 1)
+        try:
+            is_required = 1 if int(is_required) else 0
+        except (TypeError, ValueError):
+            self._send_json(400, {"error": "Поле is_required должно быть 0 или 1"})
+            return
+
         try:
             repository.upsert_driver_document(
                 profile_id=str(payload.get("profile_id", "driver-main")).strip() or "driver-main",
