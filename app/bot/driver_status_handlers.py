@@ -25,6 +25,17 @@ def _render_summary_text(summary: dict) -> str:
 
     text = f"{title}\n\nПричина:\n{reason}"
 
+    score = summary.get("score")
+    score_level = summary.get("score_level")
+    if score is not None:
+        emoji = "🟢" if score_level == "green" else "🟡" if score_level == "yellow" else "🔴"
+        text += f"\n\n{emoji} Рейтинг: {score}"
+
+    reasons = summary.get("score_reasons") or []
+    if reasons:
+        text += "\n\n📉 Причины:\n"
+        text += "\n".join(f"• {item}" for item in reasons[:3])
+
     problems = summary.get("problems") or []
     if problems:
         text += "\n\nПроблемы:\n" + "\n".join(f"• {item}" for item in problems)
