@@ -1,21 +1,20 @@
-from __future__ import annotations
-
 from dataclasses import dataclass
-from typing import Any
+from typing import List
 
 from app.services.driver_compliance_service import DriverComplianceService
+from app.services.driver_guard_service import DriverGuardService
 from app.services.waybill_service import WaybillService
 
 
 @dataclass
 class DriverSummary:
-    level: str
+    level: str  # green / yellow / red
     title: str
     reason: str
-    problems: list[str]
-    actions: list[str]
+    problems: List[str]
+    actions: List[str]
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict:
         return {
             "level": self.level,
             "title": self.title,
@@ -29,6 +28,7 @@ class DriverSummaryService:
     @staticmethod
     def build(profile_id: str) -> DriverSummary:
         compliance = DriverComplianceService.evaluate(profile_id)
+        mode = DriverGuardService.get_mode(profile_id)
         waybill = WaybillService.get_active_waybill(profile_id)
 
         problems: list[str] = []
@@ -39,23 +39,33 @@ class DriverSummaryService:
             actions.append("Открыть смену")
 
         if compliance.missing_documents:
-            problems.append("Не все документы загружены")
+            problems.append("Не загружены обязательные документы")
             actions.append("Загрузить документы")
 
         if compliance.expired_documents:
             problems.append("Есть просроченные документы")
-            actions.append("Обновить документы")
+            if "Обновить документы" not in actions:
+                actions.append("Обновить документы")
 
         if compliance.expiring_documents:
-            expiring_list = ", ".join(sorted(compliance.expiring_documents))
-            problems.append(f"Скоро истекают документы: {expiring_list}")
-            actions.append("Проверить сроки и обновить документы")
+            problems.append("Есть документы с истекающим сроком")
+            if "Проверить документы" not in actions:
+                actions.append("Проверить документы")
 
-        if not waybill or not compliance.can_go_online:
+        if mode == "blocked":
             return DriverSummary(
                 level="red",
                 title="⛔ Выход на линию запрещён",
-                reason=compliance.reason or "Нет допуска",
+                reason=compliance.reason or "Нет допуска к работе",
+                problems=problems,
+                actions=actions,
+            )
+
+        if mode == "limited":
+            return DriverSummary(
+                level="yellow",
+                title="⚠️ Доступ ограничен",
+                reason=compliance.reason or "Есть ограничения на работу",
                 problems=problems,
                 actions=actions,
             )
