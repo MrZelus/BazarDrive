@@ -608,6 +608,71 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertEqual(int(saved.get("driving_experience_years") or 0), 5)
         self.assertEqual(saved.get("email"), "driver@example.com")
 
+    def test_driver_compliance_profile_get_returns_saved_profile(self) -> None:
+        profile_id = "driver-profile-read"
+        create_status, create_payload, _ = self._post(
+            "/api/driver/compliance/profile",
+            {
+                "profile_id": profile_id,
+                "last_name": "Волков",
+                "first_name": "Павел",
+                "middle_name": "Игоревич",
+                "phone": "+79990000001",
+                "email": "volkov@example.com",
+                "driver_license_category": "B",
+                "driving_experience_years": 7,
+                "has_medical_contraindications": 0,
+                "criminal_record_cleared": 1,
+                "unpaid_fines_count": 2,
+                "employment_type": "employee",
+            },
+        )
+        self.assertEqual(create_status, 200)
+        self.assertTrue(create_payload.get("ok"))
+
+        status, payload, _ = self._get(f"/api/driver/compliance/profile?profile_id={profile_id}")
+        self.assertEqual(status, 200)
+        self.assertTrue(payload.get("ok"))
+        self.assertEqual(payload.get("profile_id"), profile_id)
+        data = payload.get("data", {})
+        self.assertEqual(data.get("last_name"), "Волков")
+        self.assertEqual(data.get("first_name"), "Павел")
+        self.assertEqual(data.get("middle_name"), "Игоревич")
+        self.assertEqual(data.get("phone"), "+79990000001")
+        self.assertEqual(data.get("email"), "volkov@example.com")
+        self.assertEqual(data.get("driver_license_category"), "B")
+        self.assertEqual(int(data.get("driving_experience_years") or 0), 7)
+        self.assertEqual(int(data.get("criminal_record_cleared") or 0), 1)
+        self.assertEqual(int(data.get("unpaid_fines_count") or 0), 2)
+        self.assertEqual(data.get("employment_type"), "employee")
+
+    def test_driver_compliance_profile_get_returns_empty_data_when_profile_absent(self) -> None:
+        status, payload, _ = self._get("/api/driver/compliance/profile?profile_id=driver-profile-missing")
+        self.assertEqual(status, 200)
+        self.assertTrue(payload.get("ok"))
+        self.assertEqual(payload.get("profile_id"), "driver-profile-missing")
+        self.assertEqual(payload.get("data"), {})
+
+    def test_driver_compliance_allows_license_category_that_contains_b(self) -> None:
+        profile_id = "driver-bc-license"
+        self._seed_driver_ready_profile(profile_id)
+        repository.upsert_driver_compliance_profile(
+            profile_id=profile_id,
+            payload={"driver_license_category": "BC"},
+        )
+        open_status, _, _ = self._post(
+            "/api/driver/shift/open",
+            {"profile_id": profile_id, "vehicle_condition": "Исправен"},
+        )
+        self.assertEqual(open_status, 200)
+
+        status, payload, _ = self._get(f"/api/driver/compliance?profile_id={profile_id}")
+        self.assertEqual(status, 200)
+        data = payload.get("data", {})
+        self.assertEqual(data.get("status"), "ready_for_orders")
+        self.assertEqual(data.get("eligibility_status"), "eligible")
+        self.assertEqual(data.get("reason"), "Водитель допущен к заказам")
+
     def test_driver_go_online_is_blocked_when_profile_not_ready(self) -> None:
         status, payload, _ = self._post("/api/driver/go-online", {"profile_id": "driver-main"})
         self.assertEqual(status, 403)

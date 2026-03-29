@@ -89,7 +89,8 @@ class DriverComplianceService:
             repository.update_driver_compliance_status(profile_id, result.status, result.reason)
             return result
 
-        if str(profile.get("driver_license_category") or "").strip() != DRIVER_REQUIRED_CATEGORY:
+        category_value = str(profile.get("driver_license_category") or "").strip().upper()
+        if DRIVER_REQUIRED_CATEGORY not in set(category_value):
             result = ComplianceResult(
                 status="restricted",
                 reason="Требуется водительское удостоверение категории B",
