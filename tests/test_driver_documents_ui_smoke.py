@@ -10,6 +10,9 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
         self.assertIn('id="addDocumentForm"', html)
         self.assertIn('id="documentFileInput"', html)
         self.assertIn('Файл документа (PDF)', html)
+        self.assertIn('580-ФЗ и правила сервиса', html)
+        self.assertIn('ОСГОП', html)
+        self.assertIn('Журнал заказов', html)
         self.assertIn('Добавить документ', html)
         self.assertIn('id="driverOverviewDocuments"', html)
         self.assertIn('Профиль водителя', html)
@@ -28,6 +31,7 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
         self.assertIn('uploadDriverDocumentFile', script)
         self.assertIn('renderDriverOverviewDocuments', script)
         self.assertIn('mapDocumentStatus', script)
+        self.assertIn("osgop: 'ОСГОП'", script)
         self.assertRegex(
             script,
             re.compile(r"function setActiveProfileTab\(tab\)[\s\S]+if \(tab === 'documents'\)\s*\{\s*loadDriverDocuments\(\);", re.MULTILINE),

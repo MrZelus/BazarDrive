@@ -413,6 +413,19 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertEqual(duplicate_payload.get("error"), "duplicate_document")
         self.assertIn("fields", duplicate_payload)
 
+    def test_driver_documents_accepts_osgop_type(self) -> None:
+        create_status, create_payload, _ = self._post(
+            "/api/driver/documents",
+            {
+                "profile_id": "driver-main",
+                "type": "osgop",
+                "number": "OSGOP-2026-0001",
+                "valid_until": "2031-03-31",
+            },
+        )
+        self.assertEqual(create_status, 201)
+        self.assertEqual(create_payload.get("type"), "osgop")
+
     def test_driver_document_duplicate_check_ignores_case_and_spaces(self) -> None:
         first_status, first_payload, _ = self._post(
             "/api/driver/documents",
