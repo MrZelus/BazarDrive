@@ -1768,6 +1768,46 @@ class FeedAPIValidationTests(unittest.TestCase):
         reminder_types = {item.get("type") for item in payload.get("reminders", [])}
         self.assertIn("document_expiring", reminder_types)
 
+    def test_driver_dashboard_reminders_are_json_serializable(self) -> None:
+        profile_id = "driver-dashboard-reminders-json"
+        self._seed_driver_ready_profile(profile_id=profile_id)
+        repository.upsert_driver_document(
+            profile_id=profile_id,
+            doc_type="driver_license",
+            number="driver-license-json",
+            valid_until="2030-12-31",
+            status="approved",
+        )
+        repository.upsert_driver_document(
+            profile_id=profile_id,
+            doc_type="sts",
+            number="sts-json",
+            valid_until="2030-12-31",
+            status="approved",
+        )
+        soon = (datetime.utcnow() + timedelta(hours=1)).isoformat()
+        repository.upsert_driver_document(
+            profile_id=profile_id,
+            doc_type="taxi_license",
+            number="taxi-license-json",
+            valid_until=soon,
+            status="approved",
+        )
+
+        open_status, _, _ = self._post(
+            "/api/driver/shift/open",
+            {"profile_id": profile_id, "vehicle_condition": "ok"},
+        )
+        self.assertEqual(open_status, 200)
+
+        status, payload, _ = self._get(f"/api/driver/dashboard?profile_id={profile_id}")
+        self.assertEqual(status, 200)
+        reminders = payload.get("reminders")
+        self.assertIsInstance(reminders, list)
+        self.assertTrue(reminders)
+        self.assertTrue(all(isinstance(item, dict) for item in reminders))
+        json.dumps(reminders, ensure_ascii=False)
+
     def test_driver_accept_order_blocked_in_limited_mode(self) -> None:
         profile_id = "driver-limited"
         self._seed_driver_ready_profile(profile_id=profile_id)

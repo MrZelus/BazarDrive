@@ -590,7 +590,7 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             profile_id = str(params.get("profile_id", ["driver-main"])[0] or "driver-main").strip() or "driver-main"
             summary = DriverSummaryService.build(profile_id)
             score = DriverScoreService.calculate(profile_id)
-            reminders = DriverReminderService.get_reminders(profile_id)
+            reminders = DriverReminderService.get_reminders_as_dicts(profile_id)
             mode = DriverGuardService.get_mode(profile_id)
             self._send_json(
                 200,
