@@ -34,7 +34,10 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
         self.assertIn("osgop: 'ОСГОП'", script)
         self.assertRegex(
             script,
-            re.compile(r"function setActiveProfileTab\(tab\)[\s\S]+if \(tab === 'documents'\)\s*\{\s*loadDriverDocuments\(\);", re.MULTILINE),
+            re.compile(
+                r"function setActiveProfileTab\(tab\)[\s\S]+if \(activeTab === 'documents'\)\s*\{\s*refreshDriverProfileData\(\);",
+                re.MULTILINE,
+            ),
         )
 
     def test_waybill_close_form_and_controls_exist(self) -> None:
