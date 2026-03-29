@@ -284,7 +284,10 @@ async def accept_order_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     try:
         DriverGuardService.ensure_can_accept_order(profile_id)
     except DriverOrderBlockedError as error:
-        await update.message.reply_text(f"⛔ {error.reason}")
+        text = f"⛔ {error.reason}"
+        if error.actions:
+            text += "\n\nЧто сделать:\n" + "\n".join(f"• {item}" for item in error.actions)
+        await update.message.reply_text(text)
         return
 
     await update.message.reply_text("✅ Заказ принят")

@@ -23,6 +23,8 @@ class DriverGuardServiceTests(unittest.TestCase):
         self.assertFalse(caps.can_accept_orders)
         self.assertTrue(caps.can_complete_orders)
         self.assertEqual(caps.reason, "ОСАГО истекло")
+        self.assertEqual(caps.code, "DRIVER_NOT_ALLOWED")
+        self.assertEqual(caps.actions, [])
 
     def test_summary_returns_limited_mode_payload_for_soft_lock(self) -> None:
         compliance = SimpleNamespace(

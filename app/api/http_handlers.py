@@ -1313,8 +1313,9 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
                     403,
                     {
                         "ok": False,
-                        "error": result.get("error", "Нет допуска к выходу на линию"),
-                        "code": "driver_not_allowed",
+                        "code": result.get("code", "DRIVER_NOT_ALLOWED"),
+                        "reason": result.get("reason", "Нет допуска к выходу на линию"),
+                        "actions": result.get("actions", []),
                     },
                 )
                 return
@@ -1324,8 +1325,9 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
                 403,
                 {
                     "ok": False,
-                    "error": e.reason,
                     "code": e.code,
+                    "reason": e.reason,
+                    "actions": e.actions,
                 },
             )
         except Exception:
@@ -1350,8 +1352,9 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
                     403,
                     {
                         "ok": False,
-                        "error": result.get("error", "Нельзя принимать заказы"),
-                        "code": "driver_not_allowed",
+                        "code": result.get("code", "DRIVER_NOT_ALLOWED"),
+                        "reason": result.get("reason", "Нельзя принимать заказы"),
+                        "actions": result.get("actions", []),
                     },
                 )
                 return
@@ -1361,8 +1364,9 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
                 403,
                 {
                     "ok": False,
-                    "error": e.reason,
                     "code": e.code,
+                    "reason": e.reason,
+                    "actions": e.actions,
                 },
             )
         except Exception:

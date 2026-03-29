@@ -97,11 +97,15 @@ class BotHandlerResilienceTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(
             handlers.DriverGuardService,
             "ensure_can_accept_order",
-            side_effect=DriverOrderBlockedError(reason="Нет открытого путевого листа"),
+            side_effect=DriverOrderBlockedError(
+                reason="Нет открытого путевого листа",
+                code="WAYBILL_REQUIRED",
+                actions=["Открыть смену"],
+            ),
         ):
             await handlers.accept_order_handler(update, context)
 
-        update.message.reply_text.assert_awaited_once_with("⛔ Нет открытого путевого листа")
+        update.message.reply_text.assert_awaited_once_with("⛔ Нет открытого путевого листа\n\nЧто сделать:\n• Открыть смену")
 
 
 if __name__ == "__main__":

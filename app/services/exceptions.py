@@ -1,7 +1,8 @@
 class DriverNotAllowedError(Exception):
-    def __init__(self, reason: str, code: str = "driver_not_allowed"):
+    def __init__(self, reason: str, code: str = "DRIVER_NOT_ALLOWED", actions: list[str] | None = None):
         self.reason = reason
         self.code = code
+        self.actions = list(actions or [])
         super().__init__(reason)
 
 

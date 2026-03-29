@@ -39,7 +39,12 @@ class DriverOperationService:
         try:
             DriverGuardService.ensure_can_go_online(driver_profile_id)
         except DriverOfflineBlockedError as error:
-            return {"ok": False, "error": error.reason}
+            return {
+                "ok": False,
+                "code": error.code,
+                "reason": error.reason,
+                "actions": error.actions,
+            }
 
         return {
             "ok": True,
@@ -51,7 +56,12 @@ class DriverOperationService:
         try:
             DriverGuardService.ensure_can_accept_order(driver_profile_id)
         except DriverOrderBlockedError as error:
-            return {"ok": False, "error": error.reason}
+            return {
+                "ok": False,
+                "code": error.code,
+                "reason": error.reason,
+                "actions": error.actions,
+            }
         DriverOperationService._record_order_status_transition(
             order_id=order_id,
             driver_profile_id=driver_profile_id,
