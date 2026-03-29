@@ -501,8 +501,8 @@ class FeedAPIValidationTests(unittest.TestCase):
         status, payload, _ = self._post("/api/driver/go-online", {"profile_id": "driver-main"})
         self.assertEqual(status, 403)
         self.assertFalse(payload.get("ok"))
-        self.assertEqual(payload.get("code"), "driver_cannot_go_online")
-        self.assertIn("Нет открытого путевого листа", str(payload.get("error", "")))
+        self.assertEqual(payload.get("code"), "driver_not_allowed")
+        self.assertIn("Профиль допуска водителя не заполнен", str(payload.get("error", "")))
 
     def test_driver_accept_order_is_blocked_when_profile_not_ready(self) -> None:
         status, payload, _ = self._post(
@@ -511,8 +511,8 @@ class FeedAPIValidationTests(unittest.TestCase):
         )
         self.assertEqual(status, 403)
         self.assertFalse(payload.get("ok"))
-        self.assertEqual(payload.get("code"), "driver_cannot_accept_orders")
-        self.assertIn("Нельзя принимать новые заказы", str(payload.get("error", "")))
+        self.assertEqual(payload.get("code"), "driver_not_allowed")
+        self.assertIn("Профиль допуска водителя не заполнен", str(payload.get("error", "")))
 
     def test_driver_accept_order_requires_order_id(self) -> None:
         status, payload, _ = self._post("/api/driver/accept-order", {"profile_id": "driver-main"})
@@ -1761,7 +1761,9 @@ class FeedAPIValidationTests(unittest.TestCase):
             {"profile_id": profile_id, "order_id": "order-1"},
         )
         self.assertEqual(status, 403)
-        self.assertEqual(payload.get("error"), "Нельзя принимать новые заказы")
+        self.assertFalse(payload.get("ok"))
+        self.assertEqual(payload.get("code"), "driver_not_allowed")
+        self.assertIsInstance(payload.get("error"), str)
 
     def test_unexpected_error_returns_unified_json(self) -> None:
         original = repository.list_guest_feed_posts

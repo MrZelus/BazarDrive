@@ -6,10 +6,8 @@ class DriverNotAllowedError(Exception):
 
 
 class DriverOfflineBlockedError(DriverNotAllowedError):
-    def __init__(self, reason: str, code: str = "driver_cannot_go_online"):
-        super().__init__(reason=reason, code=code)
+    pass
 
 
 class DriverOrderBlockedError(DriverNotAllowedError):
-    def __init__(self, reason: str, code: str = "driver_cannot_accept_orders"):
-        super().__init__(reason=reason, code=code)
+    pass
