@@ -800,6 +800,72 @@ class FeedAPIValidationTests(unittest.TestCase):
         self.assertIn("distance_km", fields)
         self.assertIn("vehicle_condition", fields)
 
+    def test_driver_document_verification_approve_and_reject_happy_path(self) -> None:
+        approve_create_status, approve_create_payload, _ = self._post(
+            "/api/driver/documents",
+            {"profile_id": "driver-main", "type": "passport", "number": "PASS-APPROVE-001", "status": "checking"},
+        )
+        self.assertEqual(approve_create_status, 201)
+        approve_doc_id = int(approve_create_payload["id"])
+
+        approve_status, approve_payload, _ = self._patch(
+            f"/api/driver/documents/{approve_doc_id}/approve",
+            {"actor": "moderator-1"},
+        )
+        self.assertEqual(approve_status, 200)
+        self.assertEqual(approve_payload.get("status"), "approved")
+        self.assertEqual(approve_payload.get("verified_by"), "moderator-1")
+        self.assertTrue(bool(approve_payload.get("verified_at")))
+        self.assertEqual(approve_payload.get("updated_by"), "moderator-1")
+        self.assertIsNone(approve_payload.get("rejection_reason"))
+
+        reject_create_status, reject_create_payload, _ = self._post(
+            "/api/driver/documents",
+            {"profile_id": "driver-main", "type": "inn", "number": "INN-REJECT-001", "status": "checking"},
+        )
+        self.assertEqual(reject_create_status, 201)
+        reject_doc_id = int(reject_create_payload["id"])
+
+        reject_status, reject_payload, _ = self._patch(
+            f"/api/driver/documents/{reject_doc_id}/reject",
+            {"actor": "moderator-2", "rejection_reason": "Фото обрезано по краям"},
+        )
+        self.assertEqual(reject_status, 200)
+        self.assertEqual(reject_payload.get("status"), "rejected")
+        self.assertEqual(reject_payload.get("verified_by"), "moderator-2")
+        self.assertTrue(bool(reject_payload.get("verified_at")))
+        self.assertEqual(reject_payload.get("updated_by"), "moderator-2")
+        self.assertEqual(reject_payload.get("rejection_reason"), "Фото обрезано по краям")
+
+    def test_driver_document_reject_requires_reason_and_checking_status(self) -> None:
+        create_status, create_payload, _ = self._post(
+            "/api/driver/documents",
+            {"profile_id": "driver-main", "type": "passport", "number": "PASS-REJECT-VALID-001", "status": "checking"},
+        )
+        self.assertEqual(create_status, 201)
+        doc_id = int(create_payload["id"])
+
+        reject_without_reason_status, reject_without_reason_payload, _ = self._patch(
+            f"/api/driver/documents/{doc_id}/reject",
+            {"actor": "moderator-3"},
+        )
+        self.assertEqual(reject_without_reason_status, 400)
+        self.assertIn("причину", str(reject_without_reason_payload.get("error", "")).lower())
+
+        non_checking_create_status, non_checking_create_payload, _ = self._post(
+            "/api/driver/documents",
+            {"profile_id": "driver-main", "type": "inn", "number": "INN-NON-CHECK-001", "status": "uploaded"},
+        )
+        self.assertEqual(non_checking_create_status, 201)
+        non_checking_doc_id = int(non_checking_create_payload["id"])
+
+        reject_from_uploaded_status, reject_from_uploaded_payload, _ = self._patch(
+            f"/api/driver/documents/{non_checking_doc_id}/reject",
+            {"actor": "moderator-4", "rejection_reason": "Неверный формат"},
+        )
+        self.assertEqual(reject_from_uploaded_status, 400)
+        self.assertIn("checking", str(reject_from_uploaded_payload.get("error", "")).lower())
+
     def test_driver_document_upload_accepts_octet_stream_for_pdf_filename(self) -> None:
         boundary = "----BazarDrivePdfOctetBoundary"
         pdf_payload = b"%PDF-1.7\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF"
