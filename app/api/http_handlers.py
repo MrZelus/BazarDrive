@@ -1260,7 +1260,18 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
 
         try:
             profile_id = payload.get("profile_id", "driver-main")
-            self._send_json(200, DriverOperationService.go_online(profile_id))
+            result = DriverOperationService.go_online(profile_id)
+            if not result.get("ok"):
+                self._send_json(
+                    403,
+                    {
+                        "ok": False,
+                        "error": result.get("error", "Нет допуска к выходу на линию"),
+                        "code": "driver_not_allowed",
+                    },
+                )
+                return
+            self._send_json(200, result)
         except DriverNotAllowedError as e:
             self._send_json(
                 403,
@@ -1286,7 +1297,18 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             if not order_id:
                 self._send_json(400, {"error": "order_id required"})
                 return
-            self._send_json(200, DriverOperationService.accept_order(order_id, profile_id))
+            result = DriverOperationService.accept_order(order_id, profile_id)
+            if not result.get("ok"):
+                self._send_json(
+                    403,
+                    {
+                        "ok": False,
+                        "error": result.get("error", "Нельзя принимать заказы"),
+                        "code": "driver_not_allowed",
+                    },
+                )
+                return
+            self._send_json(200, result)
         except DriverNotAllowedError as e:
             self._send_json(
                 403,
