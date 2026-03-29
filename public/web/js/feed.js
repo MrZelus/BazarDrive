@@ -1173,6 +1173,26 @@
           link.textContent = 'Открыть PDF-документ';
           article.appendChild(link);
         }
+        if (String(item.status || '').trim().toLowerCase() === 'rejected') {
+          const rejectionBlock = document.createElement('div');
+          rejectionBlock.className = 'rounded-lg border border-warning/30 bg-warning/10 px-2 py-2 text-xs text-warning space-y-2';
+
+          const reason = String(item.rejection_reason || '').trim();
+          const reasonText = document.createElement('p');
+          reasonText.textContent = reason
+            ? `Причина отклонения: ${reason}`
+            : 'Документ отклонён. Уточните причину у модератора.';
+          rejectionBlock.appendChild(reasonText);
+
+          const fixButton = document.createElement('button');
+          fixButton.type = 'button';
+          fixButton.className = 'text-xs text-accent hover:underline';
+          fixButton.textContent = 'Исправить и отправить заново';
+          fixButton.addEventListener('click', () => startDocumentCorrection(item));
+          rejectionBlock.appendChild(fixButton);
+
+          article.appendChild(rejectionBlock);
+        }
         const hasWaybillClosingDetails = item.type === 'waybill' && (
           item.postshift_medical_result ||
           item.vehicle_condition ||
@@ -1238,6 +1258,24 @@
           documentFileName.textContent = 'Файл не выбран';
         }
       }
+    }
+
+    function startDocumentCorrection(documentItem = null) {
+      if (!documentItem) return;
+      toggleWaybillCloseForm(false);
+      toggleDocumentForm(true);
+      setDocumentAlert('Исправьте данные документа и сохраните повторно для отправки на проверку.');
+      if (documentTypeInput) {
+        documentTypeInput.value = String(documentItem.type || '');
+      }
+      if (documentNumberInput) {
+        documentNumberInput.value = String(documentItem.number || '');
+      }
+      if (documentValidUntilInput) {
+        documentValidUntilInput.value = String(documentItem.valid_until || '').slice(0, 10);
+      }
+      setDocumentStatusForType(String(documentItem.type || ''));
+      documentNumberInput?.focus();
     }
 
     function validateDocumentForm() {

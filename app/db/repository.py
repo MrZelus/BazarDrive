@@ -1127,6 +1127,7 @@ def create_driver_document(
         cur.execute(
             """
             SELECT id, profile_id, type, number, valid_until, file_url, status,
+                   verified_by, verified_at, rejection_reason, updated_by, issued_at, is_required,
                    postshift_medical_at, postshift_medical_result, actual_return_at,
                    odometer_end, distance_km, fuel_spent_liters, vehicle_condition,
                    stops_info, notes, closed_at,
@@ -1147,6 +1148,7 @@ def find_driver_document_duplicate(profile_id: str, type: str, number: str) -> O
         cur.execute(
             """
             SELECT id, profile_id, type, number, valid_until, file_url, status,
+                   verified_by, verified_at, rejection_reason, updated_by, issued_at, is_required,
                    postshift_medical_at, postshift_medical_result, actual_return_at,
                    odometer_end, distance_km, fuel_spent_liters, vehicle_condition,
                    stops_info, notes, closed_at,
@@ -1221,6 +1223,7 @@ def update_driver_document(
         cur.execute(
             """
             SELECT id, profile_id, type, number, valid_until, file_url, status,
+                   verified_by, verified_at, rejection_reason, updated_by, issued_at, is_required,
                    postshift_medical_at, postshift_medical_result, actual_return_at,
                    odometer_end, distance_km, fuel_spent_liters, vehicle_condition,
                    stops_info, notes, closed_at,
@@ -1298,6 +1301,7 @@ def close_driver_waybill(doc_id: int, closure_payload: dict[str, Any]) -> Option
         cur.execute(
             """
             SELECT id, profile_id, type, number, valid_until, file_url, status,
+                   verified_by, verified_at, rejection_reason, updated_by, issued_at, is_required,
                    postshift_medical_at, postshift_medical_result, actual_return_at,
                    odometer_end, distance_km, fuel_spent_liters, vehicle_condition,
                    stops_info, notes, closed_at,
@@ -1309,6 +1313,76 @@ def close_driver_waybill(doc_id: int, closure_payload: dict[str, Any]) -> Option
         )
         updated = cur.fetchone()
         return dict(updated) if updated else None
+
+
+def apply_driver_document_verification_action(
+    doc_id: int,
+    action: str,
+    actor: str,
+    rejection_reason: Optional[str] = None,
+) -> Optional[dict[str, Any]]:
+    normalized_action = str(action).strip().lower()
+    if normalized_action not in {"approve", "reject"}:
+        raise ValueError("Некорректное действие верификации документа")
+
+    cleaned_actor = str(actor).strip() or "system"
+    cleaned_reason = str(rejection_reason or "").strip()
+    if normalized_action == "reject" and not cleaned_reason:
+        raise ValueError("Для отклонения документа укажите причину")
+
+    target_status = "approved" if normalized_action == "approve" else "rejected"
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT *
+            FROM driver_documents
+            WHERE id = ?
+            """,
+            (doc_id,),
+        )
+        current = cur.fetchone()
+        if not current:
+            return None
+        if str(current["status"]).strip() != "checking":
+            raise ValueError("Смена статуса разрешена только из состояния checking")
+
+        verified_at_value = datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+        cur.execute(
+            """
+            UPDATE driver_documents
+            SET status = ?,
+                verified_by = ?,
+                verified_at = ?,
+                rejection_reason = ?,
+                updated_by = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (
+                target_status,
+                cleaned_actor,
+                verified_at_value,
+                cleaned_reason if normalized_action == "reject" else None,
+                cleaned_actor,
+                doc_id,
+            ),
+        )
+        if cur.rowcount == 0:
+            conn.rollback()
+            return None
+        conn.commit()
+        cur.execute(
+            """
+            SELECT *
+            FROM driver_documents
+            WHERE id = ?
+            """,
+            (doc_id,),
+        )
+        row = cur.fetchone()
+        return dict(row) if row else None
 from datetime import date, datetime
 
 

@@ -991,7 +991,13 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
         if path.startswith(docs_prefix):
             doc_suffix = path[len(docs_prefix) :]
             is_close_action = doc_suffix.endswith("/close")
+            is_verification_approve_action = doc_suffix.endswith("/approve")
+            is_verification_reject_action = doc_suffix.endswith("/reject")
             doc_id_raw = doc_suffix[:-len("/close")] if is_close_action else doc_suffix
+            if is_verification_approve_action:
+                doc_id_raw = doc_suffix[:-len("/approve")]
+            if is_verification_reject_action:
+                doc_id_raw = doc_suffix[:-len("/reject")]
             if not doc_id_raw.isdigit() or int(doc_id_raw) <= 0:
                 self._send_json(400, {"error": "Некорректный id документа"})
                 return
@@ -1018,6 +1024,31 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
                     self._send_json(404, {"error": "Документ не найден"})
                     return
                 self._send_json(200, closed)
+                return
+
+            if is_verification_approve_action or is_verification_reject_action:
+                action = "approve" if is_verification_approve_action else "reject"
+                actor = str(
+                    payload.get(
+                        "actor",
+                        getattr(self, "write_auth_context", None).subject if getattr(self, "write_auth_context", None) else "system",
+                    )
+                ).strip() or "system"
+                rejection_reason = str(payload.get("rejection_reason", "")).strip() or None
+                try:
+                    verified = repository.apply_driver_document_verification_action(
+                        int(doc_id_raw),
+                        action=action,
+                        actor=actor,
+                        rejection_reason=rejection_reason,
+                    )
+                except ValueError as error:
+                    self._send_json(400, {"error": str(error)})
+                    return
+                if not verified:
+                    self._send_json(404, {"error": "Документ не найден"})
+                    return
+                self._send_json(200, verified)
                 return
 
             cleaned, errors = FeedService.validate_driver_document_fields(payload)
