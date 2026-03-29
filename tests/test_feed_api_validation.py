@@ -501,10 +501,10 @@ class FeedAPIValidationTests(unittest.TestCase):
         status, payload, _ = self._post("/api/driver/go-online", {"profile_id": "driver-main"})
         self.assertEqual(status, 403)
         self.assertFalse(payload.get("ok"))
-        self.assertEqual(payload.get("code"), "driver_not_allowed")
+        self.assertIn(payload.get("code"), {"WAYBILL_REQUIRED", "PROFILE_INCOMPLETE", "DOC_EXPIRED", "DRIVER_NOT_ALLOWED"})
         self.assertTrue(
             any(
-                msg in str(payload.get("error", ""))
+                msg in str(payload.get("reason", ""))
                 for msg in (
                     "Нет открытого путевого листа",
                     "Профиль допуска водителя не заполнен",
@@ -519,10 +519,10 @@ class FeedAPIValidationTests(unittest.TestCase):
         )
         self.assertEqual(status, 403)
         self.assertFalse(payload.get("ok"))
-        self.assertEqual(payload.get("code"), "driver_not_allowed")
+        self.assertIn(payload.get("code"), {"WAYBILL_REQUIRED", "PROFILE_INCOMPLETE", "DRIVER_NOT_ALLOWED"})
         self.assertTrue(
             any(
-                msg in str(payload.get("error", ""))
+                msg in str(payload.get("reason", ""))
                 for msg in (
                     "Нет открытого путевого листа",
                     "Профиль допуска водителя не заполнен",
@@ -534,6 +534,43 @@ class FeedAPIValidationTests(unittest.TestCase):
         status, payload, _ = self._post("/api/driver/accept-order", {"profile_id": "driver-main"})
         self.assertEqual(status, 400)
         self.assertEqual(payload.get("error"), "order_id required")
+
+    def test_driver_go_online_returns_structured_waybill_block_payload(self) -> None:
+        profile_id = "driver-waybill-block"
+        self._seed_driver_ready_profile(profile_id)
+
+        status, payload, _ = self._post("/api/driver/go-online", {"profile_id": profile_id})
+        self.assertEqual(status, 403)
+        self.assertFalse(payload.get("ok"))
+        self.assertEqual(payload.get("code"), "WAYBILL_REQUIRED")
+        self.assertEqual(payload.get("reason"), "Нет открытого путевого листа")
+        self.assertEqual(payload.get("actions"), ["Открыть смену"])
+
+    def test_driver_accept_order_returns_structured_expired_doc_block_payload(self) -> None:
+        profile_id = "driver-doc-expired"
+        self._seed_driver_ready_profile(profile_id)
+        repository.upsert_driver_document(
+            profile_id=profile_id,
+            doc_type="osago",
+            number="osago-expired",
+            valid_until="2020-01-01",
+            status="approved",
+        )
+        open_status, _, _ = self._post(
+            "/api/driver/shift/open",
+            {"profile_id": profile_id, "vehicle_condition": "ok"},
+        )
+        self.assertEqual(open_status, 200)
+
+        status, payload, _ = self._post(
+            "/api/driver/accept-order",
+            {"profile_id": profile_id, "order_id": "order-expired"},
+        )
+        self.assertEqual(status, 403)
+        self.assertFalse(payload.get("ok"))
+        self.assertEqual(payload.get("code"), "DOC_EXPIRED")
+        self.assertEqual(payload.get("reason"), "Есть просроченные документы")
+        self.assertEqual(payload.get("actions"), ["Обновить документы"])
 
     def test_driver_order_journal_contains_records_after_order_transitions(self) -> None:
         self._seed_driver_ready_profile("driver-main")
@@ -1948,8 +1985,9 @@ class FeedAPIValidationTests(unittest.TestCase):
         )
         self.assertEqual(status, 403)
         self.assertFalse(payload.get("ok"))
-        self.assertEqual(payload.get("code"), "driver_not_allowed")
-        self.assertIsInstance(payload.get("error"), str)
+        self.assertIn(payload.get("code"), {"WAYBILL_REQUIRED", "PROFILE_INCOMPLETE", "DRIVER_NOT_ALLOWED"})
+        self.assertIsInstance(payload.get("reason"), str)
+        self.assertIsInstance(payload.get("actions"), list)
 
     def test_unexpected_error_returns_unified_json(self) -> None:
         original = repository.list_guest_feed_posts
