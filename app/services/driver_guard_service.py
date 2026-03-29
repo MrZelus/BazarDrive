@@ -1,11 +1,17 @@
 from app.services.driver_compliance_service import DriverComplianceService
 from app.services.exceptions import DriverOfflineBlockedError, DriverOrderBlockedError
+from app.services.waybill_service import WaybillService
 
 
 class DriverGuardService:
 
     @staticmethod
     def ensure_can_go_online(profile_id: str):
+        waybill = WaybillService.get_active_waybill(profile_id)
+
+        if not waybill:
+            raise DriverOfflineBlockedError("Нет открытого путевого листа (смена не начата)")
+
         result = DriverComplianceService.evaluate(profile_id)
 
         if not result.can_go_online:
@@ -15,6 +21,11 @@ class DriverGuardService:
 
     @staticmethod
     def ensure_can_accept_order(profile_id: str):
+        waybill = WaybillService.get_active_waybill(profile_id)
+
+        if not waybill:
+            raise DriverOrderBlockedError("Нет активной смены — нельзя принимать заказы")
+
         result = DriverComplianceService.evaluate(profile_id)
 
         if not result.can_accept_orders:
@@ -30,7 +41,11 @@ class DriverGuardService:
         limited  — нельзя брать новые заказы
         blocked  — ничего нельзя
         """
+        waybill = WaybillService.get_active_waybill(profile_id)
         result = DriverComplianceService.evaluate(profile_id)
+
+        if not waybill:
+            return "blocked"
 
         if not result.can_go_online:
             return "blocked"
