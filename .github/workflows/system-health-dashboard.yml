@@ -38,29 +38,9 @@ jobs:
       - name: Enrich PR data with file lists
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
-          python - << 'PY'
-import json
-import subprocess
-from pathlib import Path
-
-prs = json.load(open('tmp/system_health/prs.json'))
-
-for pr in prs:
-    number = pr.get('number')
-    if not number:
-        continue
-    try:
-        out = subprocess.check_output([
-            'gh', 'api', f"repos/${{ github.repository }}/pulls/{number}/files"
-        ])
-        files = json.loads(out)
-        pr['changed_files_list'] = [f.get('filename') for f in files]
-    except Exception:
-        pr['changed_files_list'] = []
-
-Path('tmp/system_health/prs.json').write_text(json.dumps(prs))
-PY
+          python tools/enrich_pr_files.py
 
       - name: Generate dashboard report
         run: |
