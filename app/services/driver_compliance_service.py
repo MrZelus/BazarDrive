@@ -19,6 +19,10 @@ EXPIRING_SOON_DAYS = 30
 class ComplianceResult:
     status: str
     reason: str
+    section_status: str
+    eligibility_status: str
+    missing_required_fields: list[str]
+    ineligibility_reasons: list[str]
     missing_documents: list[str]
     expired_documents: list[str]
     expiring_documents: list[str]
@@ -29,6 +33,10 @@ class ComplianceResult:
         return {
             "status": self.status,
             "reason": self.reason,
+            "section_status": self.section_status,
+            "eligibility_status": self.eligibility_status,
+            "missing_required_fields": self.missing_required_fields,
+            "ineligibility_reasons": self.ineligibility_reasons,
             "missing_documents": self.missing_documents,
             "expired_documents": self.expired_documents,
             "expiring_documents": self.expiring_documents,
@@ -45,6 +53,10 @@ class DriverComplianceService:
             result = ComplianceResult(
                 status="profile_incomplete",
                 reason="Профиль допуска водителя не заполнен",
+                section_status="incomplete",
+                eligibility_status="restricted",
+                missing_required_fields=["profile"],
+                ineligibility_reasons=["Профиль допуска водителя не заполнен"],
                 missing_documents=[],
                 expired_documents=[],
                 expiring_documents=[],
@@ -54,10 +66,20 @@ class DriverComplianceService:
             repository.update_driver_compliance_status(profile_id, result.status, result.reason)
             return result
 
-        if not profile.get("last_name") or not profile.get("first_name") or not profile.get("phone"):
+        missing_required_fields = []
+        for field_name in ("last_name", "first_name", "middle_name", "phone", "email", "employment_type"):
+            if not str(profile.get(field_name) or "").strip():
+                missing_required_fields.append(field_name)
+
+        core_required_fields = {"last_name", "first_name", "phone"}
+        if any(field in core_required_fields for field in missing_required_fields):
             result = ComplianceResult(
                 status="profile_incomplete",
                 reason="Не заполнены обязательные личные данные",
+                section_status="incomplete",
+                eligibility_status="restricted",
+                missing_required_fields=missing_required_fields,
+                ineligibility_reasons=["Не заполнены обязательные личные данные"],
                 missing_documents=[],
                 expired_documents=[],
                 expiring_documents=[],
@@ -67,10 +89,15 @@ class DriverComplianceService:
             repository.update_driver_compliance_status(profile_id, result.status, result.reason)
             return result
 
-        if str(profile.get("driver_license_category") or "").strip() != DRIVER_REQUIRED_CATEGORY:
+        category_value = str(profile.get("driver_license_category") or "").strip().upper()
+        if DRIVER_REQUIRED_CATEGORY not in set(category_value):
             result = ComplianceResult(
                 status="restricted",
                 reason="Требуется водительское удостоверение категории B",
+                section_status="filled",
+                eligibility_status="restricted",
+                missing_required_fields=[],
+                ineligibility_reasons=["Требуется водительское удостоверение категории B"],
                 missing_documents=[],
                 expired_documents=[],
                 expiring_documents=[],
@@ -85,6 +112,10 @@ class DriverComplianceService:
             result = ComplianceResult(
                 status="restricted",
                 reason="Стаж вождения менее 3 лет",
+                section_status="filled",
+                eligibility_status="restricted",
+                missing_required_fields=[],
+                ineligibility_reasons=["Стаж вождения менее 3 лет"],
                 missing_documents=[],
                 expired_documents=[],
                 expiring_documents=[],
@@ -98,6 +129,10 @@ class DriverComplianceService:
             result = ComplianceResult(
                 status="restricted",
                 reason="Есть медицинские противопоказания",
+                section_status="filled",
+                eligibility_status="restricted",
+                missing_required_fields=[],
+                ineligibility_reasons=["Есть медицинские противопоказания"],
                 missing_documents=[],
                 expired_documents=[],
                 expiring_documents=[],
@@ -111,6 +146,10 @@ class DriverComplianceService:
             result = ComplianceResult(
                 status="restricted",
                 reason="Не пройдена проверка сведений о судимости",
+                section_status="filled",
+                eligibility_status="restricted",
+                missing_required_fields=[],
+                ineligibility_reasons=["Не пройдена проверка сведений о судимости"],
                 missing_documents=[],
                 expired_documents=[],
                 expiring_documents=[],
@@ -124,6 +163,10 @@ class DriverComplianceService:
             result = ComplianceResult(
                 status="restricted",
                 reason="Более 3 неоплаченных штрафов",
+                section_status="filled",
+                eligibility_status="restricted",
+                missing_required_fields=[],
+                ineligibility_reasons=["Более 3 неоплаченных штрафов"],
                 missing_documents=[],
                 expired_documents=[],
                 expiring_documents=[],
@@ -139,6 +182,10 @@ class DriverComplianceService:
                 result = ComplianceResult(
                     status="profile_incomplete",
                     reason="Не заполнены обязательные данные ИП",
+                    section_status="incomplete",
+                    eligibility_status="restricted",
+                    missing_required_fields=["inn", "ogrnip", "activity_region"],
+                    ineligibility_reasons=["Не заполнены обязательные данные ИП"],
                     missing_documents=[],
                     expired_documents=[],
                     expiring_documents=[],
@@ -152,6 +199,10 @@ class DriverComplianceService:
             result = ComplianceResult(
                 status="profile_incomplete",
                 reason="Не заполнены сведения об автомобиле",
+                section_status="incomplete",
+                eligibility_status="restricted",
+                missing_required_fields=["vehicle_make", "vehicle_model", "vehicle_license_plate"],
+                ineligibility_reasons=["Не заполнены сведения об автомобиле"],
                 missing_documents=[],
                 expired_documents=[],
                 expiring_documents=[],
@@ -182,6 +233,10 @@ class DriverComplianceService:
                 result = ComplianceResult(
                     status="docs_under_review",
                     reason=f"Документ {doc_type} находится на проверке",
+                    section_status="incomplete",
+                    eligibility_status="restricted",
+                    missing_required_fields=[],
+                    ineligibility_reasons=[f"Документ {doc_type} находится на проверке"],
                     missing_documents=[],
                     expired_documents=[],
                     expiring_documents=[],
@@ -214,6 +269,10 @@ class DriverComplianceService:
             result = ComplianceResult(
                 status="profile_incomplete",
                 reason="Отсутствуют или не подтверждены обязательные документы",
+                section_status="incomplete",
+                eligibility_status="restricted",
+                missing_required_fields=[],
+                ineligibility_reasons=["Отсутствуют или не подтверждены обязательные документы"],
                 missing_documents=missing_documents,
                 expired_documents=expired_documents,
                 expiring_documents=expiring_documents,
@@ -227,6 +286,10 @@ class DriverComplianceService:
             result = ComplianceResult(
                 status="expired_documents",
                 reason="Есть просроченные документы",
+                section_status="filled",
+                eligibility_status="restricted",
+                missing_required_fields=[],
+                ineligibility_reasons=["Есть просроченные документы"],
                 missing_documents=[],
                 expired_documents=expired_documents,
                 expiring_documents=expiring_documents,
@@ -241,6 +304,10 @@ class DriverComplianceService:
             result = ComplianceResult(
                 status="waybill_required",
                 reason="Не открыт путевой лист на текущую смену",
+                section_status="filled",
+                eligibility_status="restricted",
+                missing_required_fields=[],
+                ineligibility_reasons=["Не открыт путевой лист на текущую смену"],
                 missing_documents=[],
                 expired_documents=[],
                 expiring_documents=expiring_documents,
@@ -253,6 +320,10 @@ class DriverComplianceService:
         result = ComplianceResult(
             status="ready_for_orders",
             reason="Водитель допущен к заказам",
+            section_status="filled",
+            eligibility_status="eligible",
+            missing_required_fields=[],
+            ineligibility_reasons=[],
             missing_documents=[],
             expired_documents=[],
             expiring_documents=expiring_documents,
