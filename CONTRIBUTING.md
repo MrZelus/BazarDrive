@@ -27,3 +27,8 @@ The full contribution guide lives here:
 BazarDrive keeps the extended contributor protocol in `docs/contributing.md` and exposes this root-level `CONTRIBUTING.md` as the standard GitHub community health entrypoint.
 
 If these files diverge, update both intentionally or use the repository workflow checks to restore consistency.
+
+## Community health smoke check
+
+To manually verify the `Community Health Check` automation, use:
+- [docs/qa/community_health_check_smoke.md](docs/qa/community_health_check_smoke.md)
