@@ -1,0 +1,72 @@
+name: Community Health Check
+
+on:
+  pull_request:
+    branches: ["main"]
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+  schedule:
+    - cron: "0 9 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  community-health-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate community health files
+        run: |
+          set -euo pipefail
+
+          required_files=(
+            "README.md"
+            "CONTRIBUTING.md"
+            "CODE_OF_CONDUCT.md"
+            "SECURITY.md"
+            ".github/ISSUE_TEMPLATE/bug_report.md"
+            ".github/ISSUE_TEMPLATE/feature_request.md"
+            ".github/PULL_REQUEST_TEMPLATE.md"
+          )
+
+          missing=0
+          for file in "${required_files[@]}"; do
+            if [[ ! -f "$file" ]]; then
+              echo "::error file=$file::Missing required community health file"
+              missing=1
+            fi
+          done
+
+          if [[ $missing -ne 0 ]]; then
+            echo "One or more required community health files are missing."
+            exit 1
+          fi
+
+      - name: Validate README links to key docs
+        run: |
+          set -euo pipefail
+
+          check_link() {
+            local pattern="$1"
+            local label="$2"
+            if ! grep -Eiq "$pattern" README.md; then
+              echo "::error file=README.md::README is missing link/reference to $label"
+              return 1
+            fi
+            return 0
+          }
+
+          failed=0
+          check_link "CONTRIBUTING\\.md|contributing" "CONTRIBUTING.md" || failed=1
+          check_link "CODE_OF_CONDUCT\\.md|code[ _-]?of[ _-]?conduct" "CODE_OF_CONDUCT.md" || failed=1
+          check_link "SECURITY\\.md|security" "SECURITY.md" || failed=1
+
+          if [[ $failed -ne 0 ]]; then
+            echo "README link validation failed."
+            exit 1
+          fi
