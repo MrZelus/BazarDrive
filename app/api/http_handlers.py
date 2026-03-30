@@ -14,6 +14,10 @@ from urllib.parse import parse_qs, urlparse
 from app.config import get_api_settings
 from app.db import repository
 from app.logging_setup import configure_logging
+from app.security.authorization import authz
+from app.security.exceptions import AuthorizationDenied
+from app.security.permissions import Permission
+from app.security.roles import resolve_domain_role
 from app.services.driver_compliance_service import DriverComplianceService
 from app.services.driver_operation_service import DriverOperationService
 from app.services.driver_guard_service import DriverGuardService
@@ -58,6 +62,19 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
 
     def _request_log_extra(self) -> dict[str, str]:
         return {"request_id": getattr(self, "request_id", "-"), "client_ip": self._get_client_ip()}
+
+    def _current_role(self):
+        return resolve_domain_role(getattr(getattr(self, "write_auth_context", None), "role", None))
+
+    def _require_permission(self, permission: Permission) -> bool:
+        if os.getenv("APP_ENV", "dev").strip().lower() != "prod":
+            return True
+        try:
+            authz.require_permission(self._current_role(), permission)
+            return True
+        except AuthorizationDenied as error:
+            self._send_json(403, {"error": {"code": error.code, "message": error.message}})
+            return False
 
     def _get_security_settings(self) -> SecuritySettings:
         app_env = os.getenv("APP_ENV", "dev").strip().lower() or "dev"
@@ -576,6 +593,8 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             return
 
         if path == "/api/driver/documents":
+            if not self._require_permission(Permission.DRIVER_DOCUMENT_UPLOAD):
+                return
             params = parse_qs(parsed.query)
             profile_id = str(params.get("profile_id", ["driver-main"])[0] or "driver-main").strip()
             items = repository.list_driver_documents(profile_id=profile_id)
@@ -668,6 +687,8 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             return
 
         if path == "/api/driver/documents/upload":
+            if not self._require_permission(Permission.DRIVER_DOCUMENT_UPLOAD):
+                return
             content_type_header = str(self.headers.get("Content-Type", "")).strip()
             content_type = content_type_header.lower()
             if content_type.startswith("multipart/form-data"):
@@ -774,6 +795,8 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
 
 
         if path == "/api/driver/documents":
+            if not self._require_permission(Permission.DRIVER_DOCUMENT_UPLOAD):
+                return
             cleaned, errors = FeedService.validate_driver_document_fields(payload)
             if errors:
                 self._send_json(400, {"error": "validation_error", "fields": errors})
@@ -845,8 +868,7 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             if not profile_id:
                 self._send_json(400, {"error": "Некорректный id профиля"})
                 return
-            if not (getattr(self, "write_auth_context", None) and self.write_auth_context.is_moderator):
-                self._send_json(403, {"error": "Недостаточно прав: требуется модератор"})
+            if not self._require_permission(Permission.FEED_MODERATE):
                 return
             actor = str(payload.get("actor", getattr(self, "write_auth_context", None).subject if getattr(self, "write_auth_context", None) else "anonymous")).strip() or "anonymous"
             reason = str(payload.get("reason", "")).strip() or None
@@ -1031,6 +1053,8 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
                 return
 
             if is_verification_approve_action or is_verification_reject_action:
+                if not self._require_permission(Permission.DOCUMENT_REVIEW):
+                    return
                 action = "approve" if is_verification_approve_action else "reject"
                 actor = str(
                     payload.get(
@@ -1375,6 +1399,8 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             self._send_internal_error()
 
     def _handle_driver_go_online(self) -> None:
+        if not self._require_permission(Permission.DRIVER_GO_ONLINE):
+            return
         payload, error, status = self._parse_feed_request_payload()
         if error:
             self._send_json(status, error)
@@ -1410,6 +1436,8 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             self._send_internal_error()
 
     def _handle_driver_accept_order(self) -> None:
+        if not self._require_permission(Permission.DRIVER_ACCEPT_ORDER):
+            return
         payload, error, status = self._parse_feed_request_payload()
         if error:
             self._send_json(status, error)
