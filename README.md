@@ -245,9 +245,10 @@ migrations/                   # SQL-миграции (001_init.sql, 002_...sql, 
 
 ## Спецификация профиля водителя такси (ИП, УСН «Доходы»)
 
-Для frontend-проработки добавлены материалы по wireframe и компонентной схеме:
+Для frontend-проработки добавлены материалы по wireframe, компонентной схеме и сценарию входа водителя:
 
 - `docs/driver_profile_wireframe_spec.md` — текстовая спецификация layout, состояний, событий и адаптива.
+- `docs/driver_onboarding_flow.md` — пошаговый сценарий входа и онбординга водителя: первый вход, выбор роли, профиль, документы, верификация и блокеры выхода на линию.
 - `docs/schemas/driver-profile/driver_profile_screen.schema.json` — JSON-схема экрана для проектирования компонентной архитектуры.
 - `docs/schemas/driver-profile/driver_profile.types.ts` — TypeScript-интерфейсы и union-типы для типизации payload экрана.
 
