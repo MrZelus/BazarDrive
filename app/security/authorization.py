@@ -1,25 +1,26 @@
 from __future__ import annotations
 
 from .roles import UserRole
-from .permissions import Permission, role_has_permission
+from .permissions import Permission, ROLE_PERMISSIONS
 from .exceptions import PermissionDenied
 
 
 class AuthorizationService:
-    @staticmethod
-    def has_role(role: UserRole | None, allowed: set[UserRole]) -> bool:
-        return role in allowed
+    def has_role(self, role: UserRole, allowed_roles: set[UserRole]) -> bool:
+        return role in allowed_roles
 
-    @staticmethod
-    def has_permission(role: UserRole | None, permission: Permission) -> bool:
-        return role_has_permission(role, permission)
+    def has_permission(self, role: UserRole, permission: Permission) -> bool:
+        if role == UserRole.ADMIN:
+            return True
+        return permission in ROLE_PERMISSIONS.get(role, set())
 
-    @staticmethod
-    def require_permission(role: UserRole | None, permission: Permission) -> None:
-        if not role_has_permission(role, permission):
-            raise PermissionDenied(permission.value)
+    def require_role(self, role: UserRole, allowed_roles: set[UserRole]) -> None:
+        if not self.has_role(role, allowed_roles):
+            raise PermissionDenied(f"role_required: {allowed_roles}")
 
+    def require_permission(self, role: UserRole, permission: Permission) -> None:
+        if not self.has_permission(role, permission):
+            raise PermissionDenied(permission)
 
-# Singleton-like helper
 
 authz = AuthorizationService()

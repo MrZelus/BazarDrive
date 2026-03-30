@@ -12,14 +12,21 @@ class UserRole(str, Enum):
 
 
 def normalize_role(value: str | None) -> UserRole | None:
-    raw = str(value or "").strip().lower()
-    if not raw:
+    normalized = str(value or "").strip().lower()
+    if not normalized:
         return None
     try:
-        return UserRole(raw)
+        return UserRole(normalized)
     except ValueError:
         return None
 
 
-def is_privileged(role: UserRole | None) -> bool:
-    return role in {UserRole.MODERATOR, UserRole.ADMIN}
+def resolve_domain_role(transport_role: str | None) -> UserRole:
+    normalized = str(transport_role or "").strip().lower()
+    if normalized == "moderator":
+        return UserRole.MODERATOR
+    if normalized == "admin":
+        return UserRole.ADMIN
+    if normalized == "author":
+        return UserRole.DRIVER
+    return UserRole.GUEST
