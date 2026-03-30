@@ -252,6 +252,23 @@ migrations/                   # SQL-миграции (001_init.sql, 002_...sql, 
 - `docs/schemas/driver-profile/driver_profile_screen.schema.json` — JSON-схема экрана для проектирования компонентной архитектуры.
 - `docs/schemas/driver-profile/driver_profile.types.ts` — TypeScript-интерфейсы и union-типы для типизации payload экрана.
 
+### Driver UX docs
+
+Для driver UX в репозитории выделен отдельный набор документов:
+
+- `docs/driver_master_ux_map.md` — единая master-карта UX водителя.
+- `docs/driver_order_flow.md` — сценарий заказа глазами водителя.
+- `docs/driver_shift_flow.md` — жизненный цикл смены водителя.
+- `docs/driver_menu_map.md` — карта меню Telegram / Web.
+- `docs/driver_figjam_links.md` — индекс актуальных FigJam-ссылок.
+
+Рекомендуемый порядок чтения:
+1. `docs/driver_master_ux_map.md`
+2. `docs/driver_onboarding_flow.md`
+3. `docs/driver_order_flow.md`
+4. `docs/driver_shift_flow.md`
+5. `docs/driver_menu_map.md`
+
 
 ## Тесты
 
