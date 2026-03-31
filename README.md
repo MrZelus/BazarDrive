@@ -261,6 +261,7 @@ migrations/                   # SQL-миграции (001_init.sql, 002_...sql, 
 - `docs/driver_shift_flow.md` — жизненный цикл смены водителя.
 - `docs/driver_menu_map.md` — карта меню Telegram / Web.
 - `docs/driver_figjam_links.md` — индекс актуальных FigJam-ссылок.
+- `docs/driver_ui_assets_index.md` — единый индекс экранных карт, wireframes, mobile low-fi и UI copy assets.
 
 Рекомендуемый порядок чтения:
 1. `docs/driver_master_ux_map.md`
@@ -268,6 +269,7 @@ migrations/                   # SQL-миграции (001_init.sql, 002_...sql, 
 3. `docs/driver_order_flow.md`
 4. `docs/driver_shift_flow.md`
 5. `docs/driver_menu_map.md`
+6. `docs/driver_ui_assets_index.md`
 
 
 ## Тесты
