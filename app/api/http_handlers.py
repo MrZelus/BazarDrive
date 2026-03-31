@@ -11,6 +11,17 @@ from typing import Callable
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
+from app.api.driver_http_adapters import (
+    adapt_accept_order_result,
+    adapt_go_online_result,
+    adapt_missing_order_id_error,
+    adapt_order_transition_result,
+    adapt_shift_close_invalid,
+    adapt_shift_close_success,
+    adapt_shift_open_conflict,
+    adapt_shift_open_success,
+    adapt_waybill_validation_error,
+)
 from app.config import get_api_settings
 from app.db import repository
 from app.logging_setup import configure_logging
@@ -1409,28 +1420,18 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
         try:
             profile_id = payload.get("profile_id", "driver-main")
             result = DriverOperationService.go_online(profile_id)
-            if not result.get("ok"):
-                self._send_json(
-                    403,
-                    {
-                        "ok": False,
-                        "code": result.get("code", "DRIVER_NOT_ALLOWED"),
-                        "reason": result.get("reason", "Нет допуска к выходу на линию"),
-                        "actions": result.get("actions", []),
-                    },
-                )
-                return
-            self._send_json(200, result)
+            http_status, response_payload = adapt_go_online_result(result)
+            self._send_json(http_status, response_payload)
         except DriverNotAllowedError as e:
-            self._send_json(
-                403,
+            http_status, response_payload = adapt_go_online_result(
                 {
                     "ok": False,
                     "code": e.code,
                     "reason": e.reason,
                     "actions": e.actions,
-                },
+                }
             )
+            self._send_json(http_status, response_payload)
         except Exception:
             logger.exception("go-online failed")
             self._send_internal_error()
@@ -1447,31 +1448,24 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             profile_id = payload.get("profile_id", "driver-main")
             order_id = payload.get("order_id")
             if not order_id:
-                self._send_json(400, {"error": "order_id required"})
+                http_status, response_payload = adapt_missing_order_id_error()
+                self._send_json(http_status, response_payload)
                 return
+
             result = DriverOperationService.accept_order(order_id, profile_id)
-            if not result.get("ok"):
-                self._send_json(
-                    403,
-                    {
-                        "ok": False,
-                        "code": result.get("code", "DRIVER_NOT_ALLOWED"),
-                        "reason": result.get("reason", "Нельзя принимать заказы"),
-                        "actions": result.get("actions", []),
-                    },
-                )
-                return
-            self._send_json(200, result)
+            http_status, response_payload = adapt_accept_order_result(result, order_id=order_id)
+            self._send_json(http_status, response_payload)
         except DriverNotAllowedError as e:
-            self._send_json(
-                403,
+            http_status, response_payload = adapt_accept_order_result(
                 {
                     "ok": False,
                     "code": e.code,
                     "reason": e.reason,
                     "actions": e.actions,
                 },
+                order_id=order_id,
             )
+            self._send_json(http_status, response_payload)
         except Exception:
             logger.exception("accept order failed")
             self._send_internal_error()
@@ -1497,15 +1491,23 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             profile_id = str(payload.get("profile_id", "driver-main")).strip() or "driver-main"
             order_id = payload.get("order_id")
             if not order_id:
-                self._send_json(400, {"error": "order_id required"})
+                http_status, response_payload = adapt_missing_order_id_error()
+                self._send_json(http_status, response_payload)
                 return
+
             if status == "assigned":
                 result = DriverOperationService.assign_order(order_id, profile_id, payload)
             elif status == "completed":
                 result = DriverOperationService.complete_order(order_id, profile_id, payload)
             else:
                 result = DriverOperationService.cancel_order(order_id, profile_id, payload)
-            self._send_json(200, result)
+
+            http_status, response_payload = adapt_order_transition_result(
+                result,
+                order_id=order_id,
+                fallback_status=status,
+            )
+            self._send_json(http_status, response_payload)
         except Exception:
             logger.exception("order transition failed")
             self._send_internal_error()
@@ -1558,9 +1560,11 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
                 profile_id=profile_id,
                 vehicle_condition=vehicle_condition,
             )
-            self._send_json(200, {"waybill_id": waybill_id})
+            http_status, response_payload = adapt_shift_open_success(waybill_id)
+            self._send_json(http_status, response_payload)
         except ValueError as error:
-            self._send_json(409, {"error": str(error)})
+            http_status, response_payload = adapt_shift_open_conflict(str(error))
+            self._send_json(http_status, response_payload)
         except Exception:
             logger.exception("shift open failed")
             self._send_internal_error()
@@ -1578,15 +1582,18 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             profile_id = str(payload.get("profile_id", "driver-main")).strip() or "driver-main"
             closure_cleaned, closure_errors = FeedService.validate_waybill_close_payload(payload)
             if closure_errors:
-                self._send_json(400, {"error": "validation_error", "fields": closure_errors})
+                http_status, response_payload = adapt_waybill_validation_error(closure_errors)
+                self._send_json(http_status, response_payload)
                 return
             waybill_id = WaybillService.close_shift(
                 profile_id=profile_id,
                 data=closure_cleaned,
             )
-            self._send_json(200, {"waybill_id": waybill_id})
+            http_status, response_payload = adapt_shift_close_success(waybill_id)
+            self._send_json(http_status, response_payload)
         except ValueError as error:
-            self._send_json(404, {"error": str(error)})
+            http_status, response_payload = adapt_shift_close_invalid(str(error))
+            self._send_json(http_status, response_payload)
         except Exception:
             logger.exception("shift close failed")
             self._send_internal_error()
