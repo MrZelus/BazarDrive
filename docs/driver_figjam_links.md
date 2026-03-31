@@ -15,6 +15,7 @@
 
 ## Как использовать
 
+- `docs/driver_ui_assets_index.md` использовать как единый индекс всех screen maps, wireframes, mobile low-fi и UI copy артефактов.
 - `docs/driver_master_ux_map.md` использовать как верхнеуровневую карту.
 - `docs/driver_order_flow.md` использовать как source of truth по сценарию заказа глазами водителя.
 - `docs/driver_shift_flow.md` использовать как source of truth по жизненному циклу смены.
