@@ -170,7 +170,7 @@ http://<LAN-IP-ВАШЕГО-ПК>:8000/public/guest_feed.html
 - legacy-алиасы для обратной совместимости: `feed_api.py`, `bot.py`, `db.py`;
 - пока сохраняем `public/guest_feed.html` и `public/web/**` в текущем месте, чтобы локальный запуск оставался прежним;
 - тесты читают фронтенд-файлы по путям из корня (например, `tests/test_driver_tab_content_regression.py`, `tests/test_guest_feed_theme_contrast_guardrails.py`), поэтому перенос делать только отдельным PR с массовым обновлением тестов;
-- скрипт доказательной съёмки `scripts/capture_guest_feed_evidence.py` также ожидает путь `/public/guest_feed.html`, поэтому перенос фронтенда в рамках «быстрой чистки» запрещён;
+- скрипт доказательной съёмки `scripts/capture_guest_feed_evidence.py` также ожидает путь `/public/guest_feed.html`, поэтому перенос фронтенда в рамках «быстрой чистки" запрещён;
 - применённые SQL-миграции не переименовываем: `schema_migrations.version` хранит имя файла миграции.
 
 ### Этап 0: безопасные границы «быстрой чистки»
