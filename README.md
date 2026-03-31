@@ -170,7 +170,7 @@ http://<LAN-IP-ВАШЕГО-ПК>:8000/public/guest_feed.html
 - legacy-алиасы для обратной совместимости: `feed_api.py`, `bot.py`, `db.py`;
 - пока сохраняем `public/guest_feed.html` и `public/web/**` в текущем месте, чтобы локальный запуск оставался прежним;
 - тесты читают фронтенд-файлы по путям из корня (например, `tests/test_driver_tab_content_regression.py`, `tests/test_guest_feed_theme_contrast_guardrails.py`), поэтому перенос делать только отдельным PR с массовым обновлением тестов;
-- скрипт доказательной съёмки `scripts/capture_guest_feed_evidence.py` также ожидает путь `/public/guest_feed.html`, поэтому перенос фронтенда в рамках «быстрой чистки» запрещён;
+- скрипт доказательной съёмки `scripts/capture_guest_feed_evidence.py` также ожидает путь `/public/guest_feed.html`, поэтому перенос фронтенда в рамках «быстрой чистки" запрещён;
 - применённые SQL-миграции не переименовываем: `schema_migrations.version` хранит имя файла миграции.
 
 ### Этап 0: безопасные границы «быстрой чистки»
@@ -180,7 +180,7 @@ http://<LAN-IP-ВАШЕГО-ПК>:8000/public/guest_feed.html
 - legacy-алиасы для обратной совместимости: `feed_api.py`, `bot.py`, `db.py`;
 - пока сохраняем `guest_feed.html` в корне и `web/**` в текущем месте, чтобы локальный запуск оставался прежним;
 - тесты читают фронтенд-файлы по путям из корня (например, `tests/test_driver_tab_content_regression.py`, `tests/test_guest_feed_theme_contrast_guardrails.py`), поэтому перенос делать только отдельным PR с массовым обновлением тестов;
-- скрипт доказательной съёмки `scripts/capture_guest_feed_evidence.py` также ожидает путь `/guest_feed.html`, поэтому перенос фронтенда в рамках «быстрой чистки» запрещён;
+- скрипт доказательной съёмки `scripts/capture_guest_feed_evidence.py` также ожидает путь `/guest_feed.html`, поэтому перенос фронтенда в рамках «быстрой чистки" запрещён;
 - применённые SQL-миграции не переименовываем: `schema_migrations.version` хранит имя файла миграции.
 
 ### Как добавить в ваш репозиторий (шаги)
@@ -262,6 +262,7 @@ migrations/                   # SQL-миграции (001_init.sql, 002_...sql, 
 - `docs/driver_menu_map.md` — карта меню Telegram / Web.
 - `docs/driver_figjam_links.md` — индекс актуальных FigJam-ссылок.
 - `docs/driver_ui_assets_index.md` — единый индекс экранных карт, wireframes, mobile low-fi и UI copy assets.
+- `docs/driver_profile_components_board.md` — board ключевых driver-компонентов: обязательные поля, документы, путевой лист, допуск, смена и активный заказ.
 
 Рекомендуемый порядок чтения:
 1. `docs/driver_master_ux_map.md`
@@ -270,6 +271,7 @@ migrations/                   # SQL-миграции (001_init.sql, 002_...sql, 
 4. `docs/driver_shift_flow.md`
 5. `docs/driver_menu_map.md`
 6. `docs/driver_ui_assets_index.md`
+7. `docs/driver_profile_components_board.md`
 
 
 ## Тесты
