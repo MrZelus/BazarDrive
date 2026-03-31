@@ -122,7 +122,22 @@
 
 ---
 
-## 5. Рекомендуемый порядок чтения
+## 5. Components board
+
+### 5.1. Driver Profile Components Board
+- Link:
+  - https://www.figma.com/online-whiteboard/create-diagram/e00b8008-7aa8-41ca-b47f-5f14e7efed05?utm_source=chatgpt&utm_content=edit_in_figjam&oai_id=v1%2Ft6MzRfJf6HllgdA2vRF9DPvCrECBiZdQDQUJNqWEbsPiu8mB4z1LHy&request_id=0e5ed398-97a0-460f-b55a-7fb1b7f0fab6
+- Что покрывает:
+  - обязательные поля;
+  - документы;
+  - путевой лист;
+  - допуск к выходу на линию;
+  - активный заказ;
+  - смену.
+
+---
+
+## 6. Рекомендуемый порядок чтения
 
 1. Общая схема сценариев водителя
 2. Master UX map водителя
@@ -132,16 +147,17 @@
 6. Driver Screens Wireframe Set
 7. Driver Mobile Low-Fi Wireframes
 8. Driver Screen Copy and CTA Map
+9. Driver Profile Components Board
 
 ---
 
-## 6. Как использовать в проекте
+## 7. Как использовать в проекте
 
 ### Product / UX
-Использовать как карту согласования пользовательских сценариев и структуры экранов.
+Использовать как карту согласования пользовательских сценариев, структуры экранов и состава компонентов.
 
 ### Frontend
-Использовать для сборки экранов, состояний, CTA и навигации.
+Использовать для сборки экранов, состояний, CTA, компонентных связей и навигации.
 
 ### Telegram bot
 Использовать для синхронизации экранной логики с короткими бот-сценариями и статусами.
@@ -154,7 +170,7 @@
 
 ---
 
-## 7. Связанные документы
+## 8. Связанные документы
 
 - `docs/driver_figjam_links.md`
 - `docs/driver_master_ux_map.md`
@@ -163,11 +179,12 @@
 - `docs/driver_shift_flow.md`
 - `docs/driver_menu_map.md`
 - `docs/driver_profile_wireframe_spec.md`
+- `docs/driver_profile_components_board.md`
 - `docs/issues/driver-ux-docs-epic.md`
 
 ---
 
-## 8. Что стоит добавить следующим шагом
+## 9. Что стоит добавить следующим шагом
 
 - `docs/driver_ui_kit.md`
 - `docs/driver_notifications_matrix.md`
@@ -176,6 +193,6 @@
 
 ---
 
-## 9. Примечание
+## 10. Примечание
 
 Текущие ссылки ведут на FigJam-артефакты, созданные через ChatGPT/Figma integration. После переноса в постоянное рабочее пространство Figma рекомендуется обновить ссылки на стабильные workspace URLs.
