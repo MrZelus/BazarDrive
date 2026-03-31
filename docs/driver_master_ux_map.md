@@ -134,6 +134,7 @@
 
 ## 8. Связанные детальные документы
 
+- `docs/driver_ui_assets_index.md`
 - `docs/driver_onboarding_flow.md`
 - `docs/driver_order_flow.md`
 - `docs/driver_shift_flow.md`
