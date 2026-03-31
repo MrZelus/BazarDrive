@@ -180,7 +180,7 @@ http://<LAN-IP-ВАШЕГО-ПК>:8000/public/guest_feed.html
 - legacy-алиасы для обратной совместимости: `feed_api.py`, `bot.py`, `db.py`;
 - пока сохраняем `guest_feed.html` в корне и `web/**` в текущем месте, чтобы локальный запуск оставался прежним;
 - тесты читают фронтенд-файлы по путям из корня (например, `tests/test_driver_tab_content_regression.py`, `tests/test_guest_feed_theme_contrast_guardrails.py`), поэтому перенос делать только отдельным PR с массовым обновлением тестов;
-- скрипт доказательной съёмки `scripts/capture_guest_feed_evidence.py` также ожидает путь `/guest_feed.html`, поэтому перенос фронтенда в рамках «быстрой чистки» запрещён;
+- скрипт доказательной съёмки `scripts/capture_guest_feed_evidence.py` также ожидает путь `/guest_feed.html`, поэтому перенос фронтенда в рамках «быстрой чистки" запрещён;
 - применённые SQL-миграции не переименовываем: `schema_migrations.version` хранит имя файла миграции.
 
 ### Как добавить в ваш репозиторий (шаги)
@@ -245,11 +245,35 @@ migrations/                   # SQL-миграции (001_init.sql, 002_...sql, 
 
 ## Спецификация профиля водителя такси (ИП, УСН «Доходы»)
 
-Для frontend-проработки добавлены материалы по wireframe и компонентной схеме:
+Для frontend-проработки добавлены материалы по wireframe, компонентной схеме и сценарию входа водителя:
 
 - `docs/driver_profile_wireframe_spec.md` — текстовая спецификация layout, состояний, событий и адаптива.
+- `docs/driver_onboarding_flow.md` — пошаговый сценарий входа и онбординга водителя: первый вход, выбор роли, профиль, документы, верификация и блокеры выхода на линию.
 - `docs/schemas/driver-profile/driver_profile_screen.schema.json` — JSON-схема экрана для проектирования компонентной архитектуры.
 - `docs/schemas/driver-profile/driver_profile.types.ts` — TypeScript-интерфейсы и union-типы для типизации payload экрана.
+
+### Driver UX docs
+
+Для driver UX в репозитории выделен отдельный набор документов:
+
+- `docs/driver_master_ux_map.md` — единая master-карта UX водителя.
+- `docs/driver_order_flow.md` — сценарий заказа глазами водителя.
+- `docs/driver_shift_flow.md` — жизненный цикл смены водителя.
+- `docs/driver_menu_map.md` — карта меню Telegram / Web.
+- `docs/driver_figjam_links.md` — индекс актуальных FigJam-ссылок.
+- `docs/driver_ui_assets_index.md` — единый индекс экранных карт, wireframes, mobile low-fi и UI copy assets.
+- `docs/driver_profile_components_board.md` — board ключевых driver-компонентов: обязательные поля, документы, путевой лист, допуск, смена и активный заказ.
+- `docs/driver_ui_kit.md` — compact skeleton UI-kit для driver domain: tokens, buttons, chips, banners, cards, domain components и responsive rules.
+
+Рекомендуемый порядок чтения:
+1. `docs/driver_master_ux_map.md`
+2. `docs/driver_onboarding_flow.md`
+3. `docs/driver_order_flow.md`
+4. `docs/driver_shift_flow.md`
+5. `docs/driver_menu_map.md`
+6. `docs/driver_ui_assets_index.md`
+7. `docs/driver_profile_components_board.md`
+8. `docs/driver_ui_kit.md`
 
 
 ## Тесты
