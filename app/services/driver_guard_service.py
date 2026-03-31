@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from app.models.driver_error_codes import DriverErrorCode
 from app.services.driver_compliance_service import DriverComplianceService
 from app.services.exceptions import DriverOfflineBlockedError, DriverOrderBlockedError
 from app.services.waybill_service import WaybillService
@@ -11,7 +12,7 @@ class DriverCapabilities:
     can_accept_orders: bool
     can_complete_orders: bool
     reason: str | None = None
-    code: str = "DRIVER_NOT_ALLOWED"
+    code: str = DriverErrorCode.DRIVER_NOT_ELIGIBLE.value
     actions: list[str] | None = None
 
 
@@ -20,14 +21,16 @@ class DriverGuardService:
     def _resolve_block_payload(compliance) -> tuple[str, list[str]]:
         status = str(getattr(compliance, "status", "") or "").strip()
         if status == "profile_incomplete":
-            return "PROFILE_INCOMPLETE", ["Заполнить профиль"]
+            return DriverErrorCode.DRIVER_NOT_ELIGIBLE.value, ["Заполнить профиль"]
         if status == "docs_under_review":
-            return "DOCS_UNDER_REVIEW", ["Дождаться проверки документов"]
+            return DriverErrorCode.DRIVER_NOT_ELIGIBLE.value, ["Дождаться проверки документов"]
         if status == "expired_documents":
-            return "DOC_EXPIRED", ["Обновить документы"]
+            return DriverErrorCode.REQUIRED_DOCUMENT_MISSING.value, ["Обновить документы"]
         if status == "waybill_required":
-            return "WAYBILL_REQUIRED", ["Открыть смену"]
-        return "DRIVER_NOT_ALLOWED", []
+            return DriverErrorCode.TRIP_SHEET_REQUIRED.value, ["Открыть смену"]
+        if status == "blocked":
+            return DriverErrorCode.PROFILE_BLOCKED.value, ["Обратиться в поддержку"]
+        return DriverErrorCode.DRIVER_NOT_ELIGIBLE.value, []
 
     @staticmethod
     def get_capabilities(profile_id: str) -> DriverCapabilities:
@@ -40,7 +43,7 @@ class DriverGuardService:
                 can_accept_orders=False,
                 can_complete_orders=False,
                 reason="Нет открытого путевого листа",
-                code="WAYBILL_REQUIRED",
+                code=DriverErrorCode.TRIP_SHEET_REQUIRED.value,
                 actions=["Открыть смену"],
             )
 
