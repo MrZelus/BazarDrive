@@ -1,7 +1,10 @@
 from datetime import datetime, timezone
 
 from app.db import repository
+from app.models.driver_enums import OrderStatus, ShiftStatus
+from app.models.driver_events import DriverEvent
 from app.services.driver_guard_service import DriverGuardService
+from app.services.driver_notifications_service import DriverNotificationsService
 from app.services.exceptions import DriverOfflineBlockedError, DriverOrderBlockedError
 
 
@@ -49,6 +52,15 @@ class DriverOperationService:
         return {
             "ok": True,
             "status": "online",
+            "shift_status": ShiftStatus.ONLINE.value,
+            "event_name": DriverEvent.SHIFT_ONLINE.value,
+            "notification_plan": DriverNotificationsService.build_notification_plan(
+                event_name=DriverEvent.SHIFT_ONLINE,
+                recipient_id=driver_profile_id,
+                entity_id=driver_profile_id,
+                state_version=ShiftStatus.ONLINE.value,
+                payload={"profile_id": driver_profile_id},
+            ).__dict__,
         }
 
     @staticmethod
@@ -72,6 +84,15 @@ class DriverOperationService:
             "ok": True,
             "order_id": order_id,
             "status": "accepted",
+            "order_status": OrderStatus.ACCEPTED.value,
+            "event_name": DriverEvent.ORDER_ACCEPTED.value,
+            "notification_plan": DriverNotificationsService.build_notification_plan(
+                event_name=DriverEvent.ORDER_ACCEPTED,
+                recipient_id=driver_profile_id,
+                entity_id=str(order_id),
+                state_version=OrderStatus.ACCEPTED.value,
+                payload={"profile_id": driver_profile_id, "order_id": order_id},
+            ).__dict__,
         }
 
     @staticmethod
@@ -82,7 +103,12 @@ class DriverOperationService:
             status="assigned",
             details=details,
         )
-        return {"ok": True, "order_id": order_id, "status": "assigned"}
+        return {
+            "ok": True,
+            "order_id": order_id,
+            "status": "assigned",
+            "event_name": DriverEvent.ORDER_STATUS_CHANGED.value,
+        }
 
     @staticmethod
     def complete_order(order_id: object, driver_profile_id: str, details: dict[str, object] | None = None) -> dict[str, object]:
@@ -92,7 +118,20 @@ class DriverOperationService:
             status="completed",
             details=details,
         )
-        return {"ok": True, "order_id": order_id, "status": "completed"}
+        return {
+            "ok": True,
+            "order_id": order_id,
+            "status": "completed",
+            "order_status": OrderStatus.DONE.value,
+            "event_name": DriverEvent.ORDER_DONE.value,
+            "notification_plan": DriverNotificationsService.build_notification_plan(
+                event_name=DriverEvent.ORDER_DONE,
+                recipient_id=driver_profile_id,
+                entity_id=str(order_id),
+                state_version=OrderStatus.DONE.value,
+                payload={"profile_id": driver_profile_id, "order_id": order_id},
+            ).__dict__,
+        }
 
     @staticmethod
     def cancel_order(order_id: object, driver_profile_id: str, details: dict[str, object] | None = None) -> dict[str, object]:
@@ -102,4 +141,17 @@ class DriverOperationService:
             status="canceled",
             details=details,
         )
-        return {"ok": True, "order_id": order_id, "status": "canceled"}
+        return {
+            "ok": True,
+            "order_id": order_id,
+            "status": "canceled",
+            "order_status": OrderStatus.CANCELED.value,
+            "event_name": DriverEvent.ORDER_CANCELED_AFTER_ACCEPT.value,
+            "notification_plan": DriverNotificationsService.build_notification_plan(
+                event_name=DriverEvent.ORDER_CANCELED_AFTER_ACCEPT,
+                recipient_id=driver_profile_id,
+                entity_id=str(order_id),
+                state_version=OrderStatus.CANCELED.value,
+                payload={"profile_id": driver_profile_id, "order_id": order_id},
+            ).__dict__,
+        }
