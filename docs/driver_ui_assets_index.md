@@ -137,7 +137,25 @@
 
 ---
 
-## 6. Рекомендуемый порядок чтения
+## 6. UI kit
+
+### 6.1. Driver UI Kit
+- Doc:
+  - `docs/driver_ui_kit.md`
+- Что покрывает:
+  - design principles;
+  - tokens;
+  - buttons;
+  - status chips;
+  - alerts / blockers;
+  - cards;
+  - sticky actions;
+  - domain components;
+  - responsive rules.
+
+---
+
+## 7. Рекомендуемый порядок чтения
 
 1. Общая схема сценариев водителя
 2. Master UX map водителя
@@ -148,10 +166,11 @@
 7. Driver Mobile Low-Fi Wireframes
 8. Driver Screen Copy and CTA Map
 9. Driver Profile Components Board
+10. Driver UI Kit
 
 ---
 
-## 7. Как использовать в проекте
+## 8. Как использовать в проекте
 
 ### Product / UX
 Использовать как карту согласования пользовательских сценариев, структуры экранов и состава компонентов.
@@ -170,7 +189,7 @@
 
 ---
 
-## 8. Связанные документы
+## 9. Связанные документы
 
 - `docs/driver_figjam_links.md`
 - `docs/driver_master_ux_map.md`
@@ -180,19 +199,19 @@
 - `docs/driver_menu_map.md`
 - `docs/driver_profile_wireframe_spec.md`
 - `docs/driver_profile_components_board.md`
+- `docs/driver_ui_kit.md`
 - `docs/issues/driver-ux-docs-epic.md`
 
 ---
 
-## 9. Что стоит добавить следующим шагом
+## 10. Что стоит добавить следующим шагом
 
-- `docs/driver_ui_kit.md`
 - `docs/driver_notifications_matrix.md`
 - `docs/driver_permissions_matrix.md`
 - `docs/driver_status_contract.md`
 
 ---
 
-## 10. Примечание
+## 11. Примечание
 
 Текущие ссылки ведут на FigJam-артефакты, созданные через ChatGPT/Figma integration. После переноса в постоянное рабочее пространство Figma рекомендуется обновить ссылки на стабильные workspace URLs.
