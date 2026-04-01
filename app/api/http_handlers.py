@@ -1474,7 +1474,7 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
         self._handle_driver_order_transition("assigned")
 
     def _handle_driver_complete_order(self) -> None:
-        self._handle_driver_order_transition("completed")
+        self._handle_driver_order_transition("done")
 
     def _handle_driver_cancel_order(self) -> None:
         self._handle_driver_order_transition("canceled")
@@ -1497,7 +1497,7 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
 
             if status == "assigned":
                 result = DriverOperationService.assign_order(order_id, profile_id, payload)
-            elif status == "completed":
+            elif status == "done":
                 result = DriverOperationService.complete_order(order_id, profile_id, payload)
             else:
                 result = DriverOperationService.cancel_order(order_id, profile_id, payload)

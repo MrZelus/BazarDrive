@@ -809,7 +809,7 @@ class FeedAPIValidationTests(unittest.TestCase):
             },
         )
         self.assertEqual(complete_status, 200)
-        self.assertEqual(complete_payload.get("status"), "completed")
+        self.assertEqual(complete_payload.get("status"), "done")
 
         cancel_status, cancel_payload, _ = self._post(
             "/api/driver/cancel-order",
@@ -826,14 +826,14 @@ class FeedAPIValidationTests(unittest.TestCase):
         journal_status, journal_payload, _ = self._get("/api/driver/order-journal?profile_id=driver-main")
         self.assertEqual(journal_status, 200)
         statuses = {item.get("order_status") for item in journal_payload.get("items", [])}
-        self.assertTrue({"assigned", "accepted", "completed", "canceled"}.issubset(statuses))
+        self.assertTrue({"assigned", "accepted", "done", "canceled"}.issubset(statuses))
 
         filtered_status, filtered_payload, _ = self._get(
-            "/api/driver/order-journal?profile_id=driver-main&status=completed&date_from=2020-01-01&date_to=2030-01-01"
+            "/api/driver/order-journal?profile_id=driver-main&status=done&date_from=2020-01-01&date_to=2030-01-01"
         )
         self.assertEqual(filtered_status, 200)
         self.assertGreaterEqual(filtered_payload.get("total", 0), 1)
-        self.assertTrue(all(item.get("order_status") == "completed" for item in filtered_payload.get("items", [])))
+        self.assertTrue(all(item.get("order_status") == "done" for item in filtered_payload.get("items", [])))
 
     def test_driver_summary_returns_red_when_waybill_is_missing(self) -> None:
         status, payload, _ = self._get("/api/driver/summary?profile_id=driver-main")
