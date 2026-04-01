@@ -9,7 +9,7 @@ from app.services.exceptions import DriverOfflineBlockedError, DriverOrderBlocke
 
 
 class DriverOperationService:
-    ORDER_STATUSES = {"assigned", "accepted", "done", "canceled"}
+    ORDER_STATUSES = {"accepted", "done", "canceled"}
 
     @staticmethod
     def _record_order_status_transition(
