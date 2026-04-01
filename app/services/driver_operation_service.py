@@ -9,7 +9,7 @@ from app.services.exceptions import DriverOfflineBlockedError, DriverOrderBlocke
 
 
 class DriverOperationService:
-    ORDER_STATUSES = {"assigned", "accepted", "completed", "canceled"}
+    ORDER_STATUSES = {"assigned", "accepted", "done", "canceled"}
 
     @staticmethod
     def _record_order_status_transition(
@@ -32,7 +32,7 @@ class DriverOperationService:
         payload.setdefault("dropoff_address", str(payload.get("dropoff_address", "Не указано")))
         if status == "accepted":
             payload.setdefault("accepted_at", now_iso)
-        if status == "completed":
+        if status == "done":
             payload.setdefault("completed_at", now_iso)
             payload.setdefault("ride_completed_at_actual", now_iso)
         repository.create_order_journal_record(payload)
@@ -115,13 +115,13 @@ class DriverOperationService:
         DriverOperationService._record_order_status_transition(
             order_id=order_id,
             driver_profile_id=driver_profile_id,
-            status="completed",
+            status="done",
             details=details,
         )
         return {
             "ok": True,
             "order_id": order_id,
-            "status": "completed",
+            "status": "done",
             "order_status": OrderStatus.DONE.value,
             "event_name": DriverEvent.ORDER_DONE.value,
             "notification_plan": DriverNotificationsService.build_notification_plan(
