@@ -100,13 +100,13 @@ class DriverOperationService:
         DriverOperationService._record_order_status_transition(
             order_id=order_id,
             driver_profile_id=driver_profile_id,
-            status="assigned",
+            status="accepted",
             details=details,
         )
         return {
             "ok": True,
             "order_id": order_id,
-            "status": "assigned",
+            "status": "accepted",
             "event_name": DriverEvent.ORDER_STATUS_CHANGED.value,
         }
 

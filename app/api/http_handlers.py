@@ -1471,7 +1471,7 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
             self._send_internal_error()
 
     def _handle_driver_assign_order(self) -> None:
-        self._handle_driver_order_transition("assigned")
+        self._handle_driver_order_transition("accepted")
 
     def _handle_driver_complete_order(self) -> None:
         self._handle_driver_order_transition("done")
@@ -1495,7 +1495,7 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
                 self._send_json(http_status, response_payload)
                 return
 
-            if status == "assigned":
+            if status == "accepted":
                 result = DriverOperationService.assign_order(order_id, profile_id, payload)
             elif status == "done":
                 result = DriverOperationService.complete_order(order_id, profile_id, payload)
