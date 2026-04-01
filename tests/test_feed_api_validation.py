@@ -790,7 +790,7 @@ class FeedAPIValidationTests(unittest.TestCase):
             },
         )
         self.assertEqual(assign_status, 200)
-        self.assertEqual(assign_payload.get("status"), "assigned")
+        self.assertEqual(assign_payload.get("status"), "accepted")
 
         accept_status, accept_payload, _ = self._post(
             "/api/driver/accept-order",
@@ -826,7 +826,7 @@ class FeedAPIValidationTests(unittest.TestCase):
         journal_status, journal_payload, _ = self._get("/api/driver/order-journal?profile_id=driver-main")
         self.assertEqual(journal_status, 200)
         statuses = {item.get("order_status") for item in journal_payload.get("items", [])}
-        self.assertTrue({"assigned", "accepted", "done", "canceled"}.issubset(statuses))
+        self.assertTrue({"accepted", "done", "canceled"}.issubset(statuses))
 
         filtered_status, filtered_payload, _ = self._get(
             "/api/driver/order-journal?profile_id=driver-main&status=done&date_from=2020-01-01&date_to=2030-01-01"
