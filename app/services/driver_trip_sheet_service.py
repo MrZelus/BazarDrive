@@ -26,14 +26,17 @@ class DriverTripSheetService:
         active_waybill = repository.get_active_waybill(driver_profile_id)
         documents = repository.list_driver_documents(driver_profile_id)
 
-        has_waybill = active_waybill is not None or any(
-            doc.get("type") == "waybill" for doc in documents
-        )
+        current_waybill = active_waybill
+        if current_waybill is None:
+            waybill_docs = [doc for doc in documents if doc.get("type") == "waybill"]
+            current_waybill = max(
+                waybill_docs,
+                key=lambda doc: doc.get("created_at") or "",
+                default=None,
+            )
 
-        is_closed = any(
-            doc.get("type") == "waybill" and doc.get("status") == "closed"
-            for doc in documents
-        )
+        has_waybill = current_waybill is not None
+        is_closed = has_waybill and current_waybill.get("status") == "closed"
 
         # TODO:
         # replace this with a real backend signal when the project
