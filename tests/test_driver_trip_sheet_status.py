@@ -40,51 +40,77 @@ class DriverTripSheetServiceTest(unittest.TestCase):
 
     @patch("app.services.driver_trip_sheet_service.repository.list_driver_documents")
     @patch("app.services.driver_trip_sheet_service.repository.get_active_waybill")
-    def test_get_trip_sheet_status_prioritizes_active_waybill_over_closed_history(
-        self,
-        mock_get_active_waybill,
-        mock_list_driver_documents,
-    ):
+    def test_active_open_waybill_wins_over_historical_closed(self, mock_get_active_waybill, mock_list_driver_documents):
         mock_get_active_waybill.return_value = {
+            "id": 20,
             "type": "waybill",
             "status": "open",
-            "created_at": "2026-04-02T10:00:00Z",
+            "created_at": "2026-04-02 10:00:00",
         }
         mock_list_driver_documents.return_value = [
             {
+                "id": 10,
                 "type": "waybill",
                 "status": "closed",
-                "created_at": "2026-04-01T10:00:00Z",
-            }
+                "created_at": "2026-04-01 18:00:00",
+            },
+            {
+                "id": 20,
+                "type": "waybill",
+                "status": "open",
+                "created_at": "2026-04-02 10:00:00",
+            },
         ]
 
-        status = DriverTripSheetService.get_trip_sheet_status("driver-1")
-
+        status = DriverTripSheetService.get_trip_sheet_status("driver-main")
         self.assertEqual(status, TripSheetStatus.OPEN)
 
     @patch("app.services.driver_trip_sheet_service.repository.list_driver_documents")
     @patch("app.services.driver_trip_sheet_service.repository.get_active_waybill")
-    def test_get_trip_sheet_status_closed_when_latest_waybill_closed_and_no_active(
-        self,
-        mock_get_active_waybill,
-        mock_list_driver_documents,
-    ):
+    def test_last_waybill_closed_when_no_active_waybill(self, mock_get_active_waybill, mock_list_driver_documents):
         mock_get_active_waybill.return_value = None
         mock_list_driver_documents.return_value = [
             {
-                "type": "waybill",
-                "status": "open",
-                "created_at": "2026-03-30T09:00:00Z",
-            },
-            {
+                "id": 30,
                 "type": "waybill",
                 "status": "closed",
-                "created_at": "2026-04-01T09:00:00Z",
+                "created_at": "2026-04-02 20:00:00",
+            },
+            {
+                "id": 29,
+                "type": "waybill",
+                "status": "closed",
+                "created_at": "2026-04-01 18:00:00",
             },
         ]
 
-        status = DriverTripSheetService.get_trip_sheet_status("driver-1")
+        status = DriverTripSheetService.get_trip_sheet_status("driver-main")
+        self.assertEqual(status, TripSheetStatus.CLOSED)
 
+    @patch("app.services.driver_trip_sheet_service.repository.list_driver_documents")
+    @patch("app.services.driver_trip_sheet_service.repository.get_active_waybill")
+    def test_fallback_uses_repository_ordering_not_raw_created_at_string_max(self, mock_get_active_waybill, mock_list_driver_documents):
+        mock_get_active_waybill.return_value = None
+
+        # Repository is expected to return docs already ordered by real datetime DESC.
+        # Even if created_at strings mix formats, service should trust repository ordering
+        # and take the first waybill, not run max(..., key=created_at_string).
+        mock_list_driver_documents.return_value = [
+            {
+                "id": 41,
+                "type": "waybill",
+                "status": "closed",
+                "created_at": "2026-04-02 10:00:00",
+            },
+            {
+                "id": 40,
+                "type": "waybill",
+                "status": "open",
+                "created_at": "2026-04-02T09:00:00",
+            },
+        ]
+
+        status = DriverTripSheetService.get_trip_sheet_status("driver-main")
         self.assertEqual(status, TripSheetStatus.CLOSED)
 
 
