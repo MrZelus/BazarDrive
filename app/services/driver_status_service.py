@@ -10,6 +10,7 @@ from app.models.driver_enums import (
 )
 from app.models.driver_error_codes import DriverErrorCode
 from app.services.driver_contracts import EligibilitySnapshot, TransitionResult
+from app.services.driver_trip_sheet_service import DriverTripSheetService
 
 
 class DriverStatusService:
@@ -148,17 +149,27 @@ class DriverStatusService:
             DriverErrorCode.INVALID_ORDER_TRANSITION,
         )
 
+    @staticmethod
+    def is_trip_sheet_ready(trip_sheet_status: TripSheetStatus) -> bool:
+        return trip_sheet_status == TripSheetStatus.OPEN
+
+    @staticmethod
+    def get_driver_trip_sheet_status(driver_profile_id: str) -> TripSheetStatus:
+        return DriverTripSheetService.get_trip_sheet_status(driver_profile_id)
+
     @classmethod
     def compute_eligibility(
         cls,
         profile_status: ProfileStatus,
         has_valid_vehicle: bool,
         has_required_documents: bool,
-        trip_sheet_ok: bool,
+        trip_sheet_status: TripSheetStatus,
         hard_blockers: list[str] | None = None,
     ) -> EligibilitySnapshot:
         blockers = list(hard_blockers or [])
         missing_items: list[str] = []
+
+        trip_sheet_ok = cls.is_trip_sheet_ready(trip_sheet_status)
 
         if profile_status != ProfileStatus.APPROVED:
             missing_items.append("profile_not_approved")
