@@ -1,8 +1,14 @@
 from __future__ import annotations
 
-from app.models.driver_enums import EligibilityStatus, OrderStatus, ProfileStatus
+from app.models.driver_enums import (
+    EligibilityStatus,
+    OrderStatus,
+    ProfileStatus,
+    TripSheetStatus,
+)
 from app.models.driver_error_codes import DriverErrorCode
 from app.services.driver_contracts import PermissionCheckResult
+from app.services.driver_status_service import DriverStatusService
 
 
 class DriverPermissionsService:
@@ -17,6 +23,14 @@ class DriverPermissionsService:
             error_code=error_code.value,
             reason=reason,
         )
+
+    @staticmethod
+    def get_driver_trip_sheet_status(driver_profile_id: str) -> TripSheetStatus:
+        return DriverStatusService.get_driver_trip_sheet_status(driver_profile_id)
+
+    @staticmethod
+    def is_trip_sheet_ready(trip_sheet_status: TripSheetStatus) -> bool:
+        return DriverStatusService.is_trip_sheet_ready(trip_sheet_status)
 
     @classmethod
     def can_edit_profile(
