@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import asdict, is_dataclass
 from typing import Any
 
 from app.api.driver_http_contract import (
@@ -9,6 +10,18 @@ from app.api.driver_http_contract import (
     driver_shift_success_payload,
     driver_validation_error_payload,
 )
+
+
+def _serialize_notification_plan(plan: Any) -> dict[str, Any] | None:
+    if plan is None:
+        return None
+    if is_dataclass(plan):
+        return asdict(plan)
+    if isinstance(plan, dict):
+        return plan
+    if hasattr(plan, "__dict__"):
+        return dict(plan.__dict__)
+    return None
 
 
 def adapt_go_online_result(result: dict[str, Any]) -> tuple[int, dict[str, Any]]:
@@ -23,7 +36,7 @@ def adapt_go_online_result(result: dict[str, Any]) -> tuple[int, dict[str, Any]]
         status=str(result.get("status", "online")),
         shift_status=str(result.get("shift_status", result.get("status", "online"))),
         event_name=str(result.get("event_name", "shift_online")),
-        notification_plan=result.get("notification_plan"),
+        notification_plan=_serialize_notification_plan(result.get("notification_plan")),
     )
 
 
@@ -40,7 +53,7 @@ def adapt_accept_order_result(result: dict[str, Any], order_id: object) -> tuple
         status=str(result.get("status", "accepted")),
         order_status=str(result.get("order_status", result.get("status", "accepted"))),
         event_name=str(result.get("event_name", "order_accepted")),
-        notification_plan=result.get("notification_plan"),
+        notification_plan=_serialize_notification_plan(result.get("notification_plan")),
     )
 
 
@@ -50,7 +63,7 @@ def adapt_order_transition_result(result: dict[str, Any], order_id: object, fall
         status=str(result.get("status", fallback_status)),
         order_status=result.get("order_status"),
         event_name=result.get("event_name"),
-        notification_plan=result.get("notification_plan"),
+        notification_plan=_serialize_notification_plan(result.get("notification_plan")),
     )
 
 

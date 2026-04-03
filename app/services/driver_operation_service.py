@@ -60,7 +60,7 @@ class DriverOperationService:
                 entity_id=driver_profile_id,
                 state_version=ShiftStatus.ONLINE.value,
                 payload={"profile_id": driver_profile_id},
-            ).__dict__,
+            ),
         }
 
     @staticmethod
@@ -92,7 +92,7 @@ class DriverOperationService:
                 entity_id=str(order_id),
                 state_version=OrderStatus.ACCEPTED.value,
                 payload={"profile_id": driver_profile_id, "order_id": order_id},
-            ).__dict__,
+            ),
         }
 
     @staticmethod
@@ -130,7 +130,7 @@ class DriverOperationService:
                 entity_id=str(order_id),
                 state_version=OrderStatus.DONE.value,
                 payload={"profile_id": driver_profile_id, "order_id": order_id},
-            ).__dict__,
+            ),
         }
 
     @staticmethod
@@ -153,5 +153,5 @@ class DriverOperationService:
                 entity_id=str(order_id),
                 state_version=OrderStatus.CANCELED.value,
                 payload={"profile_id": driver_profile_id, "order_id": order_id},
-            ).__dict__,
+            ),
         }
