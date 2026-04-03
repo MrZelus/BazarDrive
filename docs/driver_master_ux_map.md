@@ -27,10 +27,17 @@
 ## 2. Источник дизайна и схем
 
 ### FigJam
-- Общая схема сценариев водителя: `PASTE_FIGJAM_LINK_HERE`
-- Отдельный сценарий заказа глазами водителя: `PASTE_FIGJAM_LINK_HERE`
-- Карта меню водителя Telegram / Web: `PASTE_FIGJAM_LINK_HERE`
-- Master UX map водителя: `PASTE_FIGJAM_LINK_HERE`
+- Общая схема сценариев водителя: `TBD_PRODUCT_LINK`
+- Отдельный сценарий заказа глазами водителя: `TBD_PRODUCT_LINK`
+- Карта меню водителя Telegram / Web: `TBD_PRODUCT_LINK`
+- Master UX map водителя: `TBD_PRODUCT_LINK`
+
+> Статус на 2026-04-03: ссылки ещё не внесены. До заполнения ссылок документ не считается завершённым по DoD.
+
+### Контроль актуальности ссылок
+- Owner: Product Designer
+- SLA обновления: в течение 2 рабочих дней после изменения сценария
+- Последняя актуализация: `YYYY-MM-DD`
 
 > После стабилизации схем рекомендуется хранить в документе постоянные ссылки на FigJam и дату последней актуализации.
 
@@ -114,6 +121,19 @@
 - просмотр истории;
 - выплаты и баланс.
 
+### 6.3. Capability matrix Telegram / Web
+| Действие | Telegram | Web | Source of truth |
+|---|---|---|---|
+| Просмотр текущего статуса readiness | Да | Да | API readiness endpoint |
+| Изменение профиля | Ограниченно (быстрые поля) | Да (полный набор) | Driver profile service |
+| Загрузка/замена документов | Нет (только переход/ссылка) | Да | Documents service |
+| Открытие/закрытие путевого листа | Нет (только статусы/CTA) | Да | Trip sheet service |
+| Выход на линию / уход офлайн | Да | Да | Shift service |
+| Принятие/ведение активного заказа | Да | Да | Order service |
+| История смен/заказов | Кратко | Да (полная детализация) | History read model |
+
+> Если функциональность недоступна в канале, показывается CTA с переходом в доступный канал.
+
 ---
 
 ## 7. Готовность водителя к работе
@@ -129,6 +149,23 @@
 - явно показать блокеры;
 - дать CTA на исправление;
 - не допускать ложного перехода в `онлайн`.
+
+### 7.1. Матрица readiness-блокеров
+| Условие | Тип | Блокирует `online` | Сообщение пользователю | CTA |
+|---|---|---|---|---|
+| Профиль `incomplete` | Hard blocker | Да | Заполните профиль водителя | Открыть профиль |
+| Профиль `pending_verification` | Hard blocker | Да | Профиль на проверке, выход на линию недоступен до подтверждения | Ожидать завершения проверки |
+| Профиль `blocked` | Hard blocker | Да | Аккаунт временно ограничен | Связаться с поддержкой |
+| Нет автомобиля | Hard blocker | Да | Добавьте автомобиль | Добавить авто |
+| Обязательный документ просрочен | Hard blocker | Да | Обновите документ | Загрузить документ |
+| Путевой лист обязателен, но не открыт | Hard blocker | Да | Откройте путевой лист | Открыть путевой лист |
+
+### 7.2. Приоритет отображения блокеров
+1. Юридические/комплаенс блокеры (`blocked`, просроченные обязательные документы).
+2. Операционные блокеры (нет авто, нет путевого листа при обязательности).
+3. UX предупреждения (второстепенные рекомендации, не влияющие на допуск).
+
+> Примечание согласованности: `pending_verification` трактуется как блокирующее состояние для допуска к `online` до перехода профиля в `approved`, в соответствии с `docs/driver_status_contract.md` (раздел 6.4).
 
 ---
 
@@ -161,6 +198,8 @@
 - `ending`
 - `closed`
 
+> Нотация `ready_to_go_online` в этом документе эквивалентна canonical статусу `ready` из `docs/driver_status_contract.md`.
+
 ### 9.3. Заказ
 - `created`
 - `accepted`
@@ -168,6 +207,38 @@
 - `ontrip`
 - `done`
 - `canceled`
+
+### 9.4. State transition matrix (верхний уровень)
+
+#### Profile
+| From | Event | To | Actor | Guard |
+|---|---|---|---|---|
+| `draft` | user_filled_minimum_fields | `incomplete` | Driver | Минимальные поля сохранены |
+| `incomplete` | user_submitted_for_verification | `pending_verification` | Driver | Обязательные поля валидны |
+| `pending_verification` | verification_passed | `approved` | System/Admin | Проверка успешна |
+| `pending_verification` | verification_failed | `rejected` | System/Admin | Найдены критичные ошибки |
+| `rejected` | user_fixed_profile_fields | `incomplete` | Driver | Внесены исправления после отклонения |
+| `*` | admin_blocked | `blocked` | Admin | Нарушение правил/комплаенс |
+
+#### Shift
+| From | Event | To | Actor | Guard |
+|---|---|---|---|---|
+| `offline` | readiness_ok | `ready_to_go_online` | System | Нет hard blockers |
+| `ready_to_go_online` | driver_go_online | `online` | Driver | Допуск подтверждён |
+| `online` | order_assigned_or_accepted | `busy` | System/Driver | Есть активный заказ |
+| `busy` | order_completed_or_canceled | `online` | System | Активный заказ закрыт |
+| `online` | driver_end_shift | `ending` | Driver | Нет активного заказа |
+| `ending` | shift_closed_successfully | `closed` | System | Выполнены требования закрытия |
+| `closed` | driver_start_new_shift | `ready_to_go_online` | Driver | Новая смена инициирована, readiness пройден |
+
+#### Order
+| From | Event | To | Actor | Guard |
+|---|---|---|---|---|
+| `created` | driver_accepted | `accepted` | Driver | Заказ доступен для принятия |
+| `accepted` | driver_mark_arriving | `arriving` | Driver | Водитель в пути к подаче |
+| `arriving` | trip_started | `ontrip` | Driver/System | Пассажир на борту |
+| `ontrip` | trip_finished | `done` | Driver/System | Поездка завершена |
+| `created/accepted/arriving/ontrip` | order_canceled | `canceled` | Driver/System/Rider | Разрешённая причина отмены |
 
 ---
 
@@ -181,6 +252,12 @@
 - сохранять черновики и введённые данные при ошибках сети;
 - быстро переводить пользователя в незавершённый обязательный шаг.
 
+### 10.1. SLA обновления статусов (целевые)
+- Обновление readiness после изменения данных: до 5 секунд.
+- Обновление статуса заказа (`accepted`/`arriving`/`ontrip`/`done`): до 2 секунд.
+- Переход `online` ↔ `offline`: до 2 секунд.
+- Отображение критичного блокера (например, истёк документ): до 10 секунд после детекции.
+
 ---
 
 ## 11. Edge cases верхнего уровня
@@ -192,6 +269,16 @@
 - Заказ был принят, затем отменён.
 - Запланированный заказ подтверждён заранее.
 - Водитель завершает смену с требованием закрыть путевой лист.
+
+### 11.1. Таблица ожидаемого поведения по edge cases
+| Edge case | Ожидаемое поведение системы | Пользовательский результат |
+|---|---|---|
+| Онбординг не завершён | Сохраняются черновики, показывается приоритетный CTA завершения | Возврат к следующему незавершённому шагу |
+| Profile approved, но нет путевого листа | Readiness рассчитывается с hard blocker | Онлайн недоступен до открытия листа |
+| Авто изменено после проверки | Сброс допуска для зависящих проверок | Повторная верификация перед выходом на линию |
+| Документ истёк между сменами | При входе в смену пересчёт readiness и блокер | Запрос на обновление документа |
+| Заказ принят и затем отменён | Заказ переводится в `canceled`, смена возвращается в `online` | Водитель снова доступен для заказов |
+| Требуется закрытие путевого листа при завершении | Не разрешать финальное закрытие смены без выполнения шага | Явный CTA закрытия путевого листа |
 
 ---
 
@@ -206,3 +293,15 @@
 - `docs/driver_permissions_matrix.md`;
 - `docs/driver_status_contract.md`;
 - `docs/driver_notifications_matrix.md`.
+
+---
+
+## 13. Definition of Done для master UX map
+
+Документ считается готовым к handoff, если:
+1. Заполнены все FigJam-ссылки и дата актуализации.
+2. Согласованы capability matrix Telegram/Web и readiness matrix.
+3. Согласованы state transitions для `profile`, `shift`, `order`.
+4. Для каждого edge case есть ожидаемое поведение.
+5. Product (владелец сценария) ознакомился с документом и подтвердил корректность бизнес-правил.
+6. UX, FE, BE и QA подтвердили документ в review.
