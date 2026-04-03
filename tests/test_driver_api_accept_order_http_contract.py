@@ -15,7 +15,6 @@ class _HandlerHarness:
         self.sent.append((status, payload, extra_headers))
 
 
-@unittest.skip("Enable after canonical driver HTTP adapter wiring is applied in app/api/http_handlers.py")
 class DriverAcceptOrderHttpContractTest(unittest.TestCase):
     def test_accept_order_missing_order_id_returns_canonical_error(self):
         harness = _HandlerHarness()
