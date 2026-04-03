@@ -15,7 +15,6 @@ class _HandlerHarness:
         self.sent.append((status, payload, extra_headers))
 
 
-@unittest.skip("Enable after canonical driver HTTP adapter wiring is applied in app/api/http_handlers.py")
 class DriverShiftHttpContractTest(unittest.TestCase):
     @patch("app.api.http_handlers.WaybillService.open_shift")
     def test_shift_open_success_returns_canonical_success_shape(self, open_shift):

@@ -15,7 +15,6 @@ class _HandlerHarness:
         self.sent.append((status, payload, extra_headers))
 
 
-@unittest.skip("Enable after canonical driver HTTP adapter wiring is applied in app/api/http_handlers.py")
 class DriverGoOnlineHttpContractTest(unittest.TestCase):
     @patch("app.api.http_handlers.DriverOperationService.go_online")
     def test_go_online_blocked_returns_canonical_error_shape(self, go_online):
