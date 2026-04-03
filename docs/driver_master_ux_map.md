@@ -27,10 +27,17 @@
 ## 2. Источник дизайна и схем
 
 ### FigJam
-- Общая схема сценариев водителя: `PASTE_FIGJAM_LINK_HERE`
-- Отдельный сценарий заказа глазами водителя: `PASTE_FIGJAM_LINK_HERE`
-- Карта меню водителя Telegram / Web: `PASTE_FIGJAM_LINK_HERE`
-- Master UX map водителя: `PASTE_FIGJAM_LINK_HERE`
+- Общая схема сценариев водителя: `TBD_PRODUCT_LINK`
+- Отдельный сценарий заказа глазами водителя: `TBD_PRODUCT_LINK`
+- Карта меню водителя Telegram / Web: `TBD_PRODUCT_LINK`
+- Master UX map водителя: `TBD_PRODUCT_LINK`
+
+> Статус на 2026-04-03: ссылки ещё не внесены. До заполнения ссылок документ не считается завершённым по DoD.
+
+### Контроль актуальности ссылок
+- Owner: Product Designer
+- SLA обновления: в течение 2 рабочих дней после изменения сценария
+- Последняя актуализация: `YYYY-MM-DD`
 
 ### Контроль актуальности ссылок
 - Owner: Product Designer
@@ -196,6 +203,8 @@
 - `ending`
 - `closed`
 
+> Нотация `ready_to_go_online` в этом документе эквивалентна canonical статусу `ready` из `docs/driver_status_contract.md`.
+
 ### 9.3. Заказ
 - `created`
 - `accepted`
@@ -213,7 +222,7 @@
 | `incomplete` | user_submitted_for_verification | `pending_verification` | Driver | Обязательные поля валидны |
 | `pending_verification` | verification_passed | `approved` | System/Admin | Проверка успешна |
 | `pending_verification` | verification_failed | `rejected` | System/Admin | Найдены критичные ошибки |
-| `rejected` | user_fixed_and_resubmitted | `pending_verification` | Driver | Ошибки исправлены |
+| `rejected` | user_fixed_profile_fields | `incomplete` | Driver | Внесены исправления после отклонения |
 | `*` | admin_blocked | `blocked` | Admin | Нарушение правил/комплаенс |
 
 #### Shift
@@ -225,7 +234,7 @@
 | `busy` | order_completed_or_canceled | `online` | System | Активный заказ закрыт |
 | `online` | driver_end_shift | `ending` | Driver | Нет активного заказа |
 | `ending` | shift_closed_successfully | `closed` | System | Выполнены требования закрытия |
-| `closed` | driver_start_new_shift | `offline` | Driver | Новая смена инициирована |
+| `closed` | driver_start_new_shift | `ready_to_go_online` | Driver | Новая смена инициирована, readiness пройден |
 
 #### Order
 | From | Event | To | Actor | Guard |
