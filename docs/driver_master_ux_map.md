@@ -299,4 +299,5 @@
 2. Согласованы capability matrix Telegram/Web и readiness matrix.
 3. Согласованы state transitions для `profile`, `shift`, `order`.
 4. Для каждого edge case есть ожидаемое поведение.
-5. Product, UX, FE, BE, QA подтвердили документ в review.
+5. Product (владелец сценария) ознакомился с документом и подтвердил корректность бизнес-правил.
+6. UX, FE, BE и QA подтвердили документ в review.
