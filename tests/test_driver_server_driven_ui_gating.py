@@ -55,9 +55,9 @@ class DriverServerDrivenUiGatingTest(unittest.TestCase):
         status, payload, _ = self._post("/api/driver/go-online", {"profile_id": profile_id})
         self.assertEqual(status, 403)
         self.assertFalse(payload.get("ok"))
-        self.assertEqual(payload.get("code"), "WAYBILL_REQUIRED")
-        self.assertEqual(payload.get("reason"), "Нет открытого путевого листа")
-        self.assertEqual(payload.get("actions"), ["Открыть смену"])
+        self.assertEqual(payload.get("error", {}).get("code"), "trip_sheet_required")
+        self.assertEqual(payload.get("error", {}).get("reason"), "Нет открытого путевого листа")
+        self.assertEqual(payload.get("error", {}).get("actions"), ["Открыть смену"])
 
     def test_order_done_is_terminal_in_journal_surface(self) -> None:
         self._seed_driver_ready_profile("driver-main")
