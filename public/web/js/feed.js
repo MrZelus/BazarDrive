@@ -432,6 +432,31 @@
     const roleButtons = document.querySelectorAll('.role-btn');
     const roleDriver = document.getElementById('role-driver');
     const roleCommon = document.getElementById('role-common');
+    const driverProfileHeaderCard = document.getElementById('driverProfileHeaderCard');
+    const driverQuickStatusCards = document.getElementById('driverQuickStatusCards');
+    const driverProfileAvatar = document.getElementById('driverProfileAvatar');
+    const driverProfileHeaderFullName = document.getElementById('driverProfileHeaderFullName');
+    const driverProfileHeaderMeta = document.getElementById('driverProfileHeaderMeta');
+    const driverProfileHeaderStatusChip = document.getElementById('driverProfileHeaderStatusChip');
+    const driverQuickDocumentsValue = document.getElementById('driverQuickDocumentsValue');
+    const driverQuickDocumentsChip = document.getElementById('driverQuickDocumentsChip');
+    const driverQuickTaxiLicenseValue = document.getElementById('driverQuickTaxiLicenseValue');
+    const driverQuickTaxiLicenseChip = document.getElementById('driverQuickTaxiLicenseChip');
+    const driverQuickPayoutsValue = document.getElementById('driverQuickPayoutsValue');
+    const driverQuickPayoutsChip = document.getElementById('driverQuickPayoutsChip');
+    const driverQuickOsagoValue = document.getElementById('driverQuickOsagoValue');
+    const driverQuickOsagoChip = document.getElementById('driverQuickOsagoChip');
+    const driverHeaderQuickState = {
+      profileState: 'loading',
+      complianceState: 'loading',
+      documentsState: 'loading',
+      profileData: {},
+      complianceData: {},
+      documents: [],
+      profileError: '',
+      complianceError: '',
+      documentsError: '',
+    };
     const driverComplianceFullName = document.getElementById('driverComplianceFullName');
     const driverComplianceMeta = document.getElementById('driverComplianceMeta');
     const driverComplianceStatusBadge = document.getElementById('driverComplianceStatusBadge');
@@ -689,6 +714,13 @@
       expired_documents: { tone: 'danger', label: 'Есть просроченные документы' },
       waybill_required: { tone: 'warning', label: 'Нужен путевой лист' },
       ready_for_orders: { tone: 'success', label: 'Допущен к заказам' },
+      active: { tone: 'success', label: 'Активен' },
+      pending: { tone: 'info', label: 'Ожидает' },
+      disabled: { tone: 'danger', label: 'Отключены' },
+      connected: { tone: 'success', label: 'Подключены' },
+      missing: { tone: 'warning', label: 'Нет данных' },
+      valid: { tone: 'success', label: 'Действует' },
+      expiring: { tone: 'warning', label: 'Истекает' },
     };
     const TONE_CLASS_MAP = {
       chip: {
@@ -1138,6 +1170,218 @@
       return labels[normalized] || 'Тип занятости не указан';
     }
 
+    function getTaxModeLabelByEmploymentType(value = '') {
+      const normalized = String(value || '').trim();
+      if (normalized === 'individual_entrepreneur') return 'УСН «Доходы»';
+      if (normalized === 'self_employed') return 'НПД';
+      if (normalized === 'individual_with_permit') return 'Физлицо с разрешением';
+      if (normalized === 'employee') return 'Через партнёра';
+      return 'Не указан';
+    }
+
+    function buildDriverFullName(profileData = {}) {
+      return [profileData.last_name, profileData.first_name, profileData.middle_name]
+        .filter(Boolean)
+        .join(' ')
+        .trim();
+    }
+
+    function renderQuickStatusCard(valueElement, chipElement, state = {}) {
+      if (valueElement) {
+        valueElement.textContent = String(state.value || 'Нет данных');
+      }
+      renderStatusChip(chipElement, state.status || 'missing', {
+        label: state.label || '',
+        fallbackStatus: state.fallbackStatus || 'checking',
+      });
+    }
+
+    function pickLatestDocumentByType(items = [], docType = '') {
+      const normalizedType = String(docType || '').trim();
+      const filtered = Array.isArray(items)
+        ? items.filter((item) => String(item?.type || '').trim() === normalizedType)
+        : [];
+      if (filtered.length === 0) return null;
+      return filtered
+        .slice()
+        .sort((a, b) => {
+          const left = new Date(a?.updated_at || a?.valid_until || 0).getTime();
+          const right = new Date(b?.updated_at || b?.valid_until || 0).getTime();
+          return right - left;
+        })[0];
+    }
+
+    function renderDriverHeaderAndQuickStatuses() {
+      if (!roleDriver || roleDriver.classList.contains('hidden')) return;
+      const profileData = normalizeDriverComplianceProfile(driverHeaderQuickState.profileData || {});
+      const fullName = buildDriverFullName(profileData);
+      const hasProfile = Boolean(fullName || profileData.phone || profileData.email);
+
+      let headerUiState = 'ready';
+      if (driverHeaderQuickState.profileState === 'loading' || driverHeaderQuickState.complianceState === 'loading') {
+        headerUiState = 'loading';
+      } else if (driverHeaderQuickState.profileState === 'error' || driverHeaderQuickState.complianceState === 'error') {
+        headerUiState = 'error';
+      } else if (!hasProfile) {
+        headerUiState = 'empty';
+      }
+
+      if (driverProfileHeaderFullName) {
+        driverProfileHeaderFullName.textContent = headerUiState === 'loading'
+          ? 'Загрузка профиля...'
+          : (fullName || 'Профиль водителя не заполнен');
+      }
+      if (driverProfileAvatar) {
+        const initials = fullName
+          ? fullName.split(/\s+/).slice(0, 2).map((part) => part.charAt(0).toUpperCase()).join('')
+          : '—';
+        driverProfileAvatar.textContent = headerUiState === 'loading' ? '…' : initials;
+      }
+      if (driverProfileHeaderMeta) {
+        const roleLabel = 'Водитель такси';
+        const businessTypeLabel = getDriverEmploymentTypeLabel(profileData.employment_type);
+        const taxLabel = getTaxModeLabelByEmploymentType(profileData.employment_type);
+        const errorLabel = [driverHeaderQuickState.profileError, driverHeaderQuickState.complianceError]
+          .map((value) => String(value || '').trim())
+          .filter(Boolean)
+          .join(' • ');
+        if (headerUiState === 'loading') {
+          driverProfileHeaderMeta.textContent = 'Загружаем профиль, роль и статусы...';
+        } else if (headerUiState === 'error') {
+          driverProfileHeaderMeta.textContent = errorLabel || 'Не удалось загрузить шапку профиля.';
+        } else {
+          driverProfileHeaderMeta.textContent = `Роль: ${roleLabel} • Форма деятельности: ${businessTypeLabel} • Налоговый режим: ${taxLabel}`;
+        }
+      }
+      if (driverProfileHeaderStatusChip) {
+        const accountStatus = String(driverHeaderQuickState.complianceData?.status || '').trim();
+        if (headerUiState === 'loading') {
+          renderStatusChip(driverProfileHeaderStatusChip, 'checking', { label: 'Статус: загрузка' });
+        } else if (headerUiState === 'error') {
+          renderStatusChip(driverProfileHeaderStatusChip, 'rejected', { label: 'Статус: ошибка' });
+        } else if (headerUiState === 'empty') {
+          renderStatusChip(driverProfileHeaderStatusChip, 'profile_incomplete', { label: 'Статус: пусто' });
+        } else {
+          renderStatusChip(driverProfileHeaderStatusChip, accountStatus || 'active', { prefix: 'Статус' });
+        }
+      }
+      if (driverProfileHeaderCard) {
+        driverProfileHeaderCard.setAttribute('aria-busy', String(headerUiState === 'loading'));
+      }
+
+      const docsState = driverHeaderQuickState.documentsState;
+      const documents = Array.isArray(driverHeaderQuickState.documents) ? driverHeaderQuickState.documents : [];
+      if (docsState === 'loading') {
+        renderQuickStatusCard(driverQuickDocumentsValue, driverQuickDocumentsChip, {
+          value: 'Загрузка...',
+          status: 'checking',
+          label: 'Загрузка',
+        });
+      } else if (docsState === 'error') {
+        renderQuickStatusCard(driverQuickDocumentsValue, driverQuickDocumentsChip, {
+          value: 'Не удалось получить список',
+          status: 'rejected',
+          label: 'Ошибка',
+        });
+      } else if (!documents.length) {
+        renderQuickStatusCard(driverQuickDocumentsValue, driverQuickDocumentsChip, {
+          value: 'Нет загруженных документов',
+          status: 'missing',
+          label: 'Пусто',
+        });
+      } else {
+        const approvedCount = documents.filter((item) => String(item?.status || '').trim() === 'approved').length;
+        const hasBlockingDocs = documents.some((item) => ['rejected', 'expired'].includes(String(item?.status || '').trim()));
+        renderQuickStatusCard(driverQuickDocumentsValue, driverQuickDocumentsChip, {
+          value: `${approvedCount}/${documents.length} подтверждены`,
+          status: hasBlockingDocs ? 'blocked' : (approvedCount === documents.length ? 'ready' : 'checking'),
+          label: hasBlockingDocs ? 'Проблема' : (approvedCount === documents.length ? 'Готово' : 'Проверка'),
+        });
+      }
+
+      const taxiLicense = pickLatestDocumentByType(documents, 'taxi_license');
+      if (docsState === 'loading') {
+        renderQuickStatusCard(driverQuickTaxiLicenseValue, driverQuickTaxiLicenseChip, {
+          value: 'Загрузка...',
+          status: 'checking',
+          label: 'Загрузка',
+        });
+      } else if (docsState === 'error') {
+        renderQuickStatusCard(driverQuickTaxiLicenseValue, driverQuickTaxiLicenseChip, {
+          value: 'Нет данных',
+          status: 'rejected',
+          label: 'Ошибка',
+        });
+      } else if (!taxiLicense) {
+        renderQuickStatusCard(driverQuickTaxiLicenseValue, driverQuickTaxiLicenseChip, {
+          value: 'Разрешение не добавлено',
+          status: 'missing',
+          label: 'Пусто',
+        });
+      } else {
+        renderQuickStatusCard(driverQuickTaxiLicenseValue, driverQuickTaxiLicenseChip, {
+          value: taxiLicense.valid_until ? `До ${formatDocumentDate(taxiLicense.valid_until)}` : 'Документ загружен',
+          status: String(taxiLicense.status || '').trim() || 'checking',
+          fallbackStatus: 'checking',
+        });
+      }
+
+      const complianceStatus = String(driverHeaderQuickState.complianceData?.eligibility_status || '').trim();
+      if (driverHeaderQuickState.complianceState === 'loading') {
+        renderQuickStatusCard(driverQuickPayoutsValue, driverQuickPayoutsChip, {
+          value: 'Загрузка...',
+          status: 'checking',
+          label: 'Загрузка',
+        });
+      } else if (driverHeaderQuickState.complianceState === 'error') {
+        renderQuickStatusCard(driverQuickPayoutsValue, driverQuickPayoutsChip, {
+          value: 'Нет данных по выплатам',
+          status: 'rejected',
+          label: 'Ошибка',
+        });
+      } else if (!complianceStatus) {
+        renderQuickStatusCard(driverQuickPayoutsValue, driverQuickPayoutsChip, {
+          value: 'Статус не определён',
+          status: 'pending',
+          label: 'Ожидает',
+        });
+      } else {
+        const payoutStatus = complianceStatus === 'eligible' ? 'connected' : 'pending';
+        const payoutLabel = complianceStatus === 'eligible' ? 'Подключены' : 'Ожидают проверки';
+        renderQuickStatusCard(driverQuickPayoutsValue, driverQuickPayoutsChip, {
+          value: payoutLabel,
+          status: payoutStatus,
+        });
+      }
+
+      const osago = pickLatestDocumentByType(documents, 'osago');
+      if (docsState === 'loading') {
+        renderQuickStatusCard(driverQuickOsagoValue, driverQuickOsagoChip, {
+          value: 'Загрузка...',
+          status: 'checking',
+          label: 'Загрузка',
+        });
+      } else if (docsState === 'error') {
+        renderQuickStatusCard(driverQuickOsagoValue, driverQuickOsagoChip, {
+          value: 'Нет данных',
+          status: 'rejected',
+          label: 'Ошибка',
+        });
+      } else if (!osago) {
+        renderQuickStatusCard(driverQuickOsagoValue, driverQuickOsagoChip, {
+          value: 'Полис не добавлен',
+          status: 'missing',
+          label: 'Пусто',
+        });
+      } else {
+        const validUntilLabel = osago.valid_until ? `До ${formatDocumentDate(osago.valid_until)}` : 'Срок не указан';
+        renderQuickStatusCard(driverQuickOsagoValue, driverQuickOsagoChip, {
+          value: validUntilLabel,
+          status: String(osago.status || '').trim() || 'checking',
+        });
+      }
+    }
+
     function isDriverRequiredFieldFilled(fieldName, profile) {
       if (!profile || typeof profile !== 'object') return false;
       if (['last_name', 'first_name', 'middle_name', 'phone', 'email', 'employment_type'].includes(fieldName)) {
@@ -1250,6 +1494,11 @@
 
     async function loadDriverComplianceOverview() {
       if (!roleDriver || roleDriver.classList.contains('hidden')) return;
+      driverHeaderQuickState.profileState = 'loading';
+      driverHeaderQuickState.complianceState = 'loading';
+      driverHeaderQuickState.profileError = '';
+      driverHeaderQuickState.complianceError = '';
+      renderDriverHeaderAndQuickStatuses();
       try {
         const [profileResponse, complianceResponse] = await Promise.all([
           fetch(`${FEED_API_BASE}/api/driver/compliance/profile?profile_id=driver-main`),
@@ -1268,14 +1517,24 @@
             compliancePayload.error || `Не удалось загрузить статус допуска (HTTP ${complianceResponse.status})`
           );
         }
-        renderDriverComplianceOverview(profilePayload.data || {}, compliancePayload.data || {});
+        driverHeaderQuickState.profileData = profilePayload.data || {};
+        driverHeaderQuickState.complianceData = compliancePayload.data || {};
+        driverHeaderQuickState.profileState = Object.keys(driverHeaderQuickState.profileData).length ? 'ready' : 'empty';
+        driverHeaderQuickState.complianceState = 'ready';
+        renderDriverComplianceOverview(driverHeaderQuickState.profileData, driverHeaderQuickState.complianceData);
+        renderDriverHeaderAndQuickStatuses();
       } catch (error) {
         console.error(error);
+        driverHeaderQuickState.profileState = 'error';
+        driverHeaderQuickState.complianceState = 'error';
+        driverHeaderQuickState.profileError = String(error.message || 'Не удалось загрузить профиль');
+        driverHeaderQuickState.complianceError = String(error.message || 'Не удалось загрузить статус допуска');
         renderDriverComplianceOverview({}, {
           ...DRIVER_COMPLIANCE_FALLBACK_STATUS,
           reason: String(error.message || 'Не удалось загрузить сведения о допуске'),
           missing_required_fields: [...DRIVER_COMPLIANCE_REQUIRED_FIELDS],
         });
+        renderDriverHeaderAndQuickStatuses();
       }
     }
 
@@ -1686,19 +1945,29 @@
 
     async function loadDriverDocuments() {
       setDriverDocumentsListState('loading');
+      driverHeaderQuickState.documentsState = 'loading';
+      driverHeaderQuickState.documentsError = '';
+      renderDriverHeaderAndQuickStatuses();
       try {
         const response = await fetch(`${FEED_API_BASE}/api/driver/documents?profile_id=driver-main`);
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) {
           throw new Error(payload.error || `Не удалось загрузить документы (HTTP ${response.status})`);
         }
+        driverHeaderQuickState.documents = Array.isArray(payload.items) ? payload.items : [];
+        driverHeaderQuickState.documentsState = driverHeaderQuickState.documents.length ? 'ready' : 'empty';
         renderDriverDocuments(payload.items || []);
+        renderDriverHeaderAndQuickStatuses();
       } catch (error) {
         console.error(error);
+        driverHeaderQuickState.documents = [];
+        driverHeaderQuickState.documentsState = 'error';
+        driverHeaderQuickState.documentsError = String(error.message || 'Не удалось загрузить список документов');
         renderDriverOverviewDocuments([]);
         const errorMessage = error.message || 'Не удалось загрузить список документов';
         setDocumentAlert(errorMessage);
         setDriverDocumentsListState('error', errorMessage);
+        renderDriverHeaderAndQuickStatuses();
       } finally {
         if (driverDocumentsList?.getAttribute('aria-busy') === 'true') {
           setDriverDocumentsListState('ready');
@@ -2858,6 +3127,12 @@
 	        roleDriver.classList.add('hidden');
 	        roleCommon.classList.remove('hidden');
 	      }
+      if (driverProfileHeaderCard) {
+        driverProfileHeaderCard.classList.toggle('hidden', role !== 'driver');
+      }
+      if (driverQuickStatusCards) {
+        driverQuickStatusCards.classList.toggle('hidden', role !== 'driver');
+      }
 	      localStorage.setItem(ROLE_STORAGE_KEY, role);
       if (driverDocumentsSection) {
         const showDriverDocuments = role === 'driver';
