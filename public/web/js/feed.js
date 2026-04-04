@@ -539,6 +539,98 @@
       commentValidation: 'Проверьте текст комментария и попробуйте снова.',
       reactionValidation: 'Некорректная реакция. Попробуйте обновить страницу.',
     };
+    const STATUS_THEME_MAP = {
+      approved: { tone: 'success', label: 'Подтверждён' },
+      checking: { tone: 'info', label: 'На проверке' },
+      rejected: { tone: 'danger', label: 'Отклонён' },
+      expired: { tone: 'danger', label: 'Истёк' },
+      expiring_soon: { tone: 'warning', label: 'Истекает скоро' },
+      ready: { tone: 'success', label: 'Готово' },
+      blocked: { tone: 'danger', label: 'Заблокировано' },
+      online: { tone: 'success', label: 'На линии' },
+      busy: { tone: 'info', label: 'Занят' },
+      offline: { tone: 'neutral', label: 'Офлайн' },
+      pending_verification: { tone: 'info', label: 'На проверке' },
+      uploaded: { tone: 'info', label: 'Загружен' },
+      open: { tone: 'info', label: 'Открыт' },
+      closed: { tone: 'neutral', label: 'Закрыт' },
+      verified: { tone: 'success', label: 'Подтверждён' },
+      unverified: { tone: 'neutral', label: 'Не начата' },
+      profile_incomplete: { tone: 'warning', label: 'Профиль не заполнен' },
+      restricted: { tone: 'danger', label: 'Доступ ограничен' },
+      docs_under_review: { tone: 'info', label: 'Документы на проверке' },
+      expired_documents: { tone: 'danger', label: 'Есть просроченные документы' },
+      waybill_required: { tone: 'warning', label: 'Нужен путевой лист' },
+      ready_for_orders: { tone: 'success', label: 'Допущен к заказам' },
+    };
+    const TONE_CLASS_MAP = {
+      chip: {
+        success: ['border-success/40', 'bg-success/10', 'text-success'],
+        warning: ['border-warning/40', 'bg-warning/10', 'text-warning'],
+        danger: ['border-danger/40', 'bg-danger/10', 'text-danger'],
+        info: ['border-accent/40', 'bg-accent/10', 'text-accent'],
+        neutral: ['border-textSoft/20', 'bg-panelSoft', 'text-textSoft'],
+      },
+      banner: {
+        success: ['border-success/40', 'bg-success/10', 'text-success'],
+        warning: ['border-warning/40', 'bg-warning/10', 'text-warning'],
+        danger: ['border-danger/40', 'bg-danger/10', 'text-danger'],
+        info: ['border-accent/40', 'bg-accent/10', 'text-accent'],
+        neutral: ['border-textSoft/20', 'bg-panelSoft', 'text-textSoft'],
+      },
+      progress: {
+        success: ['border-success/40', 'bg-success/10', 'text-success'],
+        warning: ['border-warning/40', 'bg-warning/10', 'text-warning'],
+        danger: ['border-danger/40', 'bg-danger/10', 'text-danger'],
+        info: ['border-accent/40', 'bg-accent/10', 'text-accent'],
+        neutral: ['border-textSoft/20', 'bg-panelSoft', 'text-textSoft'],
+      },
+    };
+    function resolveStatusTheme(status, fallbackStatus = 'checking') {
+      const normalizedStatus = String(status || '').trim().toLowerCase();
+      return STATUS_THEME_MAP[normalizedStatus] || STATUS_THEME_MAP[fallbackStatus] || STATUS_THEME_MAP.checking;
+    }
+
+    function renderToneClasses(element, variant, tone) {
+      if (!element) return;
+      const toneMap = TONE_CLASS_MAP[variant] || {};
+      const allClasses = Object.values(toneMap).flat();
+      if (allClasses.length > 0) {
+        element.classList.remove(...allClasses);
+      }
+      const nextClasses = toneMap[tone] || toneMap.neutral || [];
+      if (nextClasses.length > 0) {
+        element.classList.add(...nextClasses);
+      }
+    }
+
+    function renderStatusChip(element, status, options = {}) {
+      if (!element) return;
+      const theme = resolveStatusTheme(status, options.fallbackStatus || 'checking');
+      const label = String(options.label || theme.label || status || 'Неизвестно').trim();
+      const prefix = String(options.prefix || '').trim();
+      element.textContent = prefix ? `${prefix}: ${label}` : label;
+      renderToneClasses(element, 'chip', options.tone || theme.tone);
+    }
+
+    function renderBanner(element, message = '', options = {}) {
+      if (!element) return;
+      const normalizedMessage = String(message || '').trim();
+      const isVisible = Boolean(normalizedMessage);
+      element.textContent = normalizedMessage || '';
+      element.classList.toggle('hidden', !isVisible);
+      element.setAttribute('aria-hidden', String(!isVisible));
+      if (isVisible) {
+        const tone = options.tone || resolveStatusTheme(options.status || 'rejected', 'rejected').tone;
+        renderToneClasses(element, 'banner', tone);
+      }
+    }
+
+    function renderProgressBlock(element, options = {}) {
+      if (!element) return;
+      const tone = options.tone || resolveStatusTheme(options.status || 'offline', 'offline').tone;
+      renderToneClasses(element, 'progress', tone);
+    }
 
     function storePendingPostDraft(text = '') {
       const normalized = String(text || '').trim();
@@ -824,18 +916,9 @@
     }
 
     function mapDocumentStatus(status) {
-      const labels = {
-        uploaded: 'Загружен',
-        open: 'Открыт',
-        closed: 'Закрыт',
-        checking: 'На проверке',
-        pending_verification: 'На проверке',
-        approved: 'Подтверждён',
-        verified: 'Подтверждён',
-        rejected: 'Отклонён',
-        expired: 'Истёк',
-      };
-      return labels[String(status || '').trim()] || 'Неизвестно';
+      const normalizedStatus = String(status || '').trim().toLowerCase();
+      const theme = resolveStatusTheme(normalizedStatus, 'checking');
+      return theme.label || 'Неизвестно';
     }
 
     function formatWaybillMetaDateTime(value) {
@@ -953,32 +1036,10 @@
 
     function applyDriverComplianceStatusBadge(complianceData = {}) {
       if (!driverComplianceStatusBadge) return;
-      const labels = {
-        ready_for_orders: 'Допущен к заказам',
-        profile_incomplete: 'Профиль не заполнен',
-        restricted: 'Доступ ограничен',
-        docs_under_review: 'Документы на проверке',
-        expired_documents: 'Есть просроченные документы',
-        waybill_required: 'Нужен путевой лист',
-      };
       const status = String(complianceData.status || '').trim();
       const eligibilityStatus = String(complianceData.eligibility_status || '').trim();
-      const isSuccess = eligibilityStatus === 'eligible';
-      const badgeLabel = labels[status] || 'Проверяем данные';
-      driverComplianceStatusBadge.textContent = badgeLabel;
-      driverComplianceStatusBadge.classList.remove(
-        'border-success/40',
-        'bg-success/10',
-        'text-success',
-        'border-warning/40',
-        'bg-warning/10',
-        'text-warning',
-      );
-      if (isSuccess) {
-        driverComplianceStatusBadge.classList.add('border-success/40', 'bg-success/10', 'text-success');
-      } else {
-        driverComplianceStatusBadge.classList.add('border-warning/40', 'bg-warning/10', 'text-warning');
-      }
+      const statusKey = status || (eligibilityStatus === 'eligible' ? 'ready_for_orders' : 'profile_incomplete');
+      renderStatusChip(driverComplianceStatusBadge, statusKey, { fallbackStatus: 'checking' });
     }
 
     function renderDriverComplianceRequiredFields(profileData = {}, complianceData = {}) {
@@ -997,23 +1058,12 @@
           filledCount += 1;
         }
         const isMissing = !isFilled || profileMissing || missingSet.has(fieldName);
-        item.classList.remove(
-          'border-success/40',
-          'bg-success/10',
-          'text-success',
-          'border-warning/40',
-          'bg-warning/10',
-          'text-warning',
-          'border-textSoft/20',
-          'bg-panelSoft',
-          'text-textSoft',
-        );
         if (isFilled) {
-          item.classList.add('border-success/40', 'bg-success/10', 'text-success');
+          renderProgressBlock(item, { status: 'ready' });
         } else if (isMissing) {
-          item.classList.add('border-warning/40', 'bg-warning/10', 'text-warning');
+          renderProgressBlock(item, { status: 'expiring_soon' });
         } else {
-          item.classList.add('border-textSoft/20', 'bg-panelSoft', 'text-textSoft');
+          renderProgressBlock(item, { status: 'offline' });
         }
       });
 
@@ -1328,10 +1378,14 @@
         driverDocumentsEmptyState.setAttribute('aria-hidden', String(!isEmpty));
       }
       if (driverDocumentsErrorState) {
-        driverDocumentsErrorState.classList.toggle('hidden', !isError);
-        driverDocumentsErrorState.setAttribute('aria-hidden', String(!isError));
         if (isError) {
-          driverDocumentsErrorState.textContent = String(errorMessage || 'Не удалось загрузить список документов.');
+          renderBanner(
+            driverDocumentsErrorState,
+            String(errorMessage || 'Не удалось загрузить список документов.'),
+            { status: 'rejected' }
+          );
+        } else {
+          renderBanner(driverDocumentsErrorState, '');
         }
       }
       if (driverDocumentsList) {
@@ -1728,7 +1782,11 @@
       };
 
       if (profileVerificationBadge) {
-        profileVerificationBadge.textContent = `Верификация: ${verificationLabels[verificationState] || verificationState}`;
+        renderStatusChip(profileVerificationBadge, verificationState, {
+          prefix: 'Верификация',
+          label: verificationLabels[verificationState] || verificationState,
+          fallbackStatus: 'unverified',
+        });
       }
       if (profileTrustBadge) {
         const trustLabel = verificationState === 'verified' ? 'подтверждённый' : 'базовый';

@@ -56,8 +56,8 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
         self.assertIn('id="waybillStopsInfo"', html)
         self.assertIn('id="waybillCloseNotes"', html)
         self.assertIn('Закрыть путевой лист', html)
-        self.assertIn("open: 'Открыт'", script)
-        self.assertIn("closed: 'Закрыт'", script)
+        self.assertIn("open: { tone: 'info', label: 'Открыт' }", script)
+        self.assertIn("closed: { tone: 'neutral', label: 'Закрыт' }", script)
 
     def test_documents_list_covers_loading_empty_and_error_states(self) -> None:
         html = Path('public/guest_feed.html').read_text(encoding='utf-8')
@@ -130,7 +130,7 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
         )
         self.assertRegex(
             script,
-            re.compile(r"profileVerificationBadge\.textContent = `Верификация: \$\{verificationLabels\[verificationState\] \|\| verificationState\}`;"),
+            re.compile(r"renderStatusChip\(profileVerificationBadge, verificationState, \{"),
         )
         self.assertRegex(
             script,
