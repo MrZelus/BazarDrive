@@ -1587,6 +1587,14 @@
       waybillCloseAlert.classList.toggle('hidden', !normalized);
     }
 
+    function toUserFriendlyNetworkError(error, fallback = '', apiBase = FEED_API_BASE) {
+      const message = String(error?.message || '').trim();
+      if (message.includes('Failed to fetch') || message.includes('NetworkError')) {
+        return `Не удалось связаться с API. Проверьте подключение и адрес сервера: ${apiBase}`;
+      }
+      return message || String(fallback || '').trim();
+    }
+
     function setDocumentStatusForType(typeValue = '') {
       const normalizedType = String(typeValue || '').trim();
       if (documentValidUntilLabel) {
@@ -1749,7 +1757,7 @@
         showAppNotification('Путевой лист закрыт и сохранён в системе.', 'success');
       } catch (error) {
         console.error(error);
-        setWaybillCloseAlert(error.message || 'Не удалось закрыть путевой лист.');
+        setWaybillCloseAlert(toUserFriendlyNetworkError(error, 'Не удалось закрыть путевой лист.'));
       } finally {
         applyWaybillCloseLoadingState(false);
       }
@@ -1859,7 +1867,7 @@
             await refreshDriverProfileData();
           } catch (error) {
             console.error(error);
-            setDocumentAlert(error.message || 'Не удалось удалить документ');
+            setDocumentAlert(toUserFriendlyNetworkError(error, 'Не удалось удалить документ'));
             setButtonBusyState(deleteButton, false, '', 'Удалить');
           }
         });
@@ -1968,9 +1976,9 @@
         console.error(error);
         driverHeaderQuickState.documents = [];
         driverHeaderQuickState.documentsState = 'error';
-        driverHeaderQuickState.documentsError = String(error.message || 'Не удалось загрузить список документов');
+        const errorMessage = toUserFriendlyNetworkError(error, 'Не удалось загрузить список документов');
+        driverHeaderQuickState.documentsError = errorMessage;
         renderDriverOverviewDocuments([]);
-        const errorMessage = error.message || 'Не удалось загрузить список документов';
         setDocumentAlert(errorMessage);
         setDriverDocumentsListState('error', errorMessage);
         renderDriverHeaderAndQuickStatuses();
@@ -2106,7 +2114,7 @@
         await refreshDriverProfileData();
       } catch (error) {
         console.error(error);
-        setDocumentAlert(error.message || 'Не удалось добавить документ');
+        setDocumentAlert(toUserFriendlyNetworkError(error, 'Не удалось добавить документ'));
       } finally {
         applyDocumentLoadingState(false);
       }
