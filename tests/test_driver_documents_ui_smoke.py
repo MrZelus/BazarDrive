@@ -82,6 +82,8 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
         self.assertIn('id="profileTrustBadge"', html)
         self.assertIn('id="profileVerificationReason"', html)
         self.assertIn('id="profileVerificationResubmitBtn"', html)
+        self.assertIn('id="profileApiBaseIndicator"', html)
+        self.assertIn('Текущий API base:', html)
         self.assertIn('function resolveVerificationState(profile)', script)
         self.assertIn('function renderProfileTrustSignals(profile)', script)
         self.assertIn('async function submitProfileForResubmission()', script)
@@ -210,6 +212,37 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
                 r"verification_state: safeVerificationState \|\| '',",
             ),
         )
+
+    def test_feed_api_base_resolution_prefers_query_then_valid_storage_and_same_origin_fallback(self) -> None:
+        script = Path('public/web/js/feed.js').read_text(encoding='utf-8')
+        self.assertIn('function sanitizeStoredApiBase(rawValue)', script)
+        self.assertRegex(
+            script,
+            re.compile(
+                r"const apiBaseFromQuery = normalizeApiBase\(url\.searchParams\.get\('apiBase'\)\);[\s\S]+"
+                r"if \(apiBaseFromQuery\) \{[\s\S]+return apiBaseFromQuery;",
+                re.MULTILINE,
+            ),
+        )
+        self.assertRegex(
+            script,
+            re.compile(
+                r"const apiBaseFromStorage = sanitizeStoredApiBase\(localStorage\.getItem\(FEED_API_BASE_STORAGE_KEY\)\);[\s\S]+"
+                r"if \(apiBaseFromStorage\) \{\s*return apiBaseFromStorage;\s*\}",
+                re.MULTILINE,
+            ),
+        )
+        self.assertIn("const locationOrigin = normalizeApiBase(window.location.origin);", script)
+        self.assertIn("if (locationOrigin) return locationOrigin;", script)
+        self.assertIn("if (isLocalDevHost(window.location.hostname)) {", script)
+        self.assertIn("return 'http://localhost:8001';", script)
+        self.assertIn("const FEED_API_PREFIX = normalizeApiBase(FEED_API_BASE) === normalizeApiBase(window.location.origin) ? '' : FEED_API_BASE;", script)
+
+    def test_profile_diagnostic_block_shows_current_api_base_label(self) -> None:
+        script = Path('public/web/js/feed.js').read_text(encoding='utf-8')
+        self.assertIn("const profileApiBaseIndicator = document.getElementById('profileApiBaseIndicator');", script)
+        self.assertIn("profileApiBaseIndicator.textContent = `Текущий API base: ${FEED_API_BASE_LABEL}`;", script)
+        self.assertIn("const FEED_API_BASE_LABEL = FEED_API_PREFIX || `${normalizeApiBase(window.location.origin) || 'same-origin'} (/api/...)`;", script)
 
 
 if __name__ == '__main__':

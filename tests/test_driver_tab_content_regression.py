@@ -5,6 +5,7 @@ from pathlib import Path
 class DriverTabContentRegressionTests(unittest.TestCase):
     def setUp(self) -> None:
         self.html = Path("public/guest_feed.html").read_text(encoding="utf-8")
+        self.script = Path("public/web/js/feed.js").read_text(encoding="utf-8")
 
     def _driver_tab_block(self) -> str:
         start_token = 'id="role-driver"'
@@ -38,6 +39,11 @@ class DriverTabContentRegressionTests(unittest.TestCase):
         ]
         for token in forbidden_tokens:
             self.assertNotIn(token, block, f"Found forbidden finance token in driver tab: {token}")
+
+    def test_feed_script_has_same_origin_api_fallback_without_query_param(self) -> None:
+        self.assertIn("const locationOrigin = normalizeApiBase(window.location.origin);", self.script)
+        self.assertIn("if (locationOrigin) return locationOrigin;", self.script)
+        self.assertIn("const FEED_API_PREFIX = normalizeApiBase(FEED_API_BASE) === normalizeApiBase(window.location.origin) ? '' : FEED_API_BASE;", self.script)
 
 
 if __name__ == "__main__":
