@@ -26,10 +26,7 @@ from pathlib import Path
 
 DEFAULT_STATIC_PORT = 8000
 DEFAULT_API_PORT = 8001
-UI_CSP_ALLOWED_API_ORIGINS = {
-    ("localhost", 8001),
-    ("127.0.0.1", 8001),
-}
+DEFAULT_UI_CSP_CONNECT_SRC_DEV = "'self' http://localhost:8001 http://127.0.0.1:8001"
 
 
 @dataclass
@@ -129,15 +126,30 @@ def build_api_process_env(config: SmokeConfig) -> dict[str, str]:
     return env
 
 
+def _parse_connect_src_origins(raw_value: str) -> set[tuple[str, int]]:
+    origins: set[tuple[str, int]] = set()
+    for item in raw_value.split():
+        candidate = item.strip()
+        if not candidate.startswith("http://") and not candidate.startswith("https://"):
+            continue
+        parsed = urllib.parse.urlparse(candidate)
+        if not parsed.hostname or parsed.port is None:
+            continue
+        origins.add((parsed.hostname, parsed.port))
+    return origins
+
+
 def validate_api_base_against_ui_csp(config: SmokeConfig) -> None:
+    raw_connect_src = os.getenv("GUEST_FEED_CSP_CONNECT_SRC_DEV", DEFAULT_UI_CSP_CONNECT_SRC_DEV)
+    allowed_origins = _parse_connect_src_origins(raw_connect_src)
     key = (config.host, config.api_port)
-    if key in UI_CSP_ALLOWED_API_ORIGINS:
+    if key in allowed_origins:
         return
-    allowed = ", ".join(f"http://{host}:{port}" for host, port in sorted(UI_CSP_ALLOWED_API_ORIGINS))
+    allowed = ", ".join(f"http://{host}:{port}" for host, port in sorted(allowed_origins))
     raise SmokeError(
         "Configured apiBase is blocked by UI CSP connect-src. "
         f"Requested: http://{config.host}:{config.api_port}. "
-        f"Allowed by guest_feed.html CSP: {allowed}."
+        f"Allowed by GUEST_FEED_CSP_CONNECT_SRC_DEV: {allowed or '(none)'}."
     )
 
 
