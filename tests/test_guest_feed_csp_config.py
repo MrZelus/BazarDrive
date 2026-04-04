@@ -42,8 +42,7 @@ class GuestFeedCspConfigTests(unittest.TestCase):
         html = body.decode("utf-8")
 
         self.assertEqual(status, 200)
-        self.assertIn("connect-src 'self';", html)
-        self.assertNotIn("http://localhost:8001", html)
+        self.assertIn("connect-src 'self' http://localhost:8001 http://127.0.0.1:8001;", html)
 
     def test_guest_feed_csp_header_uses_dev_env_sources(self) -> None:
         os.environ["APP_ENV"] = "dev"

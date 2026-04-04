@@ -190,7 +190,7 @@ http://<LAN-IP-ВАШЕГО-ПК>:8000/public/guest_feed.html
 
 #### CSP для `guest_feed.html` (dev/prod)
 
-- В `public/guest_feed.html` оставлен базовый безопасный CSP через `<meta>` (без жёстко зашитых внешних API/media origin).
+- В `public/guest_feed.html` оставлен базовый безопасный CSP через `<meta>` с локальными dev-origin (`localhost/127.0.0.1:8001`) для сценария запуска через `python3 -m http.server`.
 - Для запуска через API-сервер (`run_api.py`) заголовок `Content-Security-Policy` для `/public/guest_feed.html` формируется из env:
   - `GUEST_FEED_CSP_CONNECT_SRC_DEV`, `GUEST_FEED_CSP_IMG_SRC_DEV`
   - `GUEST_FEED_CSP_CONNECT_SRC_PROD`, `GUEST_FEED_CSP_IMG_SRC_PROD`
