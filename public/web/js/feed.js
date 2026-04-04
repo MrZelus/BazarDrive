@@ -810,7 +810,10 @@
 
     function renderBanner(element, message = '', options = {}) {
       if (!element) return;
-      const normalizedMessage = String(message || '').trim();
+      const rawMessage = String(message || '').trim();
+      const normalizedMessage = rawMessage
+        ? normalizeApiErrorMessage(rawMessage, rawMessage)
+        : '';
       const isVisible = Boolean(normalizedMessage);
       element.textContent = normalizedMessage || '';
       element.classList.toggle('hidden', !isVisible);
@@ -848,7 +851,10 @@
 
     function showAppNotification(message = '', type = 'info') {
       if (!appNotification) return;
-      const normalizedMessage = String(message || '').trim();
+      const rawMessage = String(message || '').trim();
+      const normalizedMessage = rawMessage
+        ? normalizeApiErrorMessage(rawMessage, rawMessage)
+        : '';
       if (!normalizedMessage) {
         appNotification.textContent = '';
         appNotification.classList.add('hidden');
