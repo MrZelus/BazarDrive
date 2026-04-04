@@ -3,24 +3,18 @@ window.tailwind.config = {
   theme: {
     extend: {
       colors: {
-        // Base canvas for the app shell.
-        bg: '#C8D2DF',
-        // Primary cards and form surfaces.
-        panel: '#F1F5F9',
-        // Raised or highlighted neutral areas inside cards.
-        panelSoft: '#FFFFFF',
-        // Instagram-inspired blue, shifted darker for WCAG contrast on light bg.
-        accent: '#004BB5',
-        // Primary readable text.
-        text: '#0F172A',
-        // Secondary/supporting text.
-        textSoft: '#334155',
-        // Dividers and subtle control outlines.
-        border: '#94A3B8',
-        // Semantic status colors used by alerts and badges.
-        danger: '#ed4956',
-        success: '#059669',
-        warning: '#b45309'
+        // Color tokens are mapped to CSS variables so dark/light themes can
+        // switch without re-generating utility classes.
+        bg: 'rgb(var(--feed-bg-rgb) / <alpha-value>)',
+        panel: 'rgb(var(--feed-panel-rgb) / <alpha-value>)',
+        panelSoft: 'rgb(var(--feed-panel-soft-rgb) / <alpha-value>)',
+        accent: 'rgb(var(--feed-accent-rgb) / <alpha-value>)',
+        text: 'rgb(var(--feed-text-rgb) / <alpha-value>)',
+        textSoft: 'rgb(var(--feed-text-soft-rgb) / <alpha-value>)',
+        border: 'rgb(var(--feed-border-rgb) / <alpha-value>)',
+        danger: 'rgb(var(--feed-danger-rgb) / <alpha-value>)',
+        success: 'rgb(var(--feed-success-rgb) / <alpha-value>)',
+        warning: 'rgb(var(--feed-warning-rgb) / <alpha-value>)'
       },
       keyframes: {
         fadeInUp: {
