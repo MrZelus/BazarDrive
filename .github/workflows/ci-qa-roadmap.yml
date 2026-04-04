@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  qa-tests:
+  qa-critical-tests:
     runs-on: ubuntu-latest
 
     steps:
@@ -28,14 +28,56 @@ jobs:
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           pip install pytest
 
-      - name: Run QA-critical tests
+      - name: Run critical taxi/feed tests
         env:
           PYTHONPATH: ${{ github.workspace }}
         run: |
           pytest -q \
             tests/test_feed_api_validation.py \
+            tests/test_order_price.py \
+            tests/test_location_mapping.py \
+            tests/test_auth_flow.py \
+            tests/test_feed_to_taxi_flow.py \
+            tests/test_driver_operation_contract_integration.py
+
+  qa-ui-regressions:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install pytest
+
+      - name: Run UI/content security regressions
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          pytest -q \
             tests/test_driver_documents_contract_sync.py \
             tests/test_driver_documents_ui_smoke.py \
             tests/test_driver_status_theme_regression.py \
             tests/test_feed_xss_regression.py \
             tests/test_main_tabs_a11y.py
+
+  qa-nightly-load-readiness:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Load testing readiness note
+        run: |
+          echo "Nightly QA schedule triggered."
+          echo "Add k6/Locust scenarios here to cover peak traffic and recovery checks."
