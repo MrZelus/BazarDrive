@@ -2,6 +2,7 @@ import os
 import sqlite3
 import unicodedata
 from contextlib import closing
+from datetime import datetime, timedelta
 from typing import Any, Optional
 
 DB_PATH_ENV_VAR = "BAZAR_DB_PATH"
@@ -1774,6 +1775,55 @@ def get_active_waybill(profile_id: str, target_date: Optional[str] = None) -> Op
         )
         row = cur.fetchone()
         return dict(row) if row else None
+
+
+def get_driver_trip_sheet_status_signals(
+    profile_id: str,
+    closing_threshold_hours: int = 12,
+) -> dict[str, Any]:
+    with closing(sqlite3.connect(get_db_path())) as conn:
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT *
+            FROM driver_documents
+            WHERE profile_id = ?
+              AND type = 'waybill'
+            ORDER BY datetime(created_at) DESC, id DESC
+            LIMIT 1
+            """,
+            (profile_id,),
+        )
+        row = cur.fetchone()
+
+    if not row:
+        return {
+            "has_waybill": False,
+            "is_closed": False,
+            "requires_closing": False,
+            "waybill": None,
+        }
+
+    waybill = dict(row)
+    status = str(waybill.get("status") or "").strip().lower()
+    is_closed = status == "closed"
+
+    requires_closing = False
+    if status == "open":
+        created_at_raw = str(waybill.get("created_at") or "").strip()
+        try:
+            created_at = datetime.fromisoformat(created_at_raw.replace("Z", "+00:00"))
+            requires_closing = datetime.now(created_at.tzinfo) - created_at >= timedelta(hours=closing_threshold_hours)
+        except ValueError:
+            requires_closing = False
+
+    return {
+        "has_waybill": True,
+        "is_closed": is_closed,
+        "requires_closing": requires_closing,
+        "waybill": waybill,
+    }
 
 
 def update_driver_compliance_status(profile_id: str, status: str, reason: str) -> None:
