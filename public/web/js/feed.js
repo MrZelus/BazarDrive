@@ -239,6 +239,27 @@
       return String(url || '').trim().replace(/\/+$/, '');
     }
 
+    function sanitizeStoredApiBase(rawValue) {
+      const normalized = normalizeApiBase(rawValue);
+      if (!normalized) return '';
+      const lowered = normalized.toLowerCase();
+      if (lowered === 'undefined' || lowered === 'null') return '';
+      try {
+        const parsed = new URL(normalized);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+          return '';
+        }
+        return normalizeApiBase(parsed.toString());
+      } catch (_) {
+        return '';
+      }
+    }
+
+    function isLocalDevHost(hostname) {
+      const host = String(hostname || '').trim().toLowerCase();
+      return host === 'localhost' || host === '127.0.0.1';
+    }
+
     function resolveFeedApiBase() {
       const url = new URL(window.location.href);
       const apiBaseFromQuery = normalizeApiBase(url.searchParams.get('apiBase'));
@@ -247,19 +268,24 @@
         return apiBaseFromQuery;
       }
 
-      const apiBaseFromStorage = normalizeApiBase(localStorage.getItem(FEED_API_BASE_STORAGE_KEY));
+      const apiBaseFromStorage = sanitizeStoredApiBase(localStorage.getItem(FEED_API_BASE_STORAGE_KEY));
       if (apiBaseFromStorage) {
         return apiBaseFromStorage;
       }
 
-      if (window.location.port === '8001') {
-        return normalizeApiBase(window.location.origin);
+      const locationOrigin = normalizeApiBase(window.location.origin);
+      if (locationOrigin) return locationOrigin;
+
+      if (isLocalDevHost(window.location.hostname)) {
+        return 'http://localhost:8001';
       }
 
-      return normalizeApiBase(`${window.location.protocol}//${window.location.hostname || 'localhost'}:8001`);
+      return '';
     }
 
     const FEED_API_BASE = resolveFeedApiBase();
+    const FEED_API_PREFIX = normalizeApiBase(FEED_API_BASE) === normalizeApiBase(window.location.origin) ? '' : FEED_API_BASE;
+    const FEED_API_BASE_LABEL = FEED_API_PREFIX || `${normalizeApiBase(window.location.origin) || 'same-origin'} (/api/...)`;
 
     function normalizeFeedMediaUrl(rawUrl) {
       const value = String(rawUrl || '').trim();
@@ -269,7 +295,7 @@
         return value;
       }
       if (value.startsWith('/uploads/feed/')) {
-        return `${FEED_API_BASE}${value}`;
+        return `${FEED_API_PREFIX}${value}`;
       }
       return value;
     }
@@ -501,6 +527,7 @@
 	    const profileAboutInput = document.getElementById('profileAbout');
     const saveProfileBtn = document.getElementById('saveProfileBtn');
     const guestProfileStatus = document.getElementById('guestProfileStatus');
+    const profileApiBaseIndicator = document.getElementById('profileApiBaseIndicator');
     const profileVerificationBadge = document.getElementById('profileVerificationBadge');
     const profileTrustBadge = document.getElementById('profileTrustBadge');
     const profileVerificationReason = document.getElementById('profileVerificationReason');
@@ -1507,8 +1534,8 @@
       renderDriverHeaderAndQuickStatuses();
       try {
         const [profileResponse, complianceResponse] = await Promise.all([
-          fetch(`${FEED_API_BASE}/api/driver/compliance/profile?profile_id=driver-main`),
-          fetch(`${FEED_API_BASE}/api/driver/compliance?profile_id=driver-main`),
+          fetch(`${FEED_API_PREFIX}/api/driver/compliance/profile?profile_id=driver-main`),
+          fetch(`${FEED_API_PREFIX}/api/driver/compliance?profile_id=driver-main`),
         ]);
 
         const profilePayload = await profileResponse.json().catch(() => ({}));
@@ -1587,7 +1614,7 @@
       waybillCloseAlert.classList.toggle('hidden', !normalized);
     }
 
-    function toUserFriendlyNetworkError(error, fallback = '', apiBase = FEED_API_BASE) {
+    function toUserFriendlyNetworkError(error, fallback = '', apiBase = FEED_API_BASE_LABEL) {
       const message = String(error?.message || '').trim();
       if (message.includes('Failed to fetch') || message.includes('NetworkError')) {
         return `Не удалось связаться с API. Проверьте подключение и адрес сервера: ${apiBase}`;
@@ -1735,7 +1762,7 @@
       const payload = collectWaybillClosePayload();
       applyWaybillCloseLoadingState(true);
       try {
-        const response = await fetch(`${FEED_API_BASE}/api/driver/documents/${docId}/close`, {
+        const response = await fetch(`${FEED_API_PREFIX}/api/driver/documents/${docId}/close`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
@@ -1860,7 +1887,7 @@
           if (!id) return;
           setButtonBusyState(deleteButton, true, 'Удаление...');
           try {
-            const response = await fetch(`${FEED_API_BASE}/api/driver/documents/${id}`, { method: 'DELETE' });
+            const response = await fetch(`${FEED_API_PREFIX}/api/driver/documents/${id}`, { method: 'DELETE' });
             if (!response.ok) {
               throw new Error(`Не удалось удалить документ (HTTP ${response.status})`);
             }
@@ -1963,7 +1990,7 @@
       driverHeaderQuickState.documentsError = '';
       renderDriverHeaderAndQuickStatuses();
       try {
-        const response = await fetch(`${FEED_API_BASE}/api/driver/documents?profile_id=driver-main`);
+        const response = await fetch(`${FEED_API_PREFIX}/api/driver/documents?profile_id=driver-main`);
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) {
           throw new Error(payload.error || `Не удалось загрузить документы (HTTP ${response.status})`);
@@ -2056,7 +2083,7 @@
     async function uploadDriverDocumentFile(file) {
       const formData = new FormData();
       formData.append('file', file, file.name || 'waybill.pdf');
-      const response = await fetch(`${FEED_API_BASE}/api/driver/documents/upload`, {
+      const response = await fetch(`${FEED_API_PREFIX}/api/driver/documents/upload`, {
         method: 'POST',
         body: formData,
       });
@@ -2091,7 +2118,7 @@
         if (selectedFile) {
           payload.file_url = await uploadDriverDocumentFile(selectedFile);
         }
-        const response = await fetch(`${FEED_API_BASE}/api/driver/documents`, {
+        const response = await fetch(`${FEED_API_PREFIX}/api/driver/documents`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
@@ -2223,7 +2250,7 @@
       }
       setButtonBusyState(profileVerificationResubmitBtn, true, 'Отправка...');
       try {
-        const response = await fetch(`${FEED_API_BASE}/api/feed/profiles/${encodeURIComponent(profileId)}/verification/submit`, {
+        const response = await fetch(`${FEED_API_PREFIX}/api/feed/profiles/${encodeURIComponent(profileId)}/verification/submit`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ actor: profileId }),
@@ -2336,7 +2363,7 @@
     }
 
     async function deletePost(postId, actorId) {
-      const response = await fetch(`${FEED_API_BASE}/api/feed/posts/${postId}`, {
+      const response = await fetch(`${FEED_API_PREFIX}/api/feed/posts/${postId}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ guest_profile_id: actorId }),
@@ -2358,7 +2385,7 @@
     }
 
     async function setPostReaction(postId, actorId, reactionType) {
-      const response = await fetch(`${FEED_API_BASE}/api/feed/posts/${postId}/reactions`, {
+      const response = await fetch(`${FEED_API_PREFIX}/api/feed/posts/${postId}/reactions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ guest_profile_id: actorId, type: reactionType }),
@@ -2371,7 +2398,7 @@
     }
 
     async function deletePostReaction(postId, actorId) {
-      const response = await fetch(`${FEED_API_BASE}/api/feed/posts/${postId}/reactions`, {
+      const response = await fetch(`${FEED_API_PREFIX}/api/feed/posts/${postId}/reactions`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ guest_profile_id: actorId }),
@@ -2583,7 +2610,7 @@
                 return;
               }
               try {
-                const response = await fetch(`${FEED_API_BASE}/api/feed/posts/${post.id}/comments/${comment.id}`, {
+                const response = await fetch(`${FEED_API_PREFIX}/api/feed/posts/${post.id}/comments/${comment.id}`, {
                   method: 'PATCH',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ guest_profile_id: actor.id, text: cleaned }),
@@ -2606,7 +2633,7 @@
             deleteBtn.addEventListener('click', async () => {
               setButtonBusyState(deleteBtn, true, 'Удаление...');
               try {
-                const response = await fetch(`${FEED_API_BASE}/api/feed/posts/${post.id}/comments/${comment.id}`, {
+                const response = await fetch(`${FEED_API_PREFIX}/api/feed/posts/${post.id}/comments/${comment.id}`, {
                   method: 'DELETE',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ guest_profile_id: actor.id }),
@@ -2660,7 +2687,7 @@
           }
           setButtonBusyState(submit, true, 'Отправка...');
           try {
-            const response = await fetch(`${FEED_API_BASE}/api/feed/posts/${post.id}/comments`, {
+            const response = await fetch(`${FEED_API_PREFIX}/api/feed/posts/${post.id}/comments`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ guest_profile_id: actor.id, author: actor.fullName, text }),
@@ -2686,7 +2713,7 @@
 
     async function loadCommentsForPost(post) {
       if (!post || !post.id) return;
-      const response = await fetch(`${FEED_API_BASE}/api/feed/posts/${post.id}/comments?limit=100&offset=0`);
+      const response = await fetch(`${FEED_API_PREFIX}/api/feed/posts/${post.id}/comments?limit=100&offset=0`);
       if (!response.ok) throw new Error(`Не удалось загрузить комментарии (HTTP ${response.status})`);
       const payload = await response.json().catch(() => ({}));
       const items = Array.isArray(payload.items) ? payload.items : [];
@@ -2788,7 +2815,7 @@
           params.set('q', feedSearchQuery);
         }
         const query = `?${params.toString()}`;
-        const response = await fetch(`${FEED_API_BASE}/api/feed/posts${query}`);
+        const response = await fetch(`${FEED_API_PREFIX}/api/feed/posts${query}`);
         if (!response.ok) {
           throw new Error(`Не удалось загрузить ленту (HTTP ${response.status})`);
         }
@@ -2817,7 +2844,7 @@
       } catch (error) {
         console.error(error);
         updateFeedSearchStatus();
-        setFeedError(`Не удалось загрузить посты. Проверьте доступность API: ${FEED_API_BASE}.`);
+        setFeedError(`Не удалось загрузить посты. Проверьте доступность API: ${FEED_API_BASE_LABEL}.`);
         showAppNotification(error.message || 'Ошибка загрузки ленты.', 'error');
       } finally {
         setFeedLoadingSkeleton(false);
@@ -2874,7 +2901,7 @@
           payloadBody.image_base64 = await fileToBase64Payload(selectedFile);
           payloadBody.image_mime_type = selectedFile.type;
         }
-        const response = await fetch(`${FEED_API_BASE}/api/feed/posts`, {
+        const response = await fetch(`${FEED_API_PREFIX}/api/feed/posts`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payloadBody),
@@ -3192,7 +3219,7 @@
 
       setButtonBusyState(saveProfileBtn, true, 'Сохранение...');
       try {
-        const response = await fetch(`${FEED_API_BASE}/api/feed/profiles`, {
+        const response = await fetch(`${FEED_API_PREFIX}/api/feed/profiles`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(profile),
@@ -3255,6 +3282,9 @@
         guestProfileStatus.textContent = 'Заполните имя и хотя бы один контакт (email или телефон).';
         guestProfileStatus.classList.remove('text-success');
         guestProfileStatus.classList.add('text-warning');
+      }
+      if (profileApiBaseIndicator) {
+        profileApiBaseIndicator.textContent = `Текущий API base: ${FEED_API_BASE_LABEL}`;
       }
       renderProfileTrustSignals(storedProfile);
     }
