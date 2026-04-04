@@ -1521,7 +1521,10 @@
         driverComplianceSectionStatus.textContent = `Раздел: ${label}`;
       }
       if (driverComplianceReason) {
-        const reason = String(complianceData.reason || '').trim();
+        const reason = normalizeApiErrorMessage(
+          complianceData.reason,
+          'Нет данных о причине. Проверьте заполнение профиля.'
+        );
         driverComplianceReason.textContent = reason ? `Причина: ${reason}` : '';
       }
 
@@ -1634,6 +1637,16 @@
         return message;
       }
       return fallbackMessage;
+    }
+
+    function normalizeApiErrorMessage(message = '', fallback = '') {
+      const normalizedMessage = String(message || '').trim();
+      const fallbackMessage = String(fallback || '').trim() || 'Не удалось загрузить данные. Попробуйте ещё раз.';
+      if (!normalizedMessage) return fallbackMessage;
+      if (normalizedMessage.includes('Failed to fetch') || normalizedMessage.includes('NetworkError')) {
+        return `Не удалось связаться с API. Проверьте подключение и адрес сервера: ${FEED_API_BASE_LABEL}`;
+      }
+      return normalizedMessage;
     }
 
     function setDocumentStatusForType(typeValue = '') {
