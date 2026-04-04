@@ -97,6 +97,22 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
         self.assertIn("if (message.includes('Failed to fetch') || message.includes('NetworkError')) {", script)
         self.assertIn("if (/http\\s*\\d{3}/i.test(message)) {", script)
 
+    def test_driver_compliance_error_uses_user_friendly_network_message(self) -> None:
+        script = Path('public/web/js/feed.js').read_text(encoding='utf-8')
+        load_compliance_match = re.search(
+            r"async function loadDriverComplianceOverview\(\)\s*\{[\s\S]+?\n    \}",
+            script,
+            re.MULTILINE,
+        )
+        self.assertIsNotNone(load_compliance_match)
+        load_compliance_block = load_compliance_match.group(0)
+        self.assertIn("const complianceFallbackMessage = 'Не удалось загрузить сведения о допуске.';", load_compliance_block)
+        self.assertIn("const friendlyComplianceError = toUserFriendlyNetworkError(", load_compliance_block)
+        self.assertIn("driverHeaderQuickState.profileError = friendlyComplianceError;", load_compliance_block)
+        self.assertIn("driverHeaderQuickState.complianceError = friendlyComplianceError;", load_compliance_block)
+        self.assertIn("reason: friendlyComplianceError,", load_compliance_block)
+        self.assertNotIn("String(error.message", load_compliance_block)
+
     def test_documents_tab_has_trust_signals_prepared_for_verification_states(self) -> None:
         html = Path('public/guest_feed.html').read_text(encoding='utf-8')
         script = Path('public/web/js/feed.js').read_text(encoding='utf-8')
