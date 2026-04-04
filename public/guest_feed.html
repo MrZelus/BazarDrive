@@ -71,6 +71,34 @@
           />
           <p id="feedSearchStatus" class="mt-2 text-xs text-textSoft" role="status" aria-live="polite"></p>
         </div>
+        <section id="cashOnlyOrderFlow" class="mb-4 space-y-3" aria-label="Cash-only шаги заказа">
+          <article id="cashOnlyConfirmStep" class="rounded-2xl bg-panel p-4 border border-textSoft/25">
+            <p class="text-sm font-semibold text-text">Шаг подтверждения заказа</p>
+            <p id="cashOnlyConfirmBanner" class="mt-2 rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-xs font-medium text-warning">
+              Только наличные • оплата водителю при завершении поездки.
+            </p>
+            <label for="cashOnlyConfirmCheckbox" class="mt-3 flex items-start gap-2 text-xs text-textSoft">
+              <input id="cashOnlyConfirmCheckbox" type="checkbox" class="mt-0.5 h-4 w-4 rounded border-textSoft/30 bg-panelSoft text-warning focus:ring-warning" />
+              <span>Подтверждаю cash-only условие и беру ответственность за оплату наличными.</span>
+            </label>
+            <button
+              id="cashOnlyConfirmOrderBtn"
+              type="button"
+              class="ui-btn ui-btn--primary mt-3 h-11 w-full rounded-xl px-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+              disabled
+              aria-disabled="true"
+            >
+              Финально подтвердить заказ
+            </button>
+          </article>
+          <article id="cashOnlyTripCompleteStep" class="hidden rounded-2xl bg-panel p-4 border border-textSoft/25" aria-hidden="true">
+            <p class="text-sm font-semibold text-text">Экран завершения поездки</p>
+            <p class="mt-2 rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-xs font-medium text-warning">
+              Только наличные • оплата водителю при завершении поездки.
+            </p>
+            <p class="mt-2 text-xs text-textSoft">Поездка завершена. Проверьте расчёт наличными и закройте заказ.</p>
+          </article>
+        </section>
         <section id="feed" class="space-y-3"></section>
       </section>
 

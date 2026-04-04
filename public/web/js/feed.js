@@ -232,6 +232,8 @@
     const VALID_THEME_STYLES = new Set(['nebula', 'aurora']);
     const THEME_MODE_DEFAULT = 'dark';
     const VALID_THEME_MODES = new Set(['dark', 'light']);
+    const CASH_ONLY_BADGE_TEXT = 'Только наличные • оплата водителю при завершении поездки.';
+    const CASH_ONLY_BADGE_CLASSNAME = 'rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-xs font-medium text-warning';
 
     function normalizeApiBase(url) {
       return String(url || '').trim().replace(/\/+$/, '');
@@ -292,6 +294,10 @@
     const feedSearch = document.getElementById('feedSearch');
     const feedSearchStatus = document.getElementById('feedSearchStatus');
     const appNotification = document.getElementById('appNotification');
+    const cashOnlyConfirmBanner = document.getElementById('cashOnlyConfirmBanner');
+    const cashOnlyConfirmCheckbox = document.getElementById('cashOnlyConfirmCheckbox');
+    const cashOnlyConfirmOrderBtn = document.getElementById('cashOnlyConfirmOrderBtn');
+    const cashOnlyTripCompleteStep = document.getElementById('cashOnlyTripCompleteStep');
     let notificationTimer = null;
     const POST_IMAGE_MAX_BYTES = 3 * 1024 * 1024;
     const POST_IMAGE_ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -2386,6 +2392,13 @@
       return button;
     }
 
+    function createCashOnlyBadge() {
+      const badge = document.createElement('p');
+      badge.className = CASH_ONLY_BADGE_CLASSNAME;
+      badge.textContent = CASH_ONLY_BADGE_TEXT;
+      return badge;
+    }
+
     function resolveCommentCounter(post) {
       if (Number.isFinite(Number(post?.commentsTotal))) {
         return Math.max(0, Number(post.commentsTotal));
@@ -2449,6 +2462,11 @@
         body.textContent = String(post.text || '');
 
         article.append(header, body);
+        const cashOnlyOfferBadge = createCashOnlyBadge();
+        cashOnlyOfferBadge.id = `cashOnlyOfferBadge-${String(post.id || 'new')}`;
+        cashOnlyOfferBadge.setAttribute('data-cash-only-point', 'offer-card');
+        cashOnlyOfferBadge.classList.add('mb-3');
+        article.appendChild(cashOnlyOfferBadge);
 
         if (Array.isArray(post.media) && post.media.length) {
           const mediaContainer = document.createElement('div');
@@ -3233,6 +3251,26 @@
       renderProfileTrustSignals(storedProfile);
     }
 
+    function updateCashOnlyConfirmationGuardState() {
+      if (!cashOnlyConfirmOrderBtn) return;
+      const isConfirmed = Boolean(cashOnlyConfirmCheckbox?.checked);
+      cashOnlyConfirmOrderBtn.disabled = !isConfirmed;
+      cashOnlyConfirmOrderBtn.setAttribute('aria-disabled', String(!isConfirmed));
+    }
+
+    function confirmCashOnlyOrder() {
+      const isConfirmed = Boolean(cashOnlyConfirmCheckbox?.checked);
+      if (!isConfirmed) {
+        showAppNotification('Подтвердите cash-only условие перед финальным подтверждением.', 'error');
+        return;
+      }
+      if (cashOnlyTripCompleteStep) {
+        cashOnlyTripCompleteStep.classList.remove('hidden');
+        cashOnlyTripCompleteStep.setAttribute('aria-hidden', 'false');
+      }
+      showAppNotification('Заказ подтверждён. Проведите расчёт наличными после завершения поездки.', 'success');
+    }
+
     tabButtons.forEach((btn) => {
       btn.addEventListener('click', () => {
         setActiveScreen(btn.dataset.tab);
@@ -3285,6 +3323,8 @@
       }, 220);
     });
     saveProfileBtn.addEventListener('click', saveGuestProfile);
+    cashOnlyConfirmCheckbox?.addEventListener('change', updateCashOnlyConfirmationGuardState);
+    cashOnlyConfirmOrderBtn?.addEventListener('click', confirmCashOnlyOrder);
     profileVerificationResubmitBtn?.addEventListener('click', submitProfileForResubmission);
     addDocumentBtn?.addEventListener('click', () => toggleDocumentForm(true));
     driverAddDocumentBtn?.addEventListener('click', () => {
@@ -3319,6 +3359,11 @@
     const initialTab = VALID_MAIN_TABS.includes(savedActiveTab) ? savedActiveTab : 'feed';
 
     updateSelectedPostImageUi();
+    if (cashOnlyConfirmBanner) {
+      cashOnlyConfirmBanner.textContent = CASH_ONLY_BADGE_TEXT;
+      cashOnlyConfirmBanner.className = CASH_ONLY_BADGE_CLASSNAME;
+    }
+    updateCashOnlyConfirmationGuardState();
     ensureFeedInfiniteScroll();
     loadPosts({ reset: true });
     renderDocs();
