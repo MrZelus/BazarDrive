@@ -21,6 +21,13 @@ LEGACY_DRIVER_ERROR_CODE_MAP = {
 }
 
 
+def _canonical_driver_error_code(code: object) -> str:
+    normalized = str(code or "driver_not_allowed").strip()
+    if not normalized:
+        normalized = "driver_not_allowed"
+    return normalized.lower()
+
+
 def _normalize_driver_error_code(code: object) -> str:
     normalized = str(code or "driver_not_allowed").strip()
     if not normalized:
@@ -42,13 +49,16 @@ def _serialize_notification_plan(plan: Any) -> dict[str, Any] | None:
 
 def adapt_go_online_result(result: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     if not result.get("ok"):
-        legacy_code = _normalize_driver_error_code(result.get("code"))
-        return 403, driver_error_payload(
-            code=legacy_code,
+        canonical_code = _canonical_driver_error_code(result.get("code"))
+        legacy_code = _normalize_driver_error_code(canonical_code)
+        payload = driver_error_payload(
+            code=canonical_code,
             message="Нет допуска к выходу на линию",
             reason=str(result.get("reason", "Нет допуска к выходу на линию")),
             actions=list(result.get("actions", [])),
         )
+        payload["code"] = legacy_code
+        return 403, payload
     return 200, driver_go_online_success_payload(
         status=str(result.get("status", "online")),
         shift_status=str(result.get("shift_status", result.get("status", "online"))),
@@ -59,13 +69,16 @@ def adapt_go_online_result(result: dict[str, Any]) -> tuple[int, dict[str, Any]]
 
 def adapt_accept_order_result(result: dict[str, Any], order_id: object) -> tuple[int, dict[str, Any]]:
     if not result.get("ok"):
-        legacy_code = _normalize_driver_error_code(result.get("code"))
-        return 403, driver_error_payload(
-            code=legacy_code,
+        canonical_code = _canonical_driver_error_code(result.get("code"))
+        legacy_code = _normalize_driver_error_code(canonical_code)
+        payload = driver_error_payload(
+            code=canonical_code,
             message="Нельзя принимать заказы",
             reason=str(result.get("reason", "Нельзя принимать заказы")),
             actions=list(result.get("actions", [])),
         )
+        payload["code"] = legacy_code
+        return 403, payload
     return 200, driver_order_success_payload(
         order_id=result.get("order_id", order_id),
         status=str(result.get("status", "accepted")),
