@@ -88,7 +88,10 @@
 
 **Техническая реализация (рекомендация)**
 
-- Добавить headless smoke-тест в `tests/` как отдельный job nightly/PR-smoke.
+- Добавить и поддерживать headless smoke-скрипт `scripts/run_guest_feed_e2e_smoke.py`.
+- Поддерживать контрактный тест скрипта: `tests/test_guest_feed_e2e_smoke_script.py`.
+- Добавить отдельный job nightly/PR-smoke с командой запуска:
+  - `python3 scripts/run_guest_feed_e2e_smoke.py --no-start-servers`
 - Сохранять артефакты: скриншоты шагов и лог сетевых ошибок.
 
 **Критерий готовности**
