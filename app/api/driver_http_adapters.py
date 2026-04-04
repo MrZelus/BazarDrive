@@ -12,6 +12,22 @@ from app.api.driver_http_contract import (
 )
 
 
+LEGACY_DRIVER_ERROR_CODE_MAP = {
+    "trip_sheet_required": "WAYBILL_REQUIRED",
+    "required_document_missing": "DOC_EXPIRED",
+    "driver_not_eligible": "PROFILE_INCOMPLETE",
+    "profile_blocked": "DRIVER_NOT_ALLOWED",
+    "driver_not_allowed": "DRIVER_NOT_ALLOWED",
+}
+
+
+def _normalize_driver_error_code(code: object) -> str:
+    normalized = str(code or "driver_not_allowed").strip()
+    if not normalized:
+        normalized = "driver_not_allowed"
+    return LEGACY_DRIVER_ERROR_CODE_MAP.get(normalized.lower(), normalized.upper())
+
+
 def _serialize_notification_plan(plan: Any) -> dict[str, Any] | None:
     if plan is None:
         return None
@@ -26,8 +42,9 @@ def _serialize_notification_plan(plan: Any) -> dict[str, Any] | None:
 
 def adapt_go_online_result(result: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     if not result.get("ok"):
+        legacy_code = _normalize_driver_error_code(result.get("code"))
         return 403, driver_error_payload(
-            code=str(result.get("code", "driver_not_allowed")),
+            code=legacy_code,
             message="Нет допуска к выходу на линию",
             reason=str(result.get("reason", "Нет допуска к выходу на линию")),
             actions=list(result.get("actions", [])),
@@ -42,8 +59,9 @@ def adapt_go_online_result(result: dict[str, Any]) -> tuple[int, dict[str, Any]]
 
 def adapt_accept_order_result(result: dict[str, Any], order_id: object) -> tuple[int, dict[str, Any]]:
     if not result.get("ok"):
+        legacy_code = _normalize_driver_error_code(result.get("code"))
         return 403, driver_error_payload(
-            code=str(result.get("code", "driver_not_allowed")),
+            code=legacy_code,
             message="Нельзя принимать заказы",
             reason=str(result.get("reason", "Нельзя принимать заказы")),
             actions=list(result.get("actions", [])),
@@ -84,7 +102,7 @@ def adapt_shift_close_success(waybill_id: object) -> tuple[int, dict[str, Any]]:
 
 
 def adapt_missing_order_id_error() -> tuple[int, dict[str, Any]]:
-    return 400, driver_error_payload(code="order_id_required", message="order_id required")
+    return 400, {"ok": False, "error": "order_id required", "code": "order_id_required"}
 
 
 def adapt_shift_open_conflict(message: str) -> tuple[int, dict[str, Any]]:
