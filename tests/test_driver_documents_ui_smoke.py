@@ -235,7 +235,7 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
             ),
         )
 
-    def test_feed_api_base_resolution_prefers_query_then_valid_storage_and_same_origin_fallback(self) -> None:
+    def test_feed_api_base_resolution_prefers_query_then_valid_storage_and_local_dev_port_fallback(self) -> None:
         script = Path('public/web/js/feed.js').read_text(encoding='utf-8')
         self.assertIn('function sanitizeStoredApiBase(rawValue)', script)
         self.assertRegex(
@@ -255,9 +255,15 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
             ),
         )
         self.assertIn("const locationOrigin = normalizeApiBase(window.location.origin);", script)
-        self.assertIn("if (locationOrigin) return locationOrigin;", script)
         self.assertIn("if (isLocalDevHost(window.location.hostname)) {", script)
+        self.assertIn("const localPort = String(window.location.port || '').trim();", script)
+        self.assertIn("if (localPort === '8000') {", script)
         self.assertIn("return 'http://localhost:8001';", script)
+        local_dev_branch_index = script.find("if (isLocalDevHost(window.location.hostname)) {")
+        same_origin_fallback_index = script.find("if (locationOrigin) return locationOrigin;")
+        self.assertGreaterEqual(local_dev_branch_index, 0)
+        self.assertGreaterEqual(same_origin_fallback_index, 0)
+        self.assertLess(local_dev_branch_index, same_origin_fallback_index)
         self.assertIn("const FEED_API_PREFIX = normalizeApiBase(FEED_API_BASE) === normalizeApiBase(window.location.origin) ? '' : FEED_API_BASE;", script)
 
     def test_profile_diagnostic_block_shows_current_api_base_label(self) -> None:
