@@ -2,6 +2,7 @@ import subprocess
 import sys
 import unittest
 import importlib.util
+from unittest import mock
 from pathlib import Path
 
 
@@ -45,11 +46,19 @@ class GuestFeedE2ESmokeScriptTests(unittest.TestCase):
         self.assertIn('"api_base": "http://0.0.0.0:8112"', result.stdout)
 
     def test_reports_missing_playwright_dependency_with_actionable_message(self) -> None:
-        result = self.run_script("--no-start-servers")
+        module = self.load_script_module()
+        real_import = __import__
 
-        self.assertEqual(result.returncode, 1)
-        self.assertIn("Playwright is not installed", result.stdout)
-        self.assertIn("python -m playwright install chromium", result.stdout)
+        def import_side_effect(name, globals=None, locals=None, fromlist=(), level=0):
+            if name == "playwright.sync_api":
+                raise ImportError("missing playwright")
+            return real_import(name, globals, locals, fromlist, level)
+
+        with mock.patch("builtins.__import__", side_effect=import_side_effect):
+            with self.assertRaises(module.SmokeError) as ctx:
+                module.ensure_playwright_dependency()
+        self.assertIn("Playwright is not installed", str(ctx.exception))
+        self.assertIn("python -m playwright install chromium", str(ctx.exception))
 
     def test_build_api_process_env_honors_host_and_api_port(self) -> None:
         module = self.load_script_module()
@@ -67,6 +76,36 @@ class GuestFeedE2ESmokeScriptTests(unittest.TestCase):
 
         self.assertEqual(env["FEED_API_HOST"], "0.0.0.0")
         self.assertEqual(env["FEED_API_PORT"], "9123")
+
+    def test_validate_api_base_against_ui_csp_accepts_default_origin(self) -> None:
+        module = self.load_script_module()
+        config = module.SmokeConfig(
+            static_port=8000,
+            api_port=8001,
+            host="127.0.0.1",
+            timeout_seconds=10.0,
+            no_start_servers=False,
+            dry_run=False,
+            post_text="x",
+            rules_query="y",
+        )
+        module.validate_api_base_against_ui_csp(config)
+
+    def test_validate_api_base_against_ui_csp_rejects_custom_origin(self) -> None:
+        module = self.load_script_module()
+        config = module.SmokeConfig(
+            static_port=8000,
+            api_port=9123,
+            host="0.0.0.0",
+            timeout_seconds=10.0,
+            no_start_servers=False,
+            dry_run=False,
+            post_text="x",
+            rules_query="y",
+        )
+        with self.assertRaises(module.SmokeError) as ctx:
+            module.validate_api_base_against_ui_csp(config)
+        self.assertIn("blocked by UI CSP", str(ctx.exception))
 
 
 if __name__ == "__main__":

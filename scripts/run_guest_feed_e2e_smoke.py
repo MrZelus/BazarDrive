@@ -26,6 +26,10 @@ from pathlib import Path
 
 DEFAULT_STATIC_PORT = 8000
 DEFAULT_API_PORT = 8001
+UI_CSP_ALLOWED_API_ORIGINS = {
+    ("localhost", 8001),
+    ("127.0.0.1", 8001),
+}
 
 
 @dataclass
@@ -123,6 +127,18 @@ def build_api_process_env(config: SmokeConfig) -> dict[str, str]:
     env["FEED_API_HOST"] = config.host
     env["FEED_API_PORT"] = str(config.api_port)
     return env
+
+
+def validate_api_base_against_ui_csp(config: SmokeConfig) -> None:
+    key = (config.host, config.api_port)
+    if key in UI_CSP_ALLOWED_API_ORIGINS:
+        return
+    allowed = ", ".join(f"http://{host}:{port}" for host, port in sorted(UI_CSP_ALLOWED_API_ORIGINS))
+    raise SmokeError(
+        "Configured apiBase is blocked by UI CSP connect-src. "
+        f"Requested: http://{config.host}:{config.api_port}. "
+        f"Allowed by guest_feed.html CSP: {allowed}."
+    )
 
 
 def run_playwright_scenario(guest_feed_url: str, config: SmokeConfig) -> dict[str, str]:
@@ -225,6 +241,7 @@ def main() -> int:
     static_proc: subprocess.Popen[str] | None = None
 
     try:
+        validate_api_base_against_ui_csp(config)
         ensure_playwright_dependency()
         if not config.no_start_servers:
             api_proc = _spawn([sys.executable, "run_api.py"], cwd=repo_root, env=build_api_process_env(config))
