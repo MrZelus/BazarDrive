@@ -23,23 +23,10 @@ class DriverTripSheetService:
 
     @staticmethod
     def get_trip_sheet_status(driver_profile_id: str) -> TripSheetStatus:
-        active_waybill = repository.get_active_waybill(driver_profile_id)
-
-        current_waybill = active_waybill
-        if current_waybill is None:
-            documents = repository.list_driver_documents(driver_profile_id)
-            current_waybill = next(
-                (doc for doc in documents if doc.get("type") == "waybill"),
-                None,
-            )
-
-        has_waybill = current_waybill is not None
-        is_closed = bool(current_waybill) and current_waybill.get("status") == "closed"
-
-        # TODO:
-        # replace this with a real backend signal when the project
-        # defines the exact closure-required condition.
-        requires_closing = False
+        signals = repository.get_driver_trip_sheet_status_signals(driver_profile_id)
+        has_waybill = bool(signals.get("has_waybill"))
+        is_closed = bool(signals.get("is_closed"))
+        requires_closing = bool(signals.get("requires_closing"))
 
         return DriverTripSheetService.compute_trip_sheet_status(
             has_waybill=has_waybill,
