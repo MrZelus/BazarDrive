@@ -56,7 +56,7 @@ python3 - <<'PY'
 from pathlib import Path
 p = Path("CONTRIBUTING.md")
 text = p.read_text(encoding="utf-8")
-text = text.replace("- [docs/contributing.md](docs/contributing.md)\n", "")
+text = text.replace("- [docs/contributing.md](../contributing.md)\n", "")
 p.write_text(text, encoding="utf-8")
 PY
 git add CONTRIBUTING.md
