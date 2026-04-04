@@ -7,6 +7,7 @@ from base64 import urlsafe_b64decode, urlsafe_b64encode
 from dataclasses import dataclass
 from email.parser import BytesParser
 from email.policy import default as default_policy
+from pathlib import Path
 from typing import Callable
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
@@ -22,7 +23,7 @@ from app.api.driver_http_adapters import (
     adapt_shift_open_success,
     adapt_waybill_validation_error,
 )
-from app.config import get_api_settings
+from app.config import get_api_settings, get_guest_feed_csp_settings
 from app.db import repository
 from app.logging_setup import configure_logging
 from app.security.authorization import authz
@@ -67,6 +68,7 @@ class WriteAuthContext:
 class FeedAPIHandler(BaseHTTPRequestHandler):
     request_id: str
     DEFAULT_MAX_REQUEST_BYTES = 5 * 1024 * 1024
+    PUBLIC_ROOT = Path(__file__).resolve().parents[2] / "public"
 
     def _get_client_ip(self) -> str:
         return self.client_address[0] if self.client_address else "unknown"
@@ -397,6 +399,63 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
         return True
 
+    @staticmethod
+    def _build_guest_feed_csp_header() -> str:
+        settings = get_guest_feed_csp_settings()
+        connect_src = " ".join(settings.connect_src) or "'self'"
+        img_src = " ".join(settings.img_src) or "'self' data: https:"
+        return (
+            "default-src 'self'; "
+            "script-src 'self' https://cdn.tailwindcss.com; "
+            "style-src 'self' 'unsafe-inline'; "
+            f"img-src {img_src}; "
+            f"connect-src {connect_src}; "
+            "font-src 'self' data:; "
+            "object-src 'none'; "
+            "base-uri 'self'; "
+            "frame-ancestors 'none';"
+        )
+
+    def _resolve_public_file_path(self, request_path: str) -> Path | None:
+        normalized = request_path.lstrip("/")
+        target = (Path(__file__).resolve().parents[2] / normalized).resolve()
+        public_root = self.PUBLIC_ROOT.resolve()
+        if not str(target).startswith(str(public_root)):
+            return None
+        if not target.is_file():
+            return None
+        return target
+
+    def _serve_public_file(self, request_path: str) -> bool:
+        file_path = self._resolve_public_file_path(request_path)
+        if file_path is None:
+            return False
+
+        extension = file_path.suffix.lower()
+        mime_type = {
+            ".html": "text/html; charset=utf-8",
+            ".css": "text/css; charset=utf-8",
+            ".js": "application/javascript; charset=utf-8",
+            ".json": "application/json; charset=utf-8",
+            ".svg": "image/svg+xml",
+            ".png": "image/png",
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".webp": "image/webp",
+        }.get(extension, "application/octet-stream")
+
+        body = file_path.read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", mime_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-cache" if extension == ".html" else "public, max-age=3600")
+        if request_path == "/public/guest_feed.html":
+            self.send_header("Content-Security-Policy", self._build_guest_feed_csp_header())
+        self.send_header("X-Request-ID", getattr(self, "request_id", "-"))
+        self.end_headers()
+        self.wfile.write(body)
+        return True
+
     def _with_error_handling(self, handler: Callable[[], None]) -> None:
         self.request_id = self.headers.get("X-Request-ID", "") or str(uuid.uuid4())
         try:
@@ -458,6 +517,12 @@ class FeedAPIHandler(BaseHTTPRequestHandler):
 
         if path.startswith(FeedService.STORAGE_URL_PREFIX):
             if self._serve_stored_file(path):
+                return
+            self._send_json(404, {"error": "Файл не найден"})
+            return
+
+        if path.startswith("/public/"):
+            if self._serve_public_file(path):
                 return
             self._send_json(404, {"error": "Файл не найден"})
             return
