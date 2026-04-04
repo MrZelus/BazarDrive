@@ -149,6 +149,49 @@
           <div id="profileInlineSecondaryActions" class="flex items-center gap-2"></div>
         </div>
 
+        <section id="driverProfileHeaderCard" class="mb-3 rounded-2xl border border-textSoft/20 bg-panel p-4" aria-live="polite">
+          <div class="flex items-start gap-3">
+            <div id="driverProfileAvatar" class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-textSoft/20 bg-panelSoft text-base font-semibold text-textSoft">
+              —
+            </div>
+            <div class="min-w-0 flex-1">
+              <p id="driverProfileHeaderFullName" class="truncate text-lg font-semibold">Загрузка профиля...</p>
+              <p id="driverProfileHeaderMeta" class="mt-1 text-sm text-textSoft">Роль: — • Форма деятельности: — • Налоговый режим: —</p>
+              <span
+                id="driverProfileHeaderStatusChip"
+                class="mt-2 inline-flex rounded-full border border-textSoft/20 bg-panelSoft px-2.5 py-1 text-xs text-textSoft"
+              >
+                Статус: загрузка...
+              </span>
+            </div>
+          </div>
+        </section>
+
+        <section id="driverQuickStatusCards" class="mb-3">
+          <div class="flex gap-2 overflow-x-auto pb-1" role="list" aria-label="Быстрые статусы профиля водителя">
+            <article class="min-w-[150px] flex-1 rounded-xl border border-textSoft/20 bg-panel px-3 py-2" role="listitem">
+              <p class="text-xs text-textSoft">Документы</p>
+              <p id="driverQuickDocumentsValue" class="mt-1 text-sm font-medium">Загрузка...</p>
+              <span id="driverQuickDocumentsChip" class="mt-1 inline-flex rounded-full border border-textSoft/20 bg-panelSoft px-2 py-0.5 text-xs text-textSoft">Загрузка</span>
+            </article>
+            <article class="min-w-[170px] flex-1 rounded-xl border border-textSoft/20 bg-panel px-3 py-2" role="listitem">
+              <p class="text-xs text-textSoft">Разрешение такси</p>
+              <p id="driverQuickTaxiLicenseValue" class="mt-1 text-sm font-medium">Загрузка...</p>
+              <span id="driverQuickTaxiLicenseChip" class="mt-1 inline-flex rounded-full border border-textSoft/20 bg-panelSoft px-2 py-0.5 text-xs text-textSoft">Загрузка</span>
+            </article>
+            <article class="min-w-[150px] flex-1 rounded-xl border border-textSoft/20 bg-panel px-3 py-2" role="listitem">
+              <p class="text-xs text-textSoft">Выплаты</p>
+              <p id="driverQuickPayoutsValue" class="mt-1 text-sm font-medium">Загрузка...</p>
+              <span id="driverQuickPayoutsChip" class="mt-1 inline-flex rounded-full border border-textSoft/20 bg-panelSoft px-2 py-0.5 text-xs text-textSoft">Загрузка</span>
+            </article>
+            <article class="min-w-[170px] flex-1 rounded-xl border border-textSoft/20 bg-panel px-3 py-2" role="listitem">
+              <p class="text-xs text-textSoft">ОСАГО</p>
+              <p id="driverQuickOsagoValue" class="mt-1 text-sm font-medium">Загрузка...</p>
+              <span id="driverQuickOsagoChip" class="mt-1 inline-flex rounded-full border border-textSoft/20 bg-panelSoft px-2 py-0.5 text-xs text-textSoft">Загрузка</span>
+            </article>
+          </div>
+        </section>
+
         <div class="bg-panel rounded-2xl p-2 border border-textSoft/20 mb-4">
           <div class="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Вкладки профиля">
             <button id="profile-tab-btn-overview" data-profile-tab="overview" role="tab" aria-selected="true" aria-controls="profile-tab-overview" class="profile-menu-btn active h-11 min-w-[112px] px-3 rounded-xl border border-transparent text-sm font-medium bg-panelSoft text-textSoft transition">Обзор</button>

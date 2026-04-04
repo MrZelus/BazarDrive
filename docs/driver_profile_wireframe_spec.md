@@ -32,6 +32,19 @@
 | --- | --- | --- | --- | --- |
 | YYYY-MM-DD | ... | ... | planned / in_progress / done | ... |
 
+### 2.2. Синхронизация со схемой `driver_profile.types.ts`
+
+Сверка выполнена с типами из `docs/schemas/driver-profile/driver_profile.types.ts` и текущей реализацией в `public/guest_feed.html` + `public/web/js/feed.js`.
+
+| Дата | Поле/сущность в схеме | Статус в UI | Комментарий |
+| --- | --- | --- | --- |
+| 2026-04-04 | `DriverProfileUser.avatar`, `DriverProfileUser.fullName` | done | Добавлена отдельная шапка профиля перед tabs: аватар + ФИО (с fallback `loading/empty/error`). |
+| 2026-04-04 | `ProfessionalInfo.roleLabel`, `businessTypeLabel`, `taxModeLabel` | done (derived) | В UI показываются «роль», «форма деятельности», «налоговый режим», вычисленные из существующего `/api/driver/compliance/profile` (через `employment_type`) до появления отдельного поля в API. |
+| 2026-04-04 | `DriverProfileUser.profileStatus` / `ProfileStatus` | partial | Общий статус аккаунта в шапке привязан к `/api/driver/compliance.status` (`ready_for_orders`, `profile_incomplete` и др.) как к текущему источнику правды. Значения не 1:1 с enum `active/pending_verification/blocked`. |
+| 2026-04-04 | `QuickStatusCard[]` | done | Добавлен горизонтальный ряд quick-status карточек: документы, разрешение такси, выплаты, ОСАГО с единым status-chip и fallback состояниями. |
+| 2026-04-04 | `DocumentStatus`, `LicenseStatus`, `PayoutStatus` | partial | Документы/разрешение/ОСАГО берутся из `/api/driver/documents`; выплаты временно выводятся из `/api/driver/compliance.eligibility_status` (proxy), пока нет отдельного API `PayoutsInfo.status`. |
+| 2026-04-04 | `ScreenStatus` (`loading/loaded/empty/error`) | done | Для новой шапки и quick-status рядов зафиксированы fallback-состояния `loading/empty/error`, плюс штатное `ready`. |
+
 ## 3. Секция 1 — Шапка профиля
 
 **Расположение:** верхняя часть экрана.
