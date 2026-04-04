@@ -227,8 +227,11 @@
     const FEED_API_BASE_STORAGE_KEY = 'bazardrive_feed_api_base';
     const PENDING_POST_DRAFT_STORAGE_KEY = 'bazardrive_pending_post_draft';
     const THEME_STYLE_STORAGE_KEY = 'bazardrive_theme_style';
+    const THEME_MODE_STORAGE_KEY = 'bazardrive_theme_mode';
     const THEME_STYLE_DEFAULT = 'nebula';
     const VALID_THEME_STYLES = new Set(['nebula', 'aurora']);
+    const THEME_MODE_DEFAULT = 'dark';
+    const VALID_THEME_MODES = new Set(['dark', 'light']);
 
     function normalizeApiBase(url) {
       return String(url || '').trim().replace(/\/+$/, '');
@@ -301,6 +304,46 @@
     const docsSearch = document.getElementById('docsSearch');
     const docsSearchStatus = document.getElementById('docsSearchStatus');
     const themeStyleButtons = document.querySelectorAll('[data-theme-style]');
+    const themeModeButtons = document.querySelectorAll('[data-theme-mode]');
+
+    function normalizeThemeMode(mode) {
+      const normalized = String(mode || '').trim().toLowerCase();
+      return VALID_THEME_MODES.has(normalized) ? normalized : THEME_MODE_DEFAULT;
+    }
+
+    function applyThemeMode(mode) {
+      const normalized = normalizeThemeMode(mode);
+      document.documentElement.setAttribute('data-theme', normalized);
+      themeModeButtons.forEach((button) => {
+        const isActive = button.dataset.themeMode === normalized;
+        button.classList.toggle('active', isActive);
+        button.setAttribute('aria-pressed', String(isActive));
+      });
+      return normalized;
+    }
+
+    function setThemeMode(mode) {
+      const normalized = applyThemeMode(mode);
+      localStorage.setItem(THEME_MODE_STORAGE_KEY, normalized);
+    }
+
+    function hydrateThemeMode() {
+      const queryRaw = String(new URL(window.location.href).searchParams.get('theme') || '').trim().toLowerCase();
+      const modeFromQuery = VALID_THEME_MODES.has(queryRaw) ? queryRaw : null;
+      const storageRaw = String(localStorage.getItem(THEME_MODE_STORAGE_KEY) || '').trim().toLowerCase();
+      const modeFromStorage = VALID_THEME_MODES.has(storageRaw) ? storageRaw : null;
+      const systemMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
+        ? 'light'
+        : 'dark';
+
+      if (modeFromQuery) {
+        return setThemeMode(modeFromQuery);
+      }
+      if (modeFromStorage) {
+        return applyThemeMode(modeFromStorage);
+      }
+      return applyThemeMode(systemMode);
+    }
 
     function normalizeThemeStyle(style) {
       const normalized = String(style || '').trim().toLowerCase();
@@ -2816,6 +2859,7 @@
     renderDocs();
     refreshDriverProfileData();
     hydrateProfileForm();
+    hydrateThemeMode();
     hydrateThemeStyle();
     setRole(initialRole);
     setActiveProfileTab('overview');
