@@ -274,11 +274,14 @@
       }
 
       const locationOrigin = normalizeApiBase(window.location.origin);
-      if (locationOrigin) return locationOrigin;
-
       if (isLocalDevHost(window.location.hostname)) {
-        return 'http://localhost:8001';
+        const localPort = String(window.location.port || '').trim();
+        if (localPort === '8000') {
+          return 'http://localhost:8001';
+        }
       }
+
+      if (locationOrigin) return locationOrigin;
 
       return '';
     }
