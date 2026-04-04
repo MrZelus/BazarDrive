@@ -164,6 +164,27 @@ Data access layer:
 - проверить backward compatibility,
 - зафиксировать новые поля/статусы в docs.
 
+### APP_ENV: CORS и write-auth (dev vs prod)
+
+Фактическое поведение задаётся в transport handler-слое:
+- `FeedAPIHandler._with_error_handling`
+- `FeedAPIHandler._resolve_write_auth_context`
+в `app/api/http_handlers.py`.
+
+#### `APP_ENV=dev`
+- Режим для локальной разработки.
+- CORS permissive (`Access-Control-Allow-Origin: *`).
+- Write-методы (`POST/PATCH/DELETE`) не требуют обязательных transport credentials.
+
+#### `APP_ENV=prod`
+- CORS только по allowlist `CORS_ALLOWED_ORIGINS` (`*` недопустим).
+- Write-методы требуют валидные credentials:
+  - `API_AUTH_KEYS` (`X-API-Key`) и/или
+  - `API_AUTH_BEARER_TOKENS` (`Authorization: Bearer`),
+  - плюс `MODERATOR_*` переменные при необходимости moderator override.
+- Если нет валидных кредов (или они не сконфигурированы), write блокируется (`401`).
+- Если `Origin` не входит в allowlist, запрос блокируется (`403`).
+
 ## 8. Работа с Telegram bot
 
 Основной bot flow:
