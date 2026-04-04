@@ -188,6 +188,21 @@ http://<LAN-IP-ВАШЕГО-ПК>:8000/public/guest_feed.html
 Если API находится на другом хосте/порту, можно передать его напрямую: `?apiBase=http://<host>:<port>`.
 Пример: `http://192.168.1.50:8000/public/guest_feed.html?apiBase=http://192.168.1.50:8001`.
 
+#### CSP для `guest_feed.html` (dev/prod)
+
+- В `public/guest_feed.html` оставлен базовый безопасный CSP через `<meta>` (без жёстко зашитых внешних API/media origin).
+- Для запуска через API-сервер (`run_api.py`) заголовок `Content-Security-Policy` для `/public/guest_feed.html` формируется из env:
+  - `GUEST_FEED_CSP_CONNECT_SRC_DEV`, `GUEST_FEED_CSP_IMG_SRC_DEV`
+  - `GUEST_FEED_CSP_CONNECT_SRC_PROD`, `GUEST_FEED_CSP_IMG_SRC_PROD`
+- Пример для локального `apiBase`:
+
+```bash
+APP_ENV=dev \
+GUEST_FEED_CSP_CONNECT_SRC_DEV="'self' http://127.0.0.1:8001" \
+GUEST_FEED_CSP_IMG_SRC_DEV="'self' data: https: http://127.0.0.1:8001" \
+python3 run_api.py
+```
+
 ### Этап 0: безопасные границы «быстрой чистки»
 
 Чтобы упростить навигацию по проекту и не сломать текущий runtime/CI:

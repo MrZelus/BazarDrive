@@ -21,6 +21,12 @@ class ApiSettings:
     port: int
 
 
+@dataclass(frozen=True)
+class GuestFeedCspSettings:
+    connect_src: tuple[str, ...]
+    img_src: tuple[str, ...]
+
+
 @lru_cache(maxsize=1)
 def load_env_file(env_path: str = DEFAULT_ENV_PATH) -> None:
     path = Path(env_path)
@@ -85,3 +91,39 @@ def get_api_settings() -> ApiSettings:
 def get_feed_upload_dir() -> str:
     load_env_file()
     return os.getenv("FEED_UPLOAD_DIR", "storage/feed_images")
+
+
+def _split_csp_sources(raw_value: str) -> tuple[str, ...]:
+    return tuple(item.strip() for item in raw_value.split() if item.strip())
+
+
+def get_guest_feed_csp_settings() -> GuestFeedCspSettings:
+    load_env_file()
+    app_env = os.getenv("APP_ENV", "dev").strip().lower() or "dev"
+    if app_env not in {"dev", "prod"}:
+        app_env = "dev"
+
+    defaults = {
+        "dev": {
+            "connect_src": "'self' http://localhost:8001 http://127.0.0.1:8001",
+            "img_src": "'self' data: https: http://localhost:8001 http://127.0.0.1:8001",
+        },
+        "prod": {
+            "connect_src": "'self'",
+            "img_src": "'self' data: https:",
+        },
+    }
+
+    connect_src = os.getenv(
+        f"GUEST_FEED_CSP_CONNECT_SRC_{app_env.upper()}",
+        defaults[app_env]["connect_src"],
+    )
+    img_src = os.getenv(
+        f"GUEST_FEED_CSP_IMG_SRC_{app_env.upper()}",
+        defaults[app_env]["img_src"],
+    )
+
+    return GuestFeedCspSettings(
+        connect_src=_split_csp_sources(connect_src),
+        img_src=_split_csp_sources(img_src),
+    )
