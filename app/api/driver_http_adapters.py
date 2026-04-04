@@ -84,7 +84,7 @@ def adapt_shift_close_success(waybill_id: object) -> tuple[int, dict[str, Any]]:
 
 
 def adapt_missing_order_id_error() -> tuple[int, dict[str, Any]]:
-    return 400, driver_error_payload(code="order_id_required", message="order_id required")
+    return 400, {"ok": False, "error": "order_id required", "code": "order_id_required"}
 
 
 def adapt_shift_open_conflict(message: str) -> tuple[int, dict[str, Any]]:

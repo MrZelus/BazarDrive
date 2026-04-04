@@ -21,10 +21,17 @@ def driver_error_payload(
         error["actions"] = list(actions)
     if fields:
         error["fields"] = dict(fields)
-    return {
+    payload: dict[str, Any] = {
         "ok": False,
         "error": error,
     }
+    # Backward-compatible flat fields are still used by existing API tests/clients.
+    payload["code"] = code
+    payload["reason"] = reason if reason is not None else message
+    payload["actions"] = list(actions or [])
+    if fields:
+        payload["fields"] = dict(fields)
+    return payload
 
 
 def driver_success_payload(**payload: Any) -> dict[str, Any]:
