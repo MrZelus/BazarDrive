@@ -70,10 +70,32 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
         self.assertRegex(
             script,
             re.compile(
-                r"async function loadDriverDocuments\(\)\s*\{\s*setDriverDocumentsListState\('loading'\);[\s\S]+setDriverDocumentsListState\('error', errorMessage\);",
+                r"async function loadDriverDocuments\(\)\s*\{[\s\S]+setDriverDocumentsListState\('loading'\);[\s\S]+setDriverDocumentsListState\('error', errorMessage\);",
                 re.MULTILINE,
             ),
         )
+
+    def test_driver_documents_network_error_uses_single_error_block(self) -> None:
+        script = Path('public/web/js/feed.js').read_text(encoding='utf-8')
+        load_documents_match = re.search(
+            r"async function loadDriverDocuments\(\)\s*\{[\s\S]+?\n    \}",
+            script,
+            re.MULTILINE,
+        )
+        self.assertIsNotNone(load_documents_match)
+        load_documents_block = load_documents_match.group(0)
+        self.assertIn("setDriverDocumentsListState('error', errorMessage);", load_documents_block)
+        self.assertNotIn("setDocumentAlert(errorMessage);", load_documents_block)
+        self.assertIn("setDocumentAlert('');", load_documents_block)
+
+    def test_network_error_message_is_always_human_readable(self) -> None:
+        script = Path('public/web/js/feed.js').read_text(encoding='utf-8')
+        self.assertIn(
+            "const fallbackMessage = String(fallback || '').trim() || 'Не удалось выполнить запрос. Попробуйте ещё раз.';",
+            script,
+        )
+        self.assertIn("if (message.includes('Failed to fetch') || message.includes('NetworkError')) {", script)
+        self.assertIn("if (/http\\s*\\d{3}/i.test(message)) {", script)
 
     def test_documents_tab_has_trust_signals_prepared_for_verification_states(self) -> None:
         html = Path('public/guest_feed.html').read_text(encoding='utf-8')

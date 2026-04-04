@@ -1616,10 +1616,15 @@
 
     function toUserFriendlyNetworkError(error, fallback = '', apiBase = FEED_API_BASE_LABEL) {
       const message = String(error?.message || '').trim();
+      const fallbackMessage = String(fallback || '').trim() || 'Не удалось выполнить запрос. Попробуйте ещё раз.';
+      if (!message) return fallbackMessage;
       if (message.includes('Failed to fetch') || message.includes('NetworkError')) {
         return `Не удалось связаться с API. Проверьте подключение и адрес сервера: ${apiBase}`;
       }
-      return message || String(fallback || '').trim();
+      if (/http\s*\d{3}/i.test(message)) {
+        return message;
+      }
+      return fallbackMessage;
     }
 
     function setDocumentStatusForType(typeValue = '') {
@@ -1985,6 +1990,7 @@
     }
 
     async function loadDriverDocuments() {
+      setDocumentAlert('');
       setDriverDocumentsListState('loading');
       driverHeaderQuickState.documentsState = 'loading';
       driverHeaderQuickState.documentsError = '';
@@ -2006,7 +2012,6 @@
         const errorMessage = toUserFriendlyNetworkError(error, 'Не удалось загрузить список документов');
         driverHeaderQuickState.documentsError = errorMessage;
         renderDriverOverviewDocuments([]);
-        setDocumentAlert(errorMessage);
         setDriverDocumentsListState('error', errorMessage);
         renderDriverHeaderAndQuickStatuses();
       } finally {
