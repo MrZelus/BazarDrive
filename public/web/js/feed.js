@@ -476,6 +476,13 @@
     const profileVerificationResubmitBtn = document.getElementById('profileVerificationResubmitBtn');
     const driverDocumentsSection = document.getElementById('driverDocumentsSection');
 	    const addDocumentBtn = document.getElementById('addDocumentBtn');
+    const profileInlineActions = document.getElementById('profileInlineActions');
+    const profileInlinePrimaryActionBtn = document.getElementById('profileInlinePrimaryActionBtn');
+    const profileInlineSecondaryActions = document.getElementById('profileInlineSecondaryActions');
+    const profileStickyActionPanel = document.getElementById('profileStickyActionPanel');
+    const profileStickyPrimaryActionBtn = document.getElementById('profileStickyPrimaryActionBtn');
+    const profileStickyOverflow = document.getElementById('profileStickyOverflow');
+    const profileStickySecondaryActions = document.getElementById('profileStickySecondaryActions');
     const addDocumentForm = document.getElementById('addDocumentForm');
     const submitDocumentBtn = document.getElementById('submitDocumentBtn');
     const cancelDocumentBtn = document.getElementById('cancelDocumentBtn');
@@ -512,6 +519,126 @@
     let isSubmittingDocument = false;
     const DOCUMENT_ALLOWED_MIME_TYPES = new Set(['application/pdf']);
     const DOCUMENT_MAX_BYTES = 10 * 1024 * 1024;
+    const profileActionsMedia = window.matchMedia ? window.matchMedia('(max-width: 767px)') : null;
+
+    function isProfileStickyMode() {
+      return Boolean(profileActionsMedia?.matches);
+    }
+
+    function runProfileAction(actionId) {
+      switch (actionId) {
+        case 'open_documents':
+          setActiveProfileTab('documents');
+          break;
+        case 'open_documents_form':
+          setActiveProfileTab('documents');
+          toggleDocumentForm(true);
+          break;
+        case 'save_guest_profile':
+          saveGuestProfile();
+          break;
+        case 'open_payouts':
+          showAppNotification('Раздел выплат открыт.', 'info');
+          break;
+        case 'security_recheck':
+          showAppNotification('Проверьте 2FA и активные устройства в этом разделе.', 'info');
+          break;
+        default:
+          break;
+      }
+    }
+
+    function getProfileTabActions(activeTab, role) {
+      const isDriver = role === 'driver';
+      if (activeTab === 'documents') {
+        return {
+          primaryAction: isDriver
+            ? { id: 'open_documents_form', label: 'Добавить документ' }
+            : { id: 'save_guest_profile', label: 'Сохранить профиль' },
+          secondaryActions: isDriver
+            ? [{ id: 'save_guest_profile', label: 'Сохранить профиль', variant: 'secondary' }]
+            : [{ id: 'open_documents', label: 'К списку документов', variant: 'secondary' }],
+        };
+      }
+      if (activeTab === 'payouts') {
+        return {
+          primaryAction: { id: 'open_payouts', label: 'Открыть выплаты' },
+          secondaryActions: [{ id: 'open_documents', label: 'Документы', variant: 'secondary' }],
+        };
+      }
+      if (activeTab === 'security') {
+        return {
+          primaryAction: { id: 'security_recheck', label: 'Проверить безопасность' },
+          secondaryActions: [{ id: 'open_documents', label: 'Документы', variant: 'secondary' }],
+        };
+      }
+      return {
+        primaryAction: isDriver
+          ? { id: 'open_documents_form', label: 'Добавить документ' }
+          : { id: 'save_guest_profile', label: 'Заполнить профиль' },
+        secondaryActions: isDriver
+          ? [{ id: 'open_documents', label: 'Документы', variant: 'secondary' }]
+          : [{ id: 'open_documents', label: 'Открыть документы', variant: 'secondary' }],
+      };
+    }
+
+    function createProfileSecondaryButton(action) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'ui-btn ui-btn--secondary h-10 rounded-xl px-3 text-xs font-medium whitespace-nowrap';
+      btn.textContent = action.label;
+      btn.addEventListener('click', () => {
+        runProfileAction(action.id);
+      });
+      return btn;
+    }
+
+    function renderProfileActions() {
+      if (!profileInlineActions || !profileInlinePrimaryActionBtn || !profileStickyActionPanel || !profileStickyPrimaryActionBtn) {
+        return;
+      }
+      const isProfileActive = screens.profile.classList.contains('active');
+      if (!isProfileActive) {
+        profileInlineActions.classList.add('hidden');
+        profileStickyActionPanel.classList.add('hidden');
+        return;
+      }
+
+      const { primaryAction, secondaryActions } = getProfileTabActions(getActiveProfileTab(), getCurrentRole());
+
+      profileInlinePrimaryActionBtn.textContent = primaryAction.label;
+      profileInlinePrimaryActionBtn.onclick = () => runProfileAction(primaryAction.id);
+      if (profileInlineSecondaryActions) {
+        profileInlineSecondaryActions.innerHTML = '';
+        secondaryActions.forEach((action) => {
+          profileInlineSecondaryActions.append(createProfileSecondaryButton(action));
+        });
+      }
+
+      profileStickyPrimaryActionBtn.textContent = primaryAction.label;
+      profileStickyPrimaryActionBtn.onclick = () => runProfileAction(primaryAction.id);
+      if (profileStickySecondaryActions) {
+        profileStickySecondaryActions.innerHTML = '';
+        secondaryActions.forEach((action) => {
+          profileStickySecondaryActions.append(createProfileSecondaryButton(action));
+        });
+      }
+
+      if (profileStickyOverflow) {
+        const hasSecondaryActions = secondaryActions.length > 0;
+        profileStickyOverflow.classList.toggle('hidden', !hasSecondaryActions);
+        if (!hasSecondaryActions) {
+          profileStickyOverflow.open = false;
+        }
+      }
+
+      const useSticky = isProfileStickyMode();
+      profileStickyActionPanel.classList.toggle('hidden', !useSticky);
+      profileInlineActions.classList.toggle('hidden', useSticky);
+      if (!useSticky && profileStickyOverflow) {
+        profileStickyOverflow.open = false;
+      }
+    }
 
     function isPdfDocumentFile(file) {
       if (!file) return false;
@@ -2658,6 +2785,7 @@
           loadDriverComplianceOverview();
         }
       }
+      renderProfileActions();
     }
 
     function handleMainTabsKeydown(event) {
@@ -2712,6 +2840,7 @@
 	      if (activeTab === 'documents') {
 	        refreshDriverProfileData();
 	      }
+        renderProfileActions();
 	    }
 
 	    function setRole(role) {
@@ -2746,6 +2875,7 @@
 	      if (!allowedTabs.has(currentActiveTab)) {
 	        setActiveProfileTab(PROFILE_TAB_FALLBACK);
 	      }
+        renderProfileActions();
 	    }
 
     async function saveGuestProfile() {
@@ -2889,6 +3019,8 @@
     openDriverDocumentsTabBtn?.addEventListener('click', () => {
       setActiveProfileTab('documents');
     });
+    profileActionsMedia?.addEventListener('change', renderProfileActions);
+    window.addEventListener('resize', renderProfileActions);
     cancelDocumentBtn?.addEventListener('click', () => toggleDocumentForm(false));
     addDocumentForm?.addEventListener('submit', submitDriverDocument);
     addDocumentForm?.addEventListener('keydown', (event) => {
@@ -2922,5 +3054,6 @@
     setRole(initialRole);
     setActiveProfileTab('overview');
     setActiveScreen(initialTab);
+    renderProfileActions();
     updateGuestProfileStatus();
     applyPublishPrecheckHint();
