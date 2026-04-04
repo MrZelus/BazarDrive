@@ -1,4 +1,19 @@
 :root {
+  --feed-bg-rgb: 5 8 18;
+  --feed-panel-rgb: 18 24 38;
+  --feed-panel-soft-rgb: 26 34 51;
+  --feed-accent-rgb: 79 140 255;
+  --feed-text-rgb: 243 246 251;
+  --feed-text-soft-rgb: 168 179 199;
+  --feed-border-rgb: 42 52 72;
+  --feed-danger-rgb: 239 68 68;
+  --feed-success-rgb: 34 197 94;
+  --feed-warning-rgb: 245 158 11;
+  --feed-bg-gradient: none;
+  --feed-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+:root[data-theme='light'] {
   --feed-bg-rgb: 200 210 223;
   --feed-panel-rgb: 241 245 249;
   --feed-panel-soft-rgb: 255 255 255;
@@ -6,10 +21,9 @@
   --feed-text-rgb: 15 23 42;
   --feed-text-soft-rgb: 51 65 85;
   --feed-border-rgb: 148 163 184;
+  --feed-danger-rgb: 237 73 86;
   --feed-success-rgb: 5 150 105;
   --feed-warning-rgb: 180 83 9;
-  --feed-bg-gradient: none;
-  --feed-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 
