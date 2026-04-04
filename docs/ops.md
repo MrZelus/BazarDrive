@@ -28,6 +28,41 @@ Endpoint API:
 - `200` и `{"status":"ok","process":"ok","database":"ok"}` если процесс жив и БД доступна.
 - `503` и `{"status":"degraded","process":"ok","database":"unavailable"}` если БД недоступна.
 
+## CORS и авторизация write-запросов (`APP_ENV`)
+
+Источник фактического поведения: `FeedAPIHandler._with_error_handling` и
+`FeedAPIHandler._resolve_write_auth_context` в `app/api/http_handlers.py`.
+
+### `APP_ENV=dev`
+- CORS permissive (`Access-Control-Allow-Origin: *`).
+- Write (`POST/PATCH/DELETE`) работает без обязательных API-ключей/токенов.
+
+### `APP_ENV=prod`
+- CORS только через allowlist `CORS_ALLOWED_ORIGINS`; неизвестный `Origin` получает `403`.
+- Для write обязателен валидный credential:
+  - `X-API-Key` из `API_AUTH_KEYS`,
+  - или `Authorization: Bearer` из `API_AUTH_BEARER_TOKENS`,
+  - или moderator credentials (`MODERATOR_API_KEYS` / `MODERATOR_BEARER_TOKENS`) при необходимости.
+- При отсутствии/невалидности кредов write блокируется (`401`).
+
+### Минимум для production (чеклист)
+- [ ] `APP_ENV=prod`
+- [ ] `CORS_ALLOWED_ORIGINS` заполнен реальными origin
+- [ ] `API_AUTH_KEYS` и/или `API_AUTH_BEARER_TOKENS` заданы
+- [ ] (опционально) `MODERATOR_API_KEYS` и/или `MODERATOR_BEARER_TOKENS` заданы
+- [ ] Проверен негативный сценарий: write без кредов -> `401`, неразрешённый `Origin` -> `403`
+
+Пример:
+
+```env
+APP_ENV=prod
+CORS_ALLOWED_ORIGINS=https://app.example.com,https://admin.example.com
+API_AUTH_KEYS=prod-write-key-1
+API_AUTH_BEARER_TOKENS=prod-write-token-1
+MODERATOR_API_KEYS=prod-moderator-key-1
+MODERATOR_BEARER_TOKENS=prod-moderator-token-1
+```
+
 ## Запуск через systemd
 
 Пример unit-файла для API (`/etc/systemd/system/bazardrive-api.service`):

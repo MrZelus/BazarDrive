@@ -40,24 +40,49 @@
 
 ## APP_ENV режимы для CORS и write-auth
 
-- `APP_ENV=dev` (по умолчанию):
-  - Поведение для локальной разработки остаётся гибким.
-  - CORS заголовок `Access-Control-Allow-Origin: *`.
-  - Write-endpoints (`POST/PATCH/DELETE`) доступны без обязательной авторизации.
+Ниже — явное разделение поведения для локальной разработки и production.
+Источник фактического runtime-поведения: `FeedAPIHandler._with_error_handling` и `FeedAPIHandler._resolve_write_auth_context` в `app/api/http_handlers.py`.
 
-- `APP_ENV=prod`:
-  - Для запросов с `Origin` используется whitelist из `CORS_ALLOWED_ORIGINS`.
-  - `Origin`, отсутствующий в whitelist, отклоняется с `403`.
-  - Для всех write-endpoints требуется хотя бы один из вариантов:
-    - `X-API-Key` из `API_AUTH_KEYS`;
-    - `Authorization: Bearer <token>` из `API_AUTH_BEARER_TOKENS`;
-    - `X-API-Key` из `MODERATOR_API_KEYS`;
-    - `Authorization: Bearer <token>` из `MODERATOR_BEARER_TOKENS`.
-  - При отсутствии/невалидных учётных данных возвращается `401`.
-  - Object-level авторизация на PATCH/DELETE постов и комментариев:
-    - автор может изменять/удалять только свои сущности (`guest_profile_id` должен совпадать с владельцем);
-    - модераторские ключи/токены могут изменять и удалять любые сущности.
-  - Все ошибки включают `request_id` для трассировки.
+### `APP_ENV=dev` (по умолчанию)
+
+- Режим для локальной разработки и быстрого smoke-тестирования.
+- CORS permissive: API отвечает с `Access-Control-Allow-Origin: *`.
+- Write-endpoints (`POST/PATCH/DELETE`) проходят без обязательных API-ключей/токенов transport-уровня.
+
+### `APP_ENV=prod`
+
+- CORS работает через allowlist `CORS_ALLOWED_ORIGINS`.
+  - Любой `Origin`, которого нет в allowlist, блокируется с `403 forbidden_origin`.
+  - `*` в `CORS_ALLOWED_ORIGINS` запрещён.
+- Для write-endpoints (`POST/PATCH/DELETE`) обязательны валидные credentials:
+  - `X-API-Key` из `API_AUTH_KEYS`, или
+  - `Authorization: Bearer <token>` из `API_AUTH_BEARER_TOKENS`, или
+  - moderator-варианты из `MODERATOR_API_KEYS` / `MODERATOR_BEARER_TOKENS` (если нужны права модератора).
+- При отсутствии настроенных write-кредов в окружении **или** при невалидных входящих кредах write-запрос блокируется с `401 unauthorized`.
+- Дополнительно для PATCH/DELETE постов и комментариев действует object-level авторизация:
+  - автор может изменять/удалять только свои сущности;
+  - модераторские ключи/токены могут делать override.
+- Ошибки содержат `request_id` для трассировки.
+
+### Минимум для `prod` (чеклист)
+
+- [ ] Установить `APP_ENV=prod`.
+- [ ] Заполнить `CORS_ALLOWED_ORIGINS` реальными origin frontend/admin.
+- [ ] Задать минимум один write credential:
+  - [ ] `API_AUTH_KEYS` и/или `API_AUTH_BEARER_TOKENS`.
+- [ ] Если нужен moderator override — заполнить `MODERATOR_API_KEYS` и/или `MODERATOR_BEARER_TOKENS`.
+- [ ] Проверить, что write без валидных кредов возвращает `401`, а запрещённый origin — `403`.
+
+Пример минимального `.env` для `prod`:
+
+```env
+APP_ENV=prod
+CORS_ALLOWED_ORIGINS=https://app.example.com,https://admin.example.com
+API_AUTH_KEYS=prod-write-key-1,prod-write-key-2
+API_AUTH_BEARER_TOKENS=prod-write-token-1
+MODERATOR_API_KEYS=prod-moderator-key-1
+MODERATOR_BEARER_TOKENS=prod-moderator-token-1
+```
 
 ### Бэкап и очистка
 - **Бэкап:** включайте директорию `storage/feed_images` в регулярные бэкапы вместе с `bot.db`, иначе ссылки в БД станут «битые».
