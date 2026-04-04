@@ -1561,13 +1561,19 @@
         renderDriverHeaderAndQuickStatuses();
       } catch (error) {
         console.error(error);
+        const complianceFallbackMessage = 'Не удалось загрузить сведения о допуске.';
+        const friendlyComplianceError = toUserFriendlyNetworkError(
+          error,
+          complianceFallbackMessage,
+          FEED_API_BASE_LABEL
+        );
         driverHeaderQuickState.profileState = 'error';
         driverHeaderQuickState.complianceState = 'error';
-        driverHeaderQuickState.profileError = String(error.message || 'Не удалось загрузить профиль');
-        driverHeaderQuickState.complianceError = String(error.message || 'Не удалось загрузить статус допуска');
+        driverHeaderQuickState.profileError = friendlyComplianceError;
+        driverHeaderQuickState.complianceError = friendlyComplianceError;
         renderDriverComplianceOverview({}, {
           ...DRIVER_COMPLIANCE_FALLBACK_STATUS,
-          reason: String(error.message || 'Не удалось загрузить сведения о допуске'),
+          reason: friendlyComplianceError,
           missing_required_fields: [...DRIVER_COMPLIANCE_REQUIRED_FIELDS],
         });
         renderDriverHeaderAndQuickStatuses();
