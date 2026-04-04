@@ -82,10 +82,11 @@ def healthcheck(url: str, timeout_seconds: float) -> None:
     raise SmokeError(f"Service healthcheck failed for {url}: {last_error or 'unknown error'}")
 
 
-def _spawn(cmd: list[str], cwd: Path) -> subprocess.Popen[str]:
+def _spawn(cmd: list[str], cwd: Path, env: dict[str, str] | None = None) -> subprocess.Popen[str]:
     return subprocess.Popen(
         cmd,
         cwd=str(cwd),
+        env=env,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         text=True,
@@ -115,6 +116,13 @@ def build_urls(config: SmokeConfig) -> tuple[str, str, str]:
     query = urllib.parse.urlencode({"apiBase": api_base})
     guest_feed_url = f"{static_base}/public/guest_feed.html?{query}"
     return api_base, static_base, guest_feed_url
+
+
+def build_api_process_env(config: SmokeConfig) -> dict[str, str]:
+    env = dict(os.environ)
+    env["FEED_API_HOST"] = config.host
+    env["FEED_API_PORT"] = str(config.api_port)
+    return env
 
 
 def run_playwright_scenario(guest_feed_url: str, config: SmokeConfig) -> dict[str, str]:
@@ -219,7 +227,7 @@ def main() -> int:
     try:
         ensure_playwright_dependency()
         if not config.no_start_servers:
-            api_proc = _spawn([sys.executable, "run_api.py"], cwd=repo_root)
+            api_proc = _spawn([sys.executable, "run_api.py"], cwd=repo_root, env=build_api_process_env(config))
             static_proc = _spawn([sys.executable, "-m", "http.server", str(config.static_port), "--bind", config.host], cwd=repo_root)
 
         healthcheck(f"{api_base}/health", config.timeout_seconds)
