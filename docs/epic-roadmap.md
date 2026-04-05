@@ -62,3 +62,30 @@
 2. Orders Marketplace Core
 3. Design System and Mobile UX Consistency
 4. Data Contracts and Domain Model
+
+## QA review checklist for this roadmap
+
+### 1) Coverage and decomposition
+- [ ] У каждой Epic есть минимум 3 sub-epic с чёткой продуктовой ценностью.
+- [ ] Нет дублирования между Epic 1/4/6 (readiness, trust, backoffice) — границы ответственности зафиксированы.
+- [ ] Для каждого sub-epic понятен владелец (product + tech owner).
+
+### 2) Contract-first readiness
+- [ ] Для Epic 1, 2, 8 определены основные domain entities и enum-контракты до начала UI-реализации.
+- [ ] Изменения контрактов сопровождаются backward-compatibility планом и миграциями.
+- [ ] На ключевые readiness/checking API запланированы contract tests.
+
+### 3) Delivery quality gates
+- [ ] Для каждой sub-epic есть measurable acceptance criteria (SLA, conversion, error budget).
+- [ ] Для критичных пользовательских потоков предусмотрены loading/empty/error/success состояния.
+- [ ] Для backend-изменений заложены smoke/regression проверки в CI.
+
+### 4) Dependency and risk control
+- [ ] Взаимозависимости между фазами A→D отражены в issue links и milestones.
+- [ ] Для compliance и moderation задач обозначены юридические/операционные риски.
+- [ ] Для payout и orders задач обозначены финансовые и антифрод-риски.
+
+### 5) Observability and post-release
+- [ ] Для каждой Epic заранее определены метрики результата и мониторинг ошибок.
+- [ ] Для production rollout предусмотрены feature flags и rollback-процедуры.
+- [ ] После релиза запланирован review результатов (7/14/30 дней).
