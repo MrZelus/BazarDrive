@@ -6,7 +6,10 @@ import re
 class DriverDocumentsUISmokeTests(unittest.TestCase):
     def test_add_document_button_and_form_exist(self) -> None:
         html = Path('public/guest_feed.html').read_text(encoding='utf-8')
-        self.assertIn('id="addDocumentBtn"', html)
+        self.assertTrue(
+            'id="addDocumentBtn"' in html or 'id="driverAddDocumentBtn"' in html,
+            'Expected either legacy addDocumentBtn or new driverAddDocumentBtn trigger',
+        )
         self.assertIn('id="addDocumentForm"', html)
         self.assertIn('id="documentFileInput"', html)
         self.assertIn('Файл документа (PDF)', html)
