@@ -502,6 +502,7 @@
     const driverComplianceStatusBadge = document.getElementById('driverComplianceStatusBadge');
     const driverComplianceSectionStatus = document.getElementById('driverComplianceSectionStatus');
     const driverComplianceReason = document.getElementById('driverComplianceReason');
+    const driverChecklistSection = document.getElementById('driverChecklistSection');
     const driverComplianceCompletionText = document.getElementById('driverComplianceCompletionText');
     const driverComplianceMissingExtra = document.getElementById('driverComplianceMissingExtra');
     const driverComplianceRequiredItems = Array.from(
@@ -526,6 +527,7 @@
       reason: 'Профиль допуска водителя не заполнен',
       missing_required_fields: ['profile'],
     };
+    const DRIVER_CHECKLIST_ENABLED = true;
     const driverReadinessActionState = {
       primaryActionId: 'open_documents_form',
       primaryActionLabel: 'Продолжить заполнение',
@@ -1281,6 +1283,15 @@
     }
 
     function getDriverRequiredFieldStats(profileData = {}, complianceData = {}) {
+      const apiFilled = Number(complianceData.progress_filled);
+      const apiTotal = Number(complianceData.progress_total);
+      if (Number.isFinite(apiFilled) && Number.isFinite(apiTotal) && apiTotal >= 0) {
+        return {
+          filledCount: Math.max(0, apiFilled),
+          totalCount: apiTotal,
+          missingSet: new Set(),
+        };
+      }
       const missingFromApi = Array.isArray(complianceData.missing_required_fields)
         ? complianceData.missing_required_fields.map((item) => String(item || '').trim()).filter(Boolean)
         : [];
@@ -1403,9 +1414,7 @@
       );
       const nextStep = readinessStatus === 'ready'
         ? 'перейдите к заказам'
-        : (requiredStats.filledCount < requiredStats.totalCount
-          ? 'заполните обязательные поля профиля'
-          : 'проверьте и обновите обязательные документы');
+        : 'отметьте чек-лист и загрузите недостающие документы';
       applyDriverReadinessCard({
         status: readinessStatus,
         label: readinessStatus === 'ready' ? 'Готов к заказам' : 'Не готов к заказам',
@@ -1655,7 +1664,13 @@
         driverComplianceReason.textContent = reason ? `Причина: ${reason}` : '';
       }
 
-      renderDriverComplianceRequiredFields(profileData, complianceData);
+      if (driverChecklistSection) {
+        driverChecklistSection.classList.toggle('hidden', !DRIVER_CHECKLIST_ENABLED);
+        driverChecklistSection.setAttribute('aria-hidden', String(!DRIVER_CHECKLIST_ENABLED));
+      }
+      if (DRIVER_CHECKLIST_ENABLED) {
+        renderDriverComplianceRequiredFields(profileData, complianceData);
+      }
     }
 
     async function loadDriverComplianceOverview() {

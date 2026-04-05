@@ -33,6 +33,9 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
         self.assertIn('function getDriverRequiredFieldStats(profileData = {}, complianceData = {})', script)
         self.assertIn("driverReadinessActionState.primaryActionLabel = 'Перейти к заказам';", script)
         self.assertIn("driverReadinessActionState.primaryActionLabel = 'Добавить документ';", script)
+        self.assertIn('id="driverChecklistSection" class="bg-panel', html)
+        self.assertIn('Чек-лист обязательных полей', html)
+        self.assertIn('const DRIVER_CHECKLIST_ENABLED = true;', script)
 
     def test_documents_flow_functions_exist_in_script(self) -> None:
         script = Path('public/web/js/feed.js').read_text(encoding='utf-8')
