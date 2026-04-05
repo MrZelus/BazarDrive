@@ -39,11 +39,11 @@ create_label_if_missing() {
   local color="$2"
   local desc="$3"
 
-  if gh label list --repo "$REPO" --limit 200 --json name --jq '.[].name' | grep -Fxq "$name"; then
+  if gh api "repos/$REPO/labels/$name" >/dev/null 2>&1; then
     echo "Label exists: $name"
   else
     echo "Creating label: $name"
-    gh label create "$name" --repo "$REPO" --color "$color" --description "$desc"
+    gh label create "$name" --repo "$REPO" --color "$color" --description "$desc" >/dev/null
   fi
 }
 
