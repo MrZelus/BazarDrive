@@ -108,11 +108,17 @@ post_comment_if_missing() {
 
 milestone_number_by_title() {
   local title="$1"
-  gh api "repos/$REPO/milestones?state=all&per_page=100" \
-    | python3 - "$title" <<'PY'
+  local milestones_json
+  milestones_json="$(gh api "repos/$REPO/milestones?state=all&per_page=100")"
+
+  python3 - "$title" "$milestones_json" <<'PY'
 import json, sys
 title = sys.argv[1]
-items = json.load(sys.stdin)
+raw = sys.argv[2]
+if not raw.strip():
+    sys.exit(0)
+
+items = json.loads(raw)
 for item in items:
     if item.get("title") == title:
         print(item.get("number"))
