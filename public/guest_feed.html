@@ -185,14 +185,29 @@
             <div class="min-w-0 flex-1">
               <p id="driverProfileHeaderFullName" class="truncate text-lg font-semibold">Обновляем профиль…</p>
               <p id="driverProfileHeaderMeta" class="mt-1 text-sm text-textSoft">Роль: — • Форма деятельности: — • Налоговый режим: —</p>
-              <span
-                id="driverProfileHeaderStatusChip"
-                class="mt-2 inline-flex rounded-full border border-textSoft/20 bg-panelSoft px-2.5 py-1 text-xs text-textSoft"
-              >
-                Статус: обновляем данные
-              </span>
+              <div class="mt-2 flex flex-wrap items-center gap-2">
+                <span
+                  id="driverProfileHeaderStatusChip"
+                  class="inline-flex rounded-full border border-textSoft/20 bg-panelSoft px-2.5 py-1 text-xs text-textSoft"
+                >
+                  Статус: обновляем данные
+                </span>
+                <span
+                  id="driverProfileProgressBadge"
+                  class="inline-flex rounded-full border border-textSoft/20 bg-panelSoft px-2.5 py-1 text-xs text-textSoft"
+                >
+                  Заполнено: 0/11
+                </span>
+              </div>
             </div>
           </div>
+        </section>
+
+        <section id="driverReadinessStatusCard" class="mb-3 rounded-2xl border border-warning/30 bg-warning/10 p-4" aria-live="polite">
+          <p class="text-sm text-textSoft">Статус допуска к заказам</p>
+          <p id="driverReadinessStatusLabel" class="mt-1 text-base font-semibold">Проверяем данные</p>
+          <p id="driverReadinessReason" class="mt-2 text-sm text-textSoft">Причина: выполняем проверку профиля и документов.</p>
+          <p id="driverReadinessNextStep" class="mt-1 text-sm text-warning">Следующий шаг: дождитесь обновления статуса.</p>
         </section>
 
         <section id="driverQuickStatusCards" class="mb-3">
@@ -283,7 +298,7 @@
               </div>
               <div id="driverOverviewDocuments" class="mt-2 space-y-2"></div>
             </div>
-            <button id="driverAddDocumentBtn" type="button" class="ui-btn ui-btn--primary w-full h-14 rounded-2xl font-semibold text-base">
+            <button id="driverAddDocumentBtn" type="button" class="ui-btn ui-btn--primary hidden w-full h-14 rounded-2xl font-semibold text-base">
               Добавить/обновить документы
             </button>
           </div>
