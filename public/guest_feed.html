@@ -183,13 +183,13 @@
               —
             </div>
             <div class="min-w-0 flex-1">
-              <p id="driverProfileHeaderFullName" class="truncate text-lg font-semibold">Загрузка профиля...</p>
+              <p id="driverProfileHeaderFullName" class="truncate text-lg font-semibold">Обновляем профиль…</p>
               <p id="driverProfileHeaderMeta" class="mt-1 text-sm text-textSoft">Роль: — • Форма деятельности: — • Налоговый режим: —</p>
               <span
                 id="driverProfileHeaderStatusChip"
                 class="mt-2 inline-flex rounded-full border border-textSoft/20 bg-panelSoft px-2.5 py-1 text-xs text-textSoft"
               >
-                Статус: загрузка...
+                Статус: обновляем данные
               </span>
             </div>
           </div>
@@ -199,23 +199,23 @@
           <div class="flex gap-2 overflow-x-auto pb-1" role="list" aria-label="Быстрые статусы профиля водителя">
             <article class="min-w-[150px] flex-1 rounded-xl border border-textSoft/20 bg-panel px-3 py-2" role="listitem">
               <p class="text-xs text-textSoft">Документы</p>
-              <p id="driverQuickDocumentsValue" class="mt-1 text-sm font-medium">Загрузка...</p>
-              <span id="driverQuickDocumentsChip" class="mt-1 inline-flex rounded-full border border-textSoft/20 bg-panelSoft px-2 py-0.5 text-xs text-textSoft">Загрузка</span>
+              <p id="driverQuickDocumentsValue" class="mt-1 text-sm font-medium">Обновляем…</p>
+              <span id="driverQuickDocumentsChip" class="mt-1 inline-flex rounded-full border border-textSoft/20 bg-panelSoft px-2 py-0.5 text-xs text-textSoft">Обновляем</span>
             </article>
             <article class="min-w-[170px] flex-1 rounded-xl border border-textSoft/20 bg-panel px-3 py-2" role="listitem">
               <p class="text-xs text-textSoft">Разрешение такси</p>
-              <p id="driverQuickTaxiLicenseValue" class="mt-1 text-sm font-medium">Загрузка...</p>
-              <span id="driverQuickTaxiLicenseChip" class="mt-1 inline-flex rounded-full border border-textSoft/20 bg-panelSoft px-2 py-0.5 text-xs text-textSoft">Загрузка</span>
+              <p id="driverQuickTaxiLicenseValue" class="mt-1 text-sm font-medium">Обновляем…</p>
+              <span id="driverQuickTaxiLicenseChip" class="mt-1 inline-flex rounded-full border border-textSoft/20 bg-panelSoft px-2 py-0.5 text-xs text-textSoft">Обновляем</span>
             </article>
             <article class="min-w-[150px] flex-1 rounded-xl border border-textSoft/20 bg-panel px-3 py-2" role="listitem">
               <p class="text-xs text-textSoft">Выплаты</p>
-              <p id="driverQuickPayoutsValue" class="mt-1 text-sm font-medium">Загрузка...</p>
-              <span id="driverQuickPayoutsChip" class="mt-1 inline-flex rounded-full border border-textSoft/20 bg-panelSoft px-2 py-0.5 text-xs text-textSoft">Загрузка</span>
+              <p id="driverQuickPayoutsValue" class="mt-1 text-sm font-medium">Обновляем…</p>
+              <span id="driverQuickPayoutsChip" class="mt-1 inline-flex rounded-full border border-textSoft/20 bg-panelSoft px-2 py-0.5 text-xs text-textSoft">Обновляем</span>
             </article>
             <article class="min-w-[170px] flex-1 rounded-xl border border-textSoft/20 bg-panel px-3 py-2" role="listitem">
               <p class="text-xs text-textSoft">ОСАГО</p>
-              <p id="driverQuickOsagoValue" class="mt-1 text-sm font-medium">Загрузка...</p>
-              <span id="driverQuickOsagoChip" class="mt-1 inline-flex rounded-full border border-textSoft/20 bg-panelSoft px-2 py-0.5 text-xs text-textSoft">Загрузка</span>
+              <p id="driverQuickOsagoValue" class="mt-1 text-sm font-medium">Обновляем…</p>
+              <span id="driverQuickOsagoChip" class="mt-1 inline-flex rounded-full border border-textSoft/20 bg-panelSoft px-2 py-0.5 text-xs text-textSoft">Обновляем</span>
             </article>
           </div>
         </section>
@@ -334,23 +334,22 @@
           <p class="text-sm text-textSoft">Профиль публикации: обязательное условие для публикации постов в ленте.</p>
           <div id="driverDocumentsSection" class="space-y-3">
             <hr class="border-textSoft/25 my-2" />
-            <div class="space-y-2 rounded-xl border border-textSoft/20 bg-panelSoft px-3 py-3 text-xs text-textSoft">
-              <p class="font-medium text-text">Требования для допуска к заказам (580-ФЗ и правила сервиса)</p>
-              <ul class="space-y-1 list-disc pl-4">
-                <li><span class="font-medium text-text">Личные данные и квалификация:</span> ФИО, контакты, водительское удостоверение категории «B» со стажем от 3 лет, отсутствие медпротивопоказаний и ограничений по судимостям/штрафам.</li>
+            <details class="rounded-xl border border-textSoft/20 bg-panelSoft px-3 py-3 text-xs text-textSoft">
+              <summary class="cursor-pointer list-none font-medium text-text">Требования для допуска к заказам (580-ФЗ)</summary>
+              <p class="mt-2">Кратко: заполните профиль, загрузите обязательные документы и держите открытый путевой лист на смену.</p>
+              <ul class="mt-2 space-y-1 list-disc pl-4">
+                <li><span class="font-medium text-text">Личные данные и квалификация:</span> ФИО, контакты, ВУ категории «B» со стажем от 3 лет, отсутствие ограничений.</li>
                 <li><span class="font-medium text-text">Сведения ИП:</span> ИНН, ОГРНИП, дата регистрации, налоговый режим и регион работы.</li>
-                <li><span class="font-medium text-text">Сведения об авто:</span> марка, модель, госномер, СТС, диагностическая карта, страховки ОСАГО («Такси») и ОСГОП, разрешение на перевозку, обязательное оборудование.</li>
-                <li><span class="font-medium text-text">Путевой лист:</span> оформляется до выхода на линию, после смены должен быть закрыт с мед- и техконтролем.</li>
-                <li><span class="font-medium text-text">Формат документов:</span> оригиналы или электронные документы; сканы бумажных оригиналов не принимаются.</li>
+                <li><span class="font-medium text-text">Сведения об авто:</span> марка, модель, госномер, СТС, диагностическая карта, ОСАГО («Такси»), ОСГОП, разрешение на перевозку.</li>
+                <li><span class="font-medium text-text">Путевой лист:</span> оформляется до выхода на линию и закрывается после смены.</li>
               </ul>
-            </div>
-            <div class="rounded-xl border border-textSoft/20 bg-panelSoft px-3 py-2 text-xs text-textSoft">
-              <p class="font-medium text-text">Журнал заказов (обязательные поля)</p>
-              <p class="mt-1">Номер заказа, дата/время принятия, дата выполнения, адреса подачи/завершения, авто и ФИО водителя, план/факт прибытия и завершения, канал направления заказа, телефон пассажира, доптребования.</p>
-            </div>
+            </details>
+            <details class="rounded-xl border border-textSoft/20 bg-panelSoft px-3 py-2 text-xs text-textSoft">
+              <summary class="cursor-pointer list-none font-medium text-text">Журнал заказов (обязательные поля)</summary>
+              <p class="mt-2">Номер заказа, дата/время принятия и выполнения, адреса подачи/завершения, авто и ФИО водителя, план/факт прибытия и завершения, канал направления заказа, телефон пассажира, доптребования.</p>
+            </details>
             <div class="flex items-center justify-between gap-2">
               <p class="text-base font-semibold">Документы водителя</p>
-              <button id="addDocumentBtn" type="button" class="ui-btn ui-btn--primary h-10 rounded-xl px-4 text-sm font-medium">Добавить документ</button>
             </div>
             <div id="documentsApiAlert" class="hidden rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning"></div>
             <div id="driverDocumentsLoadingState" class="hidden space-y-2" aria-live="polite" aria-hidden="true">
