@@ -14,6 +14,7 @@ REPO="${1:-${REPO:-$DEFAULT_REPO}}"
 MILESTONE_TITLE="Driver Readiness MVP"
 MILESTONE_DESC="MVP scope for driver onboarding, readiness, documents, and business identity."
 MILESTONE_DUE="2026-05-31T23:59:59Z"
+LABEL_LIST_LIMIT="${LABEL_LIST_LIMIT:-1000}"
 
 need_cmd() {
   command -v "$1" >/dev/null 2>&1 || {
@@ -39,11 +40,19 @@ create_label_if_missing() {
   local color="$2"
   local desc="$3"
 
-  if gh label list --repo "$REPO" --limit 200 --json name --jq '.[].name' | grep -Fxq "$name"; then
+  if gh label list --repo "$REPO" --limit "$LABEL_LIST_LIMIT" --json name --jq '.[].name' | grep -Fxq "$name"; then
     echo "Label exists: $name"
   else
     echo "Creating label: $name"
-    gh label create "$name" --repo "$REPO" --color "$color" --description "$desc"
+    local create_output
+    if create_output="$(gh label create "$name" --repo "$REPO" --color "$color" --description "$desc" 2>&1)"; then
+      echo "$create_output"
+    elif echo "$create_output" | grep -Fqi "already exists"; then
+      echo "Label exists (race/different page): $name"
+    else
+      echo "$create_output" >&2
+      return 1
+    fi
   fi
 }
 
