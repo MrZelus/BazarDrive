@@ -3,13 +3,17 @@ set -euo pipefail
 
 # Termux-ready bootstrap script that:
 # 1) Ensures labels exist
-# 2) Creates Epic/Sub-epic/MVP issues (if missing)
-# 3) Resolves issue numbers
-# 4) Rewrites issue bodies with Parent/Children/Related links
-# 5) Posts one summary comment in the Epic (idempotent via marker)
+# 2) Creates (or reuses) milestone Driver Readiness MVP
+# 3) Creates Epic/Sub-epic/MVP issues (if missing)
+# 4) Assigns all issues to the milestone
+# 5) Rewrites issue bodies with Parent/Children/Related links
+# 6) Posts one summary comment in the Epic (idempotent via marker)
 
 DEFAULT_REPO="MrZelus/BazarDrive"
 REPO="${1:-${REPO:-$DEFAULT_REPO}}"
+MILESTONE_TITLE="Driver Readiness MVP"
+MILESTONE_DESC="MVP scope for driver onboarding, readiness, documents, and business identity."
+MILESTONE_DUE="2026-05-31T23:59:59Z"
 
 need_cmd() {
   command -v "$1" >/dev/null 2>&1 || {
@@ -40,6 +44,26 @@ create_label_if_missing() {
   else
     echo "Creating label: $name"
     gh label create "$name" --repo "$REPO" --color "$color" --description "$desc"
+  fi
+}
+
+milestone_number_by_title() {
+  local title="$1"
+  gh api "repos/$REPO/milestones?state=all&per_page=100" --jq ".[] | select(.title == \"$title\") | .number" | head -n 1
+}
+
+create_milestone_if_missing() {
+  local title="$1"
+  local desc="$2"
+  local due_on="$3"
+
+  local number
+  number="$(milestone_number_by_title "$title" || true)"
+  if [[ -n "${number:-}" ]]; then
+    echo "Milestone exists: $title (#$number)"
+  else
+    echo "Creating milestone: $title"
+    gh api "repos/$REPO/milestones" --method POST -f title="$title" -f description="$desc" -f due_on="$due_on" >/dev/null
   fi
 }
 
@@ -78,11 +102,15 @@ create_issue_if_missing() {
   done
 
   echo "Creating issue: $title"
-  gh issue create \
-    --repo "$REPO" \
-    --title "$title" \
-    "${args[@]}" \
-    --body-file "$body_file" >/dev/null
+  gh issue create --repo "$REPO" --title "$title" "${args[@]}" --body-file "$body_file" >/dev/null
+}
+
+assign_issue_to_milestone() {
+  local issue_number="$1"
+  local milestone_title="$2"
+
+  echo "Assigning issue #$issue_number to milestone '$milestone_title'"
+  gh issue edit "$issue_number" --repo "$REPO" --milestone "$milestone_title" >/dev/null
 }
 
 update_issue_body() {
@@ -97,8 +125,7 @@ comment_exists_with_marker() {
   local issue_number="$1"
   local marker="$2"
 
-  gh issue view "$issue_number" --repo "$REPO" --json comments \
-    --jq '.comments[].body' | grep -Fq "$marker"
+  gh issue view "$issue_number" --repo "$REPO" --json comments --jq '.comments[].body' | grep -Fq "$marker"
 }
 
 post_comment_if_missing() {
@@ -128,6 +155,15 @@ create_label_if_missing "orders" "BFDADC" "Orders workflow"
 create_label_if_missing "design-system" "FEF2C0" "Design system and UI consistency"
 create_label_if_missing "analytics" "006B75" "Metrics and observability"
 create_label_if_missing "backoffice" "E4E669" "Admin and review tooling"
+
+echo "==> Создание milestone"
+create_milestone_if_missing "$MILESTONE_TITLE" "$MILESTONE_DESC" "$MILESTONE_DUE"
+MILESTONE_NUM="$(milestone_number_by_title "$MILESTONE_TITLE")"
+if [[ -z "$MILESTONE_NUM" ]]; then
+  echo "Ошибка: не удалось определить milestone '$MILESTONE_TITLE'" >&2
+  exit 1
+fi
+echo "Milestone: #$MILESTONE_NUM"
 
 echo "==> Шаг 1. Базовые issue"
 
@@ -332,12 +368,18 @@ for n in "$EPIC_NUM" "$SUB_ONBOARDING_NUM" "$SUB_DOCUMENTS_NUM" "$SUB_READINESS_
   fi
 done
 
-echo "Epic: #$EPIC_NUM"
+echo "==> Шаг 3. Назначение milestone"
+for num in "$EPIC_NUM" "$SUB_ONBOARDING_NUM" "$SUB_DOCUMENTS_NUM" "$SUB_READINESS_NUM" "$ISSUE_HERO_NUM" "$ISSUE_CHECKLIST_NUM" "$ISSUE_DOCUMENTS_NUM" "$ISSUE_READINESS_API_NUM" "$ISSUE_ENUMS_NUM" "$ISSUE_TAXI_IP_NUM" "$ISSUE_STATES_NUM" "$ISSUE_TESTS_NUM"; do
+  assign_issue_to_milestone "$num" "$MILESTONE_TITLE"
+done
 
-echo "==> Шаг 3. Финальные body"
+echo "==> Шаг 4. Финальные body"
 
 cat > "$TMP_DIR/epic_driver_readiness_final.md" <<EOF2
 ## Epic: Driver Readiness Platform
+
+### Milestone
+- $MILESTONE_TITLE
 
 ### Goal
 Bring a driver from first entry to \`Ready for orders\` through profile completion, document upload, readiness validation, and compliance checks.
@@ -371,8 +413,9 @@ The current driver experience needs a clearer path from incomplete profile to op
 3. #$ISSUE_CHECKLIST_NUM Checklist with blocking navigation
 4. #$ISSUE_DOCUMENTS_NUM Documents section and active waybill priority
 5. #$ISSUE_ENUMS_NUM Document lifecycle enums
-6. #$ISSUE_STATES_NUM Human-friendly states
-7. #$ISSUE_TESTS_NUM Smoke and contract tests
+6. #$ISSUE_TAXI_IP_NUM Taxi / IP business profile section
+7. #$ISSUE_STATES_NUM Human-friendly states
+8. #$ISSUE_TESTS_NUM Smoke and contract tests
 
 ### Success criteria
 - driver can complete onboarding end-to-end on mobile
@@ -387,6 +430,9 @@ cat > "$TMP_DIR/subepic_driver_onboarding_final.md" <<EOF2
 
 ### Parent
 - #$EPIC_NUM Driver Readiness Platform
+
+### Milestone
+- $MILESTONE_TITLE
 
 ### Goal
 Build the mobile-first driver profile flow from role selection to readiness summary.
@@ -405,12 +451,6 @@ Build the mobile-first driver profile flow from role selection to readiness summ
 - #$ISSUE_HERO_NUM Refactor driver profile hero and readiness summary
 - #$ISSUE_CHECKLIST_NUM Implement driver checklist with blocking navigation
 - #$ISSUE_STATES_NUM Add human-friendly empty, loading, pending, and error states
-
-### Acceptance criteria
-- driver understands readiness in 3–5 seconds
-- profile progress is visible
-- one primary CTA per screen
-- blocked states always explain next step
 EOF2
 
 cat > "$TMP_DIR/subepic_driver_documents_final.md" <<EOF2
@@ -418,6 +458,9 @@ cat > "$TMP_DIR/subepic_driver_documents_final.md" <<EOF2
 
 ### Parent
 - #$EPIC_NUM Driver Readiness Platform
+
+### Milestone
+- $MILESTONE_TITLE
 
 ### Goal
 Turn driver documents into a full compliance lifecycle, not just a file list.
@@ -438,12 +481,6 @@ Turn driver documents into a full compliance lifecycle, not just a file list.
 
 ### Related
 - #$SUB_READINESS_NUM Readiness Contracts and Validation
-
-### Acceptance criteria
-- required missing docs are obvious
-- active waybill is always surfaced first
-- rejected docs can be reuploaded
-- document statuses are consistent across frontend and backend
 EOF2
 
 cat > "$TMP_DIR/subepic_readiness_contracts_final.md" <<EOF2
@@ -451,6 +488,9 @@ cat > "$TMP_DIR/subepic_readiness_contracts_final.md" <<EOF2
 
 ### Parent
 - #$EPIC_NUM Driver Readiness Platform
+
+### Milestone
+- $MILESTONE_TITLE
 
 ### Goal
 Define a stable server-side contract for driver readiness and blocking reasons.
@@ -464,161 +504,80 @@ Define a stable server-side contract for driver readiness and blocking reasons.
 - validation rules
 - contract tests
 
-### Suggested contract
-- readiness_status
-- progress_filled
-- progress_total
-- blocking_reasons[]
-- next_step
-- allowed_actions[]
-
-### Blocking reason fields
-- code
-- message
-- severity
-- next_action
-- target_screen
-
 ### Children
 - #$ISSUE_READINESS_API_NUM Add readiness summary API and blocking reasons contract
 - #$ISSUE_TAXI_IP_NUM Implement Taxi / IP business profile section
 - #$ISSUE_TESTS_NUM Cover driver onboarding with smoke and contract tests
-
-### Related
-- #$SUB_ONBOARDING_NUM Driver Profile and Onboarding
-- #$SUB_DOCUMENTS_NUM Driver Documents and Compliance
-
-### Acceptance criteria
-- frontend does not compute final readiness on its own
-- blocking reasons are structured and actionable
-- contract tests protect API stability
 EOF2
 
 cat > "$TMP_DIR/issue_hero_final.md" <<EOF2
 ## Parent
 - #$SUB_ONBOARDING_NUM Driver Profile and Onboarding
 
+## Milestone
+- $MILESTONE_TITLE
+
 ## Goal
 Create a strong hero summary and status block for the driver profile screen.
 
-### Tasks
-- add hero-card with:
-  - display name / full name
-  - role
-  - business type
-  - tax regime
-  - progress x/y
-- add readiness status-card with:
-  - status
-  - reason
-  - next step
-- keep one main CTA in the visible viewport
-
 ### Related
 - #$ISSUE_READINESS_API_NUM Add readiness summary API and blocking reasons contract
-
-### Acceptance criteria
-- readiness is understandable at first glance
-- next action is obvious
-- multiple fragmented summary cards are removed
 EOF2
 
 cat > "$TMP_DIR/issue_checklist_final.md" <<EOF2
 ## Parent
 - #$SUB_ONBOARDING_NUM Driver Profile and Onboarding
 
+## Milestone
+- $MILESTONE_TITLE
+
 ## Goal
 Show required profile fields as a checklist and navigate users directly to missing sections.
 
-### Tasks
-- add checklist for required fields
-- mark complete vs missing items
-- deep-link missing items to the correct section
-- sync checklist with server readiness summary
-
 ### Related
 - #$ISSUE_READINESS_API_NUM Add readiness summary API and blocking reasons contract
-
-### Acceptance criteria
-- missing fields are actionable
-- clicking a missing item opens the correct section
-- progress matches readiness data from backend
 EOF2
 
 cat > "$TMP_DIR/issue_documents_final.md" <<EOF2
 ## Parent
 - #$SUB_DOCUMENTS_NUM Driver Documents and Compliance
 
+## Milestone
+- $MILESTONE_TITLE
+
 ## Goal
 Redesign the documents section so active operational documents are prioritized.
-
-### Tasks
-- surface active waybill first
-- group docs by state:
-  - required
-  - pending
-  - approved
-  - archive
-- show document status, expiry, and review comment
-- support reupload flow
 
 ### Related
 - #$ISSUE_ENUMS_NUM Normalize driver document lifecycle enums
 - #$ISSUE_READINESS_API_NUM Add readiness summary API and blocking reasons contract
-
-### Acceptance criteria
-- active waybill is visually distinct
-- required missing docs are obvious
-- rejected docs can be reuploaded cleanly
 EOF2
 
 cat > "$TMP_DIR/issue_readiness_api_final.md" <<EOF2
 ## Parent
 - #$SUB_READINESS_NUM Readiness Contracts and Validation
 
+## Milestone
+- $MILESTONE_TITLE
+
 ## Goal
 Provide a backend API for readiness summary and actionable blocking reasons.
-
-### Tasks
-- implement readiness summary response
-- implement blocking reasons schema
-- return progress counters
-- return next_step and allowed_actions
-- cover with contract tests
 
 ### Used by
 - #$ISSUE_HERO_NUM Hero and readiness summary UI
 - #$ISSUE_CHECKLIST_NUM Checklist with blocking navigation
 - #$ISSUE_DOCUMENTS_NUM Documents section and active waybill priority
-
-### Acceptance criteria
-- frontend receives all readiness data from API
-- blocking reasons are actionable
-- readiness logic is centralized on the server
 EOF2
 
 cat > "$TMP_DIR/issue_document_enums_final.md" <<EOF2
 ## Parent
 - #$SUB_DOCUMENTS_NUM Driver Documents and Compliance
 
+## Milestone
+- $MILESTONE_TITLE
+
 ## Goal
 Unify document enums and lifecycle rules across the system.
-
-### Tasks
-- define DocumentType enum
-- define DocumentStatus enum
-- support review_comment and expires_at
-- enforce single active waybill
-- support rejected -> reupload flow
-
-### Related
-- #$ISSUE_DOCUMENTS_NUM Rework documents section with active waybill priority
-- #$ISSUE_TESTS_NUM Cover driver onboarding with smoke and contract tests
-
-### Acceptance criteria
-- frontend and backend use the same enums
-- active waybill uniqueness is enforced
-- lifecycle is predictable and testable
 EOF2
 
 cat > "$TMP_DIR/issue_taxi_ip_final.md" <<EOF2
@@ -626,44 +585,22 @@ cat > "$TMP_DIR/issue_taxi_ip_final.md" <<EOF2
 - #$SUB_READINESS_NUM Readiness Contracts and Validation
 - #$EPIC_NUM Driver Readiness Platform
 
+## Milestone
+- $MILESTONE_TITLE
+
 ## Goal
 Add the Taxi / IP section as part of readiness-critical profile data.
-
-### Tasks
-- add section for:
-  - business type
-  - INN
-  - OGRNIP
-  - tax regime
-  - region
-  - vehicle
-- validate identifiers
-- link section to readiness pipeline
-
-### Acceptance criteria
-- section is separate and understandable
-- invalid values are explained clearly
-- missing fields can produce blocking reasons
 EOF2
 
 cat > "$TMP_DIR/issue_states_final.md" <<EOF2
 ## Parent
 - #$SUB_ONBOARDING_NUM Driver Profile and Onboarding
 
+## Milestone
+- $MILESTONE_TITLE
+
 ## Goal
 Replace raw technical states with reusable user-friendly UI states.
-
-### Tasks
-- remove raw messages like \`Failed to fetch\`
-- add loading skeletons
-- add empty states with next-step CTA
-- add retry state
-- add pending review state
-
-### Acceptance criteria
-- no raw technical errors are shown to end users
-- main screen states are visually consistent
-- every state suggests a useful next action when applicable
 EOF2
 
 cat > "$TMP_DIR/issue_tests_final.md" <<EOF2
@@ -671,30 +608,13 @@ cat > "$TMP_DIR/issue_tests_final.md" <<EOF2
 - #$SUB_READINESS_NUM Readiness Contracts and Validation
 - #$SUB_DOCUMENTS_NUM Driver Documents and Compliance
 
+## Milestone
+- $MILESTONE_TITLE
+
 ## Goal
 Protect the new driver onboarding and readiness flow with tests.
-
-### Tasks
-- smoke test empty profile
-- smoke test partial profile
-- smoke test ready profile
-- smoke test error state
-- contract test readiness summary
-- contract test blocking reasons
-- contract test document lifecycle
-- test active waybill uniqueness
-
-### Related
-- #$ISSUE_READINESS_API_NUM Add readiness summary API and blocking reasons contract
-- #$ISSUE_ENUMS_NUM Normalize driver document lifecycle enums
-
-### Acceptance criteria
-- onboarding states are covered
-- readiness contract is stable
-- document lifecycle regressions are caught early
 EOF2
 
-echo "==> Шаг 4. Обновление body"
 update_issue_body "$EPIC_NUM" "$TMP_DIR/epic_driver_readiness_final.md"
 update_issue_body "$SUB_ONBOARDING_NUM" "$TMP_DIR/subepic_driver_onboarding_final.md"
 update_issue_body "$SUB_DOCUMENTS_NUM" "$TMP_DIR/subepic_driver_documents_final.md"
@@ -715,6 +635,9 @@ cat > "$TMP_DIR/epic_summary_comment.md" <<EOF2
 $EPIC_COMMENT_MARKER
 
 ## Driver Readiness MVP summary
+
+### Milestone
+- **$MILESTONE_TITLE**
 
 ### Created hierarchy
 | Type | Issue | Link |
@@ -747,13 +670,14 @@ $EPIC_COMMENT_MARKER
 8. #$ISSUE_TESTS_NUM
 
 ### Notes
+- All issues are attached to milestone **$MILESTONE_TITLE**.
 - Parent/child relationships are represented through linked issue bodies.
-- This comment is intended as a lightweight roadmap snapshot for the Epic.
 EOF2
 
 post_comment_if_missing "$EPIC_NUM" "$TMP_DIR/epic_summary_comment.md" "$EPIC_COMMENT_MARKER"
 
 echo
 echo "Готово."
+echo "Milestone: https://github.com/$REPO/milestone/$MILESTONE_NUM"
 echo "Epic: https://github.com/$REPO/issues/$EPIC_NUM"
 echo "Все issues: https://github.com/$REPO/issues"
