@@ -1,0 +1,85 @@
+name: Sub-epic
+description: Декомпозиция Epic на управляемый блок поставки
+title: "[Sub-epic] "
+labels: ["sub-epic", "planning"]
+body:
+  - type: input
+    id: parent_epic
+    attributes:
+      label: Родительская Epic
+      placeholder: "#123 [Epic] Driver Readiness Platform"
+    validations:
+      required: true
+
+  - type: input
+    id: sub_epic_name
+    attributes:
+      label: Название Sub-epic
+      placeholder: "Driver Documents and Compliance"
+    validations:
+      required: true
+
+  - type: textarea
+    id: objective
+    attributes:
+      label: Цель
+      placeholder: "Какую конкретную ценность должна дать эта sub-epic"
+    validations:
+      required: true
+
+  - type: textarea
+    id: capabilities
+    attributes:
+      label: Ключевые capability
+      value: |
+        - [ ] Capability 1
+        - [ ] Capability 2
+        - [ ] Capability 3
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      value: |
+        - [ ] Backend contract определён
+        - [ ] UI/UX состояния закрыты (loading/empty/error/success)
+        - [ ] Тесты и мониторинг добавлены
+    validations:
+      required: true
+
+  - type: textarea
+    id: domain_contracts
+    attributes:
+      label: Данные и контракты
+      placeholder: "Сущности, enums, API endpoints, backward compatibility"
+
+  - type: textarea
+    id: task_list
+    attributes:
+      label: Список дочерних задач
+      value: |
+        - [ ] #issue-id Task 1
+        - [ ] #issue-id Task 2
+        - [ ] #issue-id Task 3
+    validations:
+      required: true
+
+  - type: textarea
+    id: rollout
+    attributes:
+      label: Rollout / release notes
+      placeholder: "Фичефлаги, миграции, план выката и отката"
+
+  - type: textarea
+    id: observability
+    attributes:
+      label: Наблюдаемость
+      placeholder: "Метрики, логи, алерты, дешборды"
+
+  - type: textarea
+    id: risks
+    attributes:
+      label: Риски
+      placeholder: "Технические, продуктовые, юридические"

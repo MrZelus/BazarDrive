@@ -1,0 +1,89 @@
+name: Epic
+description: Верхнеуровневая инициатива с бизнес-целями и этапами доставки
+title: "[Epic] "
+labels: ["epic", "planning"]
+body:
+  - type: input
+    id: epic_name
+    attributes:
+      label: Название Epic
+      placeholder: "Driver Readiness Platform"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: phase
+    attributes:
+      label: Фаза roadmap
+      options:
+        - "A — Foundation (Driver Readiness + Data Contracts + Design System)"
+        - "B — Trust and Backoffice"
+        - "C — Orders and Payouts"
+        - "D — Feed and Analytics"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Проблема / контекст
+      description: Почему эта Epic нужна сейчас
+      placeholder: "Опишите бизнес-проблему, риски и ожидаемый эффект"
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope (что входит)
+      value: |
+        - [ ] Sub-epic 1
+        - [ ] Sub-epic 2
+        - [ ] Sub-epic 3
+    validations:
+      required: true
+
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Out of scope (что не входит)
+      placeholder: "Зафиксируйте ограничения, чтобы не раздувать Epic"
+
+  - type: textarea
+    id: success_metrics
+    attributes:
+      label: Критерии успеха / KPI
+      value: |
+        - [ ] Metric 1 + target
+        - [ ] Metric 2 + target
+    validations:
+      required: true
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Зависимости
+      placeholder: "Другие Epic, команды, внешние API, юридические зависимости"
+
+  - type: textarea
+    id: risks
+    attributes:
+      label: Риски и mitigation
+      placeholder: "Ключевые риски и как их снижаем"
+
+  - type: textarea
+    id: links
+    attributes:
+      label: Связанные документы
+      description: Ссылки на схемы, PRD, Figma, ADR, dashboards
+
+  - type: textarea
+    id: delivery_plan
+    attributes:
+      label: План поставки
+      value: |
+        - [ ] Milestone 1
+        - [ ] Milestone 2
+        - [ ] Milestone 3
+    validations:
+      required: true
