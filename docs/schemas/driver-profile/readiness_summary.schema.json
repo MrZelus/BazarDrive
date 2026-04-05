@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bazardrive.local/schemas/driver-profile/readiness_summary.schema.json",
+  "title": "DriverProfileReadinessSummary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "readiness_status",
+    "progress_filled",
+    "progress_total",
+    "blocking_reasons",
+    "next_step",
+    "allowed_actions"
+  ],
+  "properties": {
+    "readiness_status": {
+      "type": "string",
+      "enum": [
+        "ready",
+        "in_progress",
+        "blocked",
+        "pending_review"
+      ]
+    },
+    "progress_filled": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "progress_total": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "blocking_reasons": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/blocking_reason"
+      }
+    },
+    "next_step": {
+      "type": "string",
+      "minLength": 1
+    },
+    "allowed_actions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "start_profile",
+          "continue_profile",
+          "add_document",
+          "reupload_document",
+          "open_orders",
+          "open_business_profile",
+          "open_publish_profile",
+          "retry"
+        ]
+      },
+      "uniqueItems": true
+    }
+  },
+  "$defs": {
+    "blocking_reason": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "message",
+        "severity",
+        "next_action",
+        "target_screen"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "warning",
+            "pending",
+            "blocked"
+          ]
+        },
+        "next_action": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_screen": {
+          "type": "string",
+          "enum": [
+            "driver_profile_basic",
+            "driver_profile_checklist",
+            "driver_documents",
+            "driver_waybill",
+            "driver_business_profile",
+            "driver_payouts",
+            "driver_publish_profile"
+          ]
+        }
+      }
+    }
+  }
+}
