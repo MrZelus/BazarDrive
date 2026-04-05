@@ -335,7 +335,7 @@
           <div id="driverDocumentsSection" class="space-y-3">
             <hr class="border-textSoft/25 my-2" />
             <details class="rounded-xl border border-textSoft/20 bg-panelSoft px-3 py-3 text-xs text-textSoft">
-              <summary class="cursor-pointer list-none font-medium text-text">Требования для допуска к заказам (580-ФЗ)</summary>
+              <summary class="cursor-pointer list-none font-medium text-text">Требования для допуска к заказам (580-ФЗ и правила сервиса)</summary>
               <p class="mt-2">Кратко: заполните профиль, загрузите обязательные документы и держите открытый путевой лист на смену.</p>
               <ul class="mt-2 space-y-1 list-disc pl-4">
                 <li><span class="font-medium text-text">Личные данные и квалификация:</span> ФИО, контакты, ВУ категории «B» со стажем от 3 лет, отсутствие ограничений.</li>
@@ -350,6 +350,13 @@
             </details>
             <div class="flex items-center justify-between gap-2">
               <p class="text-base font-semibold">Документы водителя</p>
+              <button
+                id="addDocumentBtn"
+                type="button"
+                class="ui-btn ui-btn--primary hidden h-10 rounded-xl px-4 text-sm font-medium md:inline-flex"
+              >
+                Добавить документ
+              </button>
             </div>
             <div id="documentsApiAlert" class="hidden rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning"></div>
             <div id="driverDocumentsLoadingState" class="hidden space-y-2" aria-live="polite" aria-hidden="true">
