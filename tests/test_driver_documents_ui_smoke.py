@@ -21,6 +21,22 @@ class DriverDocumentsUISmokeTests(unittest.TestCase):
         self.assertIn('Профиль водителя', html)
         self.assertNotIn('Добавить поездку', html)
 
+    def test_driver_profile_has_hero_progress_and_readiness_status_card(self) -> None:
+        html = Path('public/guest_feed.html').read_text(encoding='utf-8')
+        script = Path('public/web/js/feed.js').read_text(encoding='utf-8')
+        self.assertIn('id="driverProfileProgressBadge"', html)
+        self.assertIn('id="driverReadinessStatusCard"', html)
+        self.assertIn('id="driverReadinessStatusLabel"', html)
+        self.assertIn('id="driverReadinessReason"', html)
+        self.assertIn('id="driverReadinessNextStep"', html)
+        self.assertIn('function applyDriverReadinessCard(summary = {})', script)
+        self.assertIn('function getDriverRequiredFieldStats(profileData = {}, complianceData = {})', script)
+        self.assertIn("driverReadinessActionState.primaryActionLabel = 'Перейти к заказам';", script)
+        self.assertIn("driverReadinessActionState.primaryActionLabel = 'Добавить документ';", script)
+        self.assertIn('id="driverChecklistSection" class="bg-panel', html)
+        self.assertIn('Чек-лист обязательных полей', html)
+        self.assertIn('const DRIVER_CHECKLIST_ENABLED = true;', script)
+
     def test_documents_flow_functions_exist_in_script(self) -> None:
         script = Path('public/web/js/feed.js').read_text(encoding='utf-8')
         self.assertIn('loadDriverDocuments', script)
