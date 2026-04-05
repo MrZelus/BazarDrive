@@ -473,6 +473,11 @@
     const driverProfileHeaderFullName = document.getElementById('driverProfileHeaderFullName');
     const driverProfileHeaderMeta = document.getElementById('driverProfileHeaderMeta');
     const driverProfileHeaderStatusChip = document.getElementById('driverProfileHeaderStatusChip');
+    const driverProfileProgressBadge = document.getElementById('driverProfileProgressBadge');
+    const driverReadinessStatusCard = document.getElementById('driverReadinessStatusCard');
+    const driverReadinessStatusLabel = document.getElementById('driverReadinessStatusLabel');
+    const driverReadinessReason = document.getElementById('driverReadinessReason');
+    const driverReadinessNextStep = document.getElementById('driverReadinessNextStep');
     const driverQuickDocumentsValue = document.getElementById('driverQuickDocumentsValue');
     const driverQuickDocumentsChip = document.getElementById('driverQuickDocumentsChip');
     const driverQuickTaxiLicenseValue = document.getElementById('driverQuickTaxiLicenseValue');
@@ -497,6 +502,7 @@
     const driverComplianceStatusBadge = document.getElementById('driverComplianceStatusBadge');
     const driverComplianceSectionStatus = document.getElementById('driverComplianceSectionStatus');
     const driverComplianceReason = document.getElementById('driverComplianceReason');
+    const driverChecklistSection = document.getElementById('driverChecklistSection');
     const driverComplianceCompletionText = document.getElementById('driverComplianceCompletionText');
     const driverComplianceMissingExtra = document.getElementById('driverComplianceMissingExtra');
     const driverComplianceRequiredItems = Array.from(
@@ -520,6 +526,12 @@
       section_status: 'incomplete',
       reason: 'Профиль допуска водителя не заполнен',
       missing_required_fields: ['profile'],
+    };
+    const DRIVER_CHECKLIST_ENABLED = true;
+    const driverReadinessActionState = {
+      primaryActionId: 'open_documents_form',
+      primaryActionLabel: 'Продолжить заполнение',
+      secondaryActions: [{ id: 'open_documents', label: 'Ещё', variant: 'secondary' }],
     };
     const driverOverviewDocuments = document.getElementById('driverOverviewDocuments');
     const driverAddDocumentBtn = document.getElementById('driverAddDocumentBtn');
@@ -588,6 +600,12 @@
 
     function runProfileAction(actionId) {
       switch (actionId) {
+        case 'open_orders':
+          setActiveScreen('feed');
+          break;
+        case 'retry_driver_readiness':
+          refreshDriverProfileData();
+          break;
         case 'open_documents':
           setActiveProfileTab('documents');
           break;
@@ -619,6 +637,17 @@
           secondaryActions: isDriver
             ? [{ id: 'save_guest_profile', label: 'Сохранить профиль', variant: 'secondary' }]
             : [{ id: 'open_documents', label: 'К списку документов', variant: 'secondary' }],
+        };
+      }
+      if (isDriver && activeTab === 'overview') {
+        return {
+          primaryAction: {
+            id: driverReadinessActionState.primaryActionId,
+            label: driverReadinessActionState.primaryActionLabel,
+          },
+          secondaryActions: Array.isArray(driverReadinessActionState.secondaryActions)
+            ? driverReadinessActionState.secondaryActions
+            : [{ id: 'open_documents', label: 'Ещё', variant: 'secondary' }],
         };
       }
       if (activeTab === 'payouts') {
@@ -1253,6 +1282,55 @@
         })[0];
     }
 
+    function getDriverRequiredFieldStats(profileData = {}, complianceData = {}) {
+      const apiFilled = Number(complianceData.progress_filled);
+      const apiTotal = Number(complianceData.progress_total);
+      if (Number.isFinite(apiFilled) && Number.isFinite(apiTotal) && apiTotal >= 0) {
+        return {
+          filledCount: Math.max(0, apiFilled),
+          totalCount: apiTotal,
+          missingSet: new Set(),
+        };
+      }
+      const missingFromApi = Array.isArray(complianceData.missing_required_fields)
+        ? complianceData.missing_required_fields.map((item) => String(item || '').trim()).filter(Boolean)
+        : [];
+      const missingSet = new Set(missingFromApi);
+      let filledCount = 0;
+      DRIVER_COMPLIANCE_REQUIRED_FIELDS.forEach((fieldName) => {
+        const isFilled = isDriverRequiredFieldFilled(fieldName, profileData);
+        if (isFilled && !missingSet.has(fieldName) && !missingSet.has('profile')) {
+          filledCount += 1;
+        }
+      });
+      return { filledCount, totalCount: DRIVER_COMPLIANCE_REQUIRED_FIELDS.length, missingSet };
+    }
+
+    function applyDriverReadinessCard(summary = {}) {
+      const status = String(summary.status || 'pending_review').trim();
+      const label = String(summary.label || 'Статус обновляется').trim();
+      const reason = String(summary.reason || '').trim();
+      const nextStep = String(summary.nextStep || '').trim();
+      if (driverReadinessStatusLabel) {
+        driverReadinessStatusLabel.textContent = label;
+      }
+      if (driverReadinessReason) {
+        driverReadinessReason.textContent = reason ? `Причина: ${reason}` : 'Причина: ожидаем данные для допуска.';
+      }
+      if (driverReadinessNextStep) {
+        driverReadinessNextStep.textContent = nextStep ? `Следующий шаг: ${nextStep}` : 'Следующий шаг: проверьте обязательные разделы профиля.';
+      }
+      if (driverReadinessStatusCard) {
+        const styleByStatus = {
+          ready: 'mb-3 rounded-2xl border border-success/35 bg-success/10 p-4',
+          in_progress: 'mb-3 rounded-2xl border border-warning/30 bg-warning/10 p-4',
+          blocked: 'mb-3 rounded-2xl border border-danger/35 bg-danger/10 p-4',
+          pending_review: 'mb-3 rounded-2xl border border-info/35 bg-info/10 p-4',
+        };
+        driverReadinessStatusCard.className = styleByStatus[status] || styleByStatus.in_progress;
+      }
+    }
+
     function renderDriverHeaderAndQuickStatuses() {
       if (!roleDriver || roleDriver.classList.contains('hidden')) return;
       const profileData = normalizeDriverComplianceProfile(driverHeaderQuickState.profileData || {});
@@ -1307,6 +1385,57 @@
           renderStatusChip(driverProfileHeaderStatusChip, accountStatus || 'active', { prefix: 'Статус' });
         }
       }
+      const complianceData = driverHeaderQuickState.complianceData || {};
+      const readinessStatusRaw = String(
+        complianceData.readiness_status || complianceData.eligibility_status || complianceData.status || ''
+      ).trim();
+      const readinessStatus = {
+        eligible: 'ready',
+        ready_for_orders: 'ready',
+        ready: 'ready',
+        blocked: 'blocked',
+        in_progress: 'in_progress',
+        profile_incomplete: 'in_progress',
+        pending_verification: 'pending_review',
+        docs_under_review: 'pending_review',
+      }[readinessStatusRaw] || (headerUiState === 'loading' ? 'pending_review' : 'in_progress');
+      const requiredStats = getDriverRequiredFieldStats(profileData, complianceData);
+      if (driverProfileProgressBadge) {
+        const progressLabel = headerUiState === 'loading'
+          ? 'Заполнено: обновляем…'
+          : `Заполнено: ${requiredStats.filledCount}/${requiredStats.totalCount}`;
+        driverProfileProgressBadge.textContent = progressLabel;
+      }
+      const normalizedReason = normalizeApiErrorMessage(
+        complianceData.reason,
+        readinessStatus === 'ready'
+          ? 'Профиль и обязательные документы подтверждены.'
+          : 'Не все обязательные данные подтверждены.'
+      );
+      const nextStep = readinessStatus === 'ready'
+        ? 'перейдите к заказам'
+        : 'отметьте чек-лист и загрузите недостающие документы';
+      applyDriverReadinessCard({
+        status: readinessStatus,
+        label: readinessStatus === 'ready' ? 'Готов к заказам' : 'Не готов к заказам',
+        reason: headerUiState === 'error' ? (driverHeaderQuickState.complianceError || normalizedReason) : normalizedReason,
+        nextStep: headerUiState === 'error' ? 'повторите загрузку статуса' : nextStep,
+      });
+      if (readinessStatus === 'ready') {
+        driverReadinessActionState.primaryActionId = 'open_orders';
+        driverReadinessActionState.primaryActionLabel = 'Перейти к заказам';
+      } else if (headerUiState === 'error') {
+        driverReadinessActionState.primaryActionId = 'retry_driver_readiness';
+        driverReadinessActionState.primaryActionLabel = 'Повторить';
+      } else if (requiredStats.filledCount < requiredStats.totalCount) {
+        driverReadinessActionState.primaryActionId = 'open_documents';
+        driverReadinessActionState.primaryActionLabel = 'Продолжить заполнение';
+      } else {
+        driverReadinessActionState.primaryActionId = 'open_documents_form';
+        driverReadinessActionState.primaryActionLabel = 'Добавить документ';
+      }
+      driverReadinessActionState.secondaryActions = [{ id: 'open_documents', label: 'Ещё', variant: 'secondary' }];
+
       if (driverProfileHeaderCard) {
         driverProfileHeaderCard.setAttribute('aria-busy', String(headerUiState === 'loading'));
       }
@@ -1422,6 +1551,7 @@
           status: String(osago.status || '').trim() || 'checking',
         });
       }
+      renderProfileActions();
     }
 
     function isDriverRequiredFieldFilled(fieldName, profile) {
@@ -1534,7 +1664,13 @@
         driverComplianceReason.textContent = reason ? `Причина: ${reason}` : '';
       }
 
-      renderDriverComplianceRequiredFields(profileData, complianceData);
+      if (driverChecklistSection) {
+        driverChecklistSection.classList.toggle('hidden', !DRIVER_CHECKLIST_ENABLED);
+        driverChecklistSection.setAttribute('aria-hidden', String(!DRIVER_CHECKLIST_ENABLED));
+      }
+      if (DRIVER_CHECKLIST_ENABLED) {
+        renderDriverComplianceRequiredFields(profileData, complianceData);
+      }
     }
 
     async function loadDriverComplianceOverview() {
