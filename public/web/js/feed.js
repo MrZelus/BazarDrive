@@ -527,7 +527,7 @@
     const profileNameInput = document.getElementById('profileName');
     const profileEmailInput = document.getElementById('profileEmail');
     const profilePhoneInput = document.getElementById('profilePhone');
-	    const profileAboutInput = document.getElementById('profileAbout');
+    const profileAboutInput = document.getElementById('profileAbout');
     const saveProfileBtn = document.getElementById('saveProfileBtn');
     const guestProfileStatus = document.getElementById('guestProfileStatus');
     const profileApiBaseIndicator = document.getElementById('profileApiBaseIndicator');
@@ -536,7 +536,7 @@
     const profileVerificationReason = document.getElementById('profileVerificationReason');
     const profileVerificationResubmitBtn = document.getElementById('profileVerificationResubmitBtn');
     const driverDocumentsSection = document.getElementById('driverDocumentsSection');
-	    const addDocumentBtn = document.getElementById('addDocumentBtn');
+    const addDocumentBtn = document.getElementById('addDocumentBtn');
     const profileInlineActions = document.getElementById('profileInlineActions');
     const profileInlinePrimaryActionBtn = document.getElementById('profileInlinePrimaryActionBtn');
     const profileInlineSecondaryActions = document.getElementById('profileInlineSecondaryActions');
@@ -1672,10 +1672,11 @@
         cancelDocumentBtn.disabled = isSubmittingDocument;
         cancelDocumentBtn.setAttribute('aria-disabled', String(isSubmittingDocument));
       }
-      if (addDocumentBtn) {
-        addDocumentBtn.disabled = isSubmittingDocument;
-        addDocumentBtn.setAttribute('aria-disabled', String(isSubmittingDocument));
-      }
+      [addDocumentBtn, driverAddDocumentBtn].forEach((button) => {
+        if (!button) return;
+        button.disabled = isSubmittingDocument;
+        button.setAttribute('aria-disabled', String(isSubmittingDocument));
+      });
       [documentTypeInput, documentNumberInput, documentValidUntilInput, documentFileInput].forEach((field) => {
         if (!field) return;
         field.disabled = isSubmittingDocument;
