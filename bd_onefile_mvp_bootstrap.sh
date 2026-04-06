@@ -13,7 +13,6 @@ need_cmd() {
 need_cmd gh
 need_cmd python
 need_cmd grep
-need_cmd sed
 need_cmd awk
 need_cmd mktemp
 
@@ -25,11 +24,28 @@ gh auth status >/dev/null
 
 issue_number_by_title() {
   local title="$1"
-  gh issue list --repo "$REPO" --state all --limit 300 --search "in:title \"$title\"" --json number,title \
-    | sed 's/},{/}\n{/g' \
-    | grep -F "\"title\":\"$title\"" \
-    | sed -n 's/.*"number":\([0-9][0-9]*\).*/\1/p' \
-    | head -n1
+  local raw
+  raw="$(gh issue list --repo "$REPO" --state all --limit 300 --search "in:title \"$title\"" --json number,title 2>/dev/null || true)"
+  if [[ -z "${raw:-}" ]]; then
+    return 0
+  fi
+
+  RAW_JSON="$raw" TARGET_TITLE="$title" python - <<'PY'
+import json, os
+
+raw = os.environ.get("RAW_JSON", "")
+title = os.environ.get("TARGET_TITLE", "")
+
+try:
+    items = json.loads(raw)
+except Exception:
+    items = []
+
+for item in items:
+    if item.get("title") == title:
+        print(item.get("number"))
+        break
+PY
 }
 
 issue_exists() {
@@ -39,11 +55,23 @@ issue_exists() {
 
 milestone_number_by_title() {
   local title="$1"
-  gh api "repos/$REPO/milestones?state=all&per_page=100" \
-    | python - "$title" <<'PY'
-import json, sys
-title = sys.argv[1]
-items = json.load(sys.stdin)
+  local raw
+  raw="$(gh api --paginate "repos/$REPO/milestones?state=all&per_page=100" 2>/dev/null || true)"
+  if [[ -z "${raw:-}" ]]; then
+    return 0
+  fi
+
+  RAW_JSON="$raw" TARGET_TITLE="$title" python - <<'PY'
+import json, os
+
+raw = os.environ.get("RAW_JSON", "")
+title = os.environ.get("TARGET_TITLE", "")
+
+try:
+    items = json.loads(raw)
+except Exception:
+    items = []
+
 for item in items:
     if item.get("title") == title:
         print(item.get("number"))
